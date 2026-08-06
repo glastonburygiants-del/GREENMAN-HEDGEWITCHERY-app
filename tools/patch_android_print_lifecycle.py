@@ -14,6 +14,36 @@ def replace_once(text: str, old: str, new: str, label: str) -> str:
     return text.replace(old, new, 1)
 
 
+PAGE_RELAY = r'''<script id="gm-native-print-relay-v1">
+(function(){
+  if(window.gmAppPrintHtml)return;
+  window.gmAppPrintHtml=function(html,title){
+    try{
+      if(parent&&typeof parent.gmNativePrintHtml==='function'){
+        return !!parent.gmNativePrintHtml(String(html||''),String(title||'Greenman HedgeWitchery'));
+      }
+    }catch(_e){}
+    try{
+      parent.postMessage({source:'greenman-new-shell-v1',cmd:'nativePrintHtml',html:String(html||''),title:String(title||'Greenman HedgeWitchery')},'*');
+      return true;
+    }catch(_e2){}
+    return false;
+  };
+})();
+<\/script>
+'''
+
+OUTER_RELAY = r'''window.gmNativePrintHtml=function(html,title){
+  try{
+    if(window.GreenmanAndroid&&typeof window.GreenmanAndroid.printHtml==='function'){
+      window.GreenmanAndroid.printHtml(String(html||''),String(title||'Greenman HedgeWitchery'));
+      return true;
+    }
+  }catch(e){try{console.error(e)}catch(_e){}}
+  return false;
+};
+'''
+
 SUMMARY_OLD = (
     "try{printFrame.contentWindow.document.title=title;"
     "printFrame.contentWindow.focus();"
@@ -23,9 +53,9 @@ SUMMARY_OLD = (
 SUMMARY_NEW = (
     "try{printFrame.contentWindow.document.title=title;"
     "var html='<!doctype html>'+d.documentElement.outerHTML;"
-    "if(window.GreenmanAndroid&&typeof window.GreenmanAndroid.printHtml==='function'){"
+    "if(typeof window.gmAppPrintHtml==='function'){"
     "window.__GM_SUMMARY_NATIVE_PRINT_WIRED__=1;"
-    "window.GreenmanAndroid.printHtml(html,title);removeFrame()}else{"
+    "window.gmAppPrintHtml(html,title);removeFrame()}else{"
     "printFrame.contentWindow.focus();printFrame.contentWindow.print()}}"
     "catch(e){busy=false;console.error(e)}"
 )
@@ -75,9 +105,9 @@ PRINT_HELPER = r'''function gmNativePrintArea(area,title){
   var styles=Array.prototype.map.call(document.querySelectorAll('style'),function(s){return s.outerHTML}).join('');
   var bodyClass=String(document.body.className||'').replace(/[<>"&]/g,' ');
   var html='<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=794,initial-scale=1,maximum-scale=1,user-scalable=no">'+styles+'<style>@page{size:A4 portrait;margin:0}html,body{margin:0!important;padding:0!important;background:#fff!important}</style></head><body class="'+bodyClass+'">'+area.outerHTML+'</body></html>';
-  if(window.GreenmanAndroid&&typeof window.GreenmanAndroid.printHtml==='function'){
+  if(typeof window.gmAppPrintHtml==='function'){
     window.__GM_JOURNAL_BOS_NATIVE_PRINT_WIRED__=1;
-    window.GreenmanAndroid.printHtml(html,title||document.title||'Greenman HedgeWitchery');
+    window.gmAppPrintHtml(html,title||document.title||'Greenman HedgeWitchery');
     setTimeout(function(){try{area.innerHTML=''}catch(_e){}},80);
   }else{
     window.print();
@@ -87,16 +117,34 @@ PRINT_HELPER = r'''function gmNativePrintArea(area,title){
 '''
 
 
+def wire_page_relay(page: str, page_name: str) -> str:
+    if 'gm-native-print-relay-v1' not in page:
+        if '</head>' not in page:
+            raise SystemExit(f'{page_name}: head closing tag missing')
+        page = page.replace('</head>', PAGE_RELAY + '</head>', 1)
+    page = page.replace(
+        "window.GreenmanAndroid&&typeof window.GreenmanAndroid.printHtml==='function'",
+        "typeof window.gmAppPrintHtml==='function'",
+    )
+    page = page.replace(
+        'window.GreenmanAndroid.printHtml(',
+        'window.gmAppPrintHtml(',
+    )
+    if 'window.GreenmanAndroid.printHtml(' in page:
+        raise SystemExit(f'{page_name}: direct embedded-frame Android call remains')
+    return page
+
+
 def patch_spellbuilder(page: str) -> str:
     page = replace_once(
         page,
         SUMMARY_OLD,
         SUMMARY_NEW,
-        "wire both Summary print routes to Android",
+        "wire both Summary print routes to outer Android relay",
     )
     required = [
         "__GM_SUMMARY_NATIVE_PRINT_WIRED__",
-        "GreenmanAndroid.printHtml(html,title)",
+        "gmAppPrintHtml(html,title)",
         "data-gm-a4-page",
         "data-gm-a4-pack",
         "PRINT LITE PACK",
@@ -220,17 +268,53 @@ def patch_html(src: Path, dst: Path) -> None:
     pages, used = json.JSONDecoder().raw_decode(text[start:])
     end = start + used
 
-    pages["spellBuilder"] = patch_spellbuilder(pages["spellBuilder"])
-    pages["journal"] = patch_journal_print(
-        patch_snapshot_display(pages["journal"], "journal")
+    pages["spellBuilder"] = wire_page_relay(
+        patch_spellbuilder(pages["spellBuilder"]), "spellBuilder"
     )
-    pages["bos"] = patch_bos_print(
-        patch_snapshot_display(pages["bos"], "bos")
+    pages["journal"] = wire_page_relay(
+        patch_journal_print(patch_snapshot_display(pages["journal"], "journal")),
+        "journal",
+    )
+    pages["bos"] = wire_page_relay(
+        patch_bos_print(patch_snapshot_display(pages["bos"], "bos")),
+        "bos",
     )
 
     encoded = json.dumps(pages, ensure_ascii=False, separators=(",", ":"))
     encoded = re.sub(r"</script", r"<\\/script", encoded, flags=re.IGNORECASE)
-    dst.write_text(text[:start] + encoded + text[end:], encoding="utf-8")
+
+    tail = text[end:]
+    listener_anchor = "window.addEventListener('message', ev=>{"
+    if 'window.gmNativePrintHtml=function' not in tail:
+        position = tail.find(listener_anchor)
+        if position < 0:
+            raise SystemExit('Outer app message listener missing')
+        tail = tail[:position] + OUTER_RELAY + tail[position:]
+
+    old_gate = "if(m.source!=='greenman-new-shell-v1') return;"
+    new_gate = (
+        "if(m.source!=='greenman-new-shell-v1') return;\n"
+        "  if(m.cmd==='nativePrintHtml'){gmNativePrintHtml(m.html,m.title);return;}"
+    )
+    if "m.cmd==='nativePrintHtml'" not in tail:
+        if tail.count(old_gate) != 1:
+            raise SystemExit(f'Outer source gate count was {tail.count(old_gate)}')
+        tail = tail.replace(old_gate, new_gate, 1)
+
+    output = text[:start] + encoded + tail
+    required = [
+        'gm-native-print-relay-v1',
+        'window.gmNativePrintHtml=function',
+        "m.cmd==='nativePrintHtml'",
+        '__GM_LITE_PRINT_NATIVE_WIRED__',
+        '__GM_SUMMARY_NATIVE_PRINT_WIRED__',
+        '__GM_JOURNAL_BOS_NATIVE_PRINT_WIRED__',
+    ]
+    missing = [item for item in required if item not in output]
+    if missing:
+        raise SystemExit('Final print relay requirements missing: ' + ', '.join(missing))
+
+    dst.write_text(output, encoding="utf-8")
 
 
 def patch_java(src: Path, dst: Path) -> None:
@@ -256,9 +340,8 @@ def main() -> None:
     if len(sys.argv) == 5:
         patch_java(Path(sys.argv[3]), Path(sys.argv[4]))
     print(
-        "Android print lifecycle passed: Summary uses native print, Journal and BoS "
-        "use flat stable pages, print documents are compact and cleared after handoff, "
-        "and native output requests ISO A4."
+        "Android print lifecycle passed: Lite and normal Summary use the outer native "
+        "bridge, Journal and BoS use stable flat pages, and output requests ISO A4."
     )
 
 
