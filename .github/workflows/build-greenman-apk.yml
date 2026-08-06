@@ -5,8 +5,10 @@ on:
   push:
     branches:
       - main
+      - agent/supply-room-load-fix
     paths:
       - "GREENMAN_HEDGEWITCHERY_ANDROID_PROJECT_GATHER_FIXED*.zip"
+      - "tools/patch_supply_room.py"
       - ".github/workflows/build-greenman-apk.yml"
 
 permissions:
@@ -59,6 +61,15 @@ jobs:
           echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
           echo "Building protected project from: $PROJECT_DIR"
 
+      - name: Apply Supply Cupboard room-load repair
+        shell: bash
+        run: |
+          set -euo pipefail
+          INDEX_FILE="$PROJECT_DIR/app/src/main/assets/index.html"
+          python "$GITHUB_WORKSPACE/tools/patch_supply_room.py" "$INDEX_FILE" "$INDEX_FILE"
+          grep -q "All items rendered" "$INDEX_FILE"
+          sha256sum "$INDEX_FILE"
+
       - name: Build debug APK
         shell: bash
         run: |
@@ -78,10 +89,28 @@ jobs:
           echo "APK_FILE=$APK_FILE" >> "$GITHUB_ENV"
           sha256sum "$APK_FILE"
 
+      - name: Package repaired HTML and Android project
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp "$PROJECT_DIR/app/src/main/assets/index.html" "$RUNNER_TEMP/GREENMAN_HEDGEWITCHERY_GATHER_FAST_SUPPLY_ROOM_FIXED.html"
+          cd "$(dirname "$PROJECT_DIR")"
+          zip -qr "$RUNNER_TEMP/GREENMAN_HEDGEWITCHERY_ANDROID_PROJECT_SUPPLY_ROOM_FIXED.zip" "$(basename "$PROJECT_DIR")"
+
       - name: Upload installable APK
         uses: actions/upload-artifact@v4
         with:
-          name: GREENMAN-HEDGEWITCHERY-debug-APK
+          name: GREENMAN-HEDGEWITCHERY-SUPPLY-ROOM-FIX-APK
           path: ${{ env.APK_FILE }}
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload repaired source files
+        uses: actions/upload-artifact@v4
+        with:
+          name: GREENMAN-HEDGEWITCHERY-SUPPLY-ROOM-FIX-SOURCE
+          path: |
+            ${{ runner.temp }}/GREENMAN_HEDGEWITCHERY_GATHER_FAST_SUPPLY_ROOM_FIXED.html
+            ${{ runner.temp }}/GREENMAN_HEDGEWITCHERY_ANDROID_PROJECT_SUPPLY_ROOM_FIXED.zip
           if-no-files-found: error
           retention-days: 30
