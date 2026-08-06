@@ -7,11 +7,13 @@ on:
       - main
       - agent/supply-room-load-fix
       - agent/customer-journal-print-fix
+      - agent/android-boundary-db-guard
     paths:
       - "GREENMAN_HEDGEWITCHERY_ANDROID_PROJECT_GATHER_FIXED*.zip"
       - "tools/patch_supply_room.py"
       - "tools/patch_customer_print.py"
       - "tools/validate_greenman.py"
+      - "tools/verify_database_unchanged.py"
       - "tools/greenman_debug_keystore.b64"
       - ".github/workflows/build-greenman-apk.yml"
 
@@ -72,6 +74,7 @@ jobs:
             exit 1
           fi
           echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
+          cp "$PROJECT_DIR/app/src/main/assets/index.html" "$RUNNER_TEMP/GREENMAN_DATABASE_BASELINE.html"
           echo "Building protected project from: $PROJECT_DIR"
 
       - name: Apply Supply Cupboard room-load repair
@@ -113,6 +116,16 @@ jobs:
           python "$GITHUB_WORKSPACE/tools/validate_greenman.py" "$INDEX_FILE"
           sha256sum "$INDEX_FILE" "$JAVA_FILE"
 
+      - name: Verify database and storage contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          INDEX_FILE="$PROJECT_DIR/app/src/main/assets/index.html"
+          python "$GITHUB_WORKSPACE/tools/verify_database_unchanged.py" \
+            "$RUNNER_TEMP/GREENMAN_DATABASE_BASELINE.html" \
+            "$INDEX_FILE" \
+            "$RUNNER_TEMP/GREENMAN_DATABASE_CONTRACT_BUILD_REPORT.json"
+
       - name: Build debug APK
         shell: bash
         run: |
@@ -148,12 +161,13 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
-      - name: Upload repaired source files
+      - name: Upload repaired source and database contract
         uses: actions/upload-artifact@v4
         with:
           name: GREENMAN-HEDGEWITCHERY-CUSTOMER-PRINT-FIX-V2-SOURCE
           path: |
             ${{ runner.temp }}/GREENMAN_HEDGEWITCHERY_CUSTOMER_JOURNAL_PRINT_FIXED_V2.html
             ${{ runner.temp }}/GREENMAN_HEDGEWITCHERY_ANDROID_PROJECT_CUSTOMER_PRINT_FIXED_V2.zip
+            ${{ runner.temp }}/GREENMAN_DATABASE_CONTRACT_BUILD_REPORT.json
           if-no-files-found: error
           retention-days: 30
