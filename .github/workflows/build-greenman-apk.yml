@@ -8,12 +8,15 @@ on:
       - agent/supply-room-load-fix
       - agent/customer-journal-print-fix
       - agent/android-boundary-db-guard
+      - agent/oak-king-app-icon
     paths:
       - "GREENMAN_HEDGEWITCHERY_ANDROID_PROJECT_GATHER_FIXED*.zip"
       - "tools/patch_supply_room.py"
       - "tools/patch_customer_print.py"
       - "tools/validate_greenman.py"
       - "tools/verify_database_unchanged.py"
+      - "tools/apply_oak_king_icon.py"
+      - "tools/oak_king_icon_source.part*.b64"
       - "tools/greenman_debug_keystore.b64"
       - ".github/workflows/build-greenman-apk.yml"
 
@@ -104,8 +107,8 @@ jobs:
               raise SystemExit(f'Forbidden customer wording: expected 1 match, found {count}')
           path.write_text(text.replace(old, new, 1), encoding='utf-8')
           PY
-          sed -i 's/versionCode 1/versionCode 3/' "$PROJECT_DIR/app/build.gradle"
-          sed -i 's/versionName "1.0"/versionName "1.2-test"/' "$PROJECT_DIR/app/build.gradle"
+          sed -i 's/versionCode 1/versionCode 4/' "$PROJECT_DIR/app/build.gradle"
+          sed -i 's/versionName "1.0"/versionName "1.3-test"/' "$PROJECT_DIR/app/build.gradle"
           grep -q "Your Spell Is Gathered" "$INDEX_FILE"
           grep -q "When you wish to keep the full spell" "$INDEX_FILE"
           if grep -q "keep the full working" "$INDEX_FILE"; then
@@ -126,6 +129,18 @@ jobs:
             "$INDEX_FILE" \
             "$RUNNER_TEMP/GREENMAN_DATABASE_CONTRACT_BUILD_REPORT.json"
 
+      - name: Install exact Oak King launcher icon
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check --quiet "Pillow==10.4.0"
+          python "$GITHUB_WORKSPACE/tools/apply_oak_king_icon.py" "$PROJECT_DIR" \
+            | tee "$RUNNER_TEMP/OAK_KING_ICON_BUILD_REPORT.txt"
+          test ! -e "$PROJECT_DIR/app/src/main/res/drawable/ic_launcher_foreground.xml"
+          test ! -e "$PROJECT_DIR/app/src/main/res/mipmap-anydpi/ic_launcher.xml"
+          test -s "$PROJECT_DIR/app/src/main/res/drawable-nodpi/ic_launcher_foreground.png"
+          test -s "$PROJECT_DIR/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png"
+
       - name: Build debug APK
         shell: bash
         run: |
@@ -133,7 +148,7 @@ jobs:
           cd "$PROJECT_DIR"
           gradle :app:assembleDebug --no-daemon --stacktrace
 
-      - name: Verify APK exists
+      - name: Verify APK and packaged launcher
         shell: bash
         run: |
           set -euo pipefail
@@ -144,30 +159,36 @@ jobs:
           fi
           echo "APK_FILE=$APK_FILE" >> "$GITHUB_ENV"
           sha256sum "$APK_FILE"
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK_FILE" \
+            | tee "$RUNNER_TEMP/OAK_KING_APK_BADGING.txt"
+          grep -q "application-icon" "$RUNNER_TEMP/OAK_KING_APK_BADGING.txt"
+          grep -q "application-label:'Greenman HedgeWitchery'" "$RUNNER_TEMP/OAK_KING_APK_BADGING.txt"
 
-      - name: Package repaired HTML and Android project
+      - name: Package Oak King Android project
         shell: bash
         run: |
           set -euo pipefail
-          cp "$PROJECT_DIR/app/src/main/assets/index.html" "$RUNNER_TEMP/GREENMAN_HEDGEWITCHERY_CUSTOMER_JOURNAL_PRINT_FIXED_V2.html"
+          cp "$PROJECT_DIR/app/src/main/assets/index.html" "$RUNNER_TEMP/GREENMAN_HEDGEWITCHERY_OAK_KING_ICON_FIXED.html"
           cd "$(dirname "$PROJECT_DIR")"
-          zip -qr "$RUNNER_TEMP/GREENMAN_HEDGEWITCHERY_ANDROID_PROJECT_CUSTOMER_PRINT_FIXED_V2.zip" "$(basename "$PROJECT_DIR")"
+          zip -qr "$RUNNER_TEMP/GREENMAN_HEDGEWITCHERY_ANDROID_PROJECT_OAK_KING_ICON_FIXED.zip" "$(basename "$PROJECT_DIR")"
 
-      - name: Upload installable APK
+      - name: Upload Oak King installable APK
         uses: actions/upload-artifact@v4
         with:
-          name: GREENMAN-HEDGEWITCHERY-CUSTOMER-PRINT-FIX-V2-APK
+          name: GREENMAN-HEDGEWITCHERY-OAK-KING-ICON-APK
           path: ${{ env.APK_FILE }}
           if-no-files-found: error
           retention-days: 30
 
-      - name: Upload repaired source and database contract
+      - name: Upload Oak King source and audit reports
         uses: actions/upload-artifact@v4
         with:
-          name: GREENMAN-HEDGEWITCHERY-CUSTOMER-PRINT-FIX-V2-SOURCE
+          name: GREENMAN-HEDGEWITCHERY-OAK-KING-ICON-SOURCE
           path: |
-            ${{ runner.temp }}/GREENMAN_HEDGEWITCHERY_CUSTOMER_JOURNAL_PRINT_FIXED_V2.html
-            ${{ runner.temp }}/GREENMAN_HEDGEWITCHERY_ANDROID_PROJECT_CUSTOMER_PRINT_FIXED_V2.zip
+            ${{ runner.temp }}/GREENMAN_HEDGEWITCHERY_OAK_KING_ICON_FIXED.html
+            ${{ runner.temp }}/GREENMAN_HEDGEWITCHERY_ANDROID_PROJECT_OAK_KING_ICON_FIXED.zip
             ${{ runner.temp }}/GREENMAN_DATABASE_CONTRACT_BUILD_REPORT.json
+            ${{ runner.temp }}/OAK_KING_ICON_BUILD_REPORT.txt
+            ${{ runner.temp }}/OAK_KING_APK_BADGING.txt
           if-no-files-found: error
           retention-days: 30
