@@ -19,11 +19,6 @@ BLOCKS = {
 }
 
 
-def digest(value) -> str:
-    payload = json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
-    return hashlib.sha256(payload).hexdigest()
-
-
 def pages(text: str) -> dict[str, str]:
     marker = "const PAGES = "
     start = text.index(marker) + len(marker)
@@ -48,9 +43,11 @@ def balanced(text: str, start: int, opener: str) -> str:
     line_comment = False
     block_comment = False
     index = start
+
     while index < len(text):
         char = text[index]
         nxt = text[index + 1] if index + 1 < len(text) else ""
+
         if line_comment:
             if char == "\n":
                 line_comment = False
@@ -81,78 +78,127 @@ def balanced(text: str, start: int, opener: str) -> str:
                 if depth == 0:
                     return text[start:index + 1]
         index += 1
+
     raise ValueError("Unclosed data block")
 
 
-def declaration(text: str, name: str):
-    match = re.search(r"\b(?:const|let|var)\s+" + re.escape(name) + r"\s*=\s*([\[{])", text)
+def declaration_source(text: str, name: str) -> str | None:
+    match = re.search(
+        r"\b(?:const|let|var)\s+" + re.escape(name) + r"\s*=\s*([\[{])",
+        text,
+    )
     if not match:
         return None
-    raw = balanced(text, match.end() - 1, match.group(1))
-    return json.loads(raw)
+    return balanced(text, match.end() - 1, match.group(1))
+
+
+def source_fingerprint(raw: str) -> dict[str, object]:
+    payload = raw.encode("utf-8")
+    return {
+        "sha256": hashlib.sha256(payload).hexdigest(),
+        "utf8_bytes": len(payload),
+    }
 
 
 def storage_keys(all_pages: dict[str, str]) -> list[str]:
     found = set()
-    pattern = re.compile(r"localStorage\s*\.\s*(?:getItem|setItem|removeItem)\s*\(\s*(['\"])(.*?)\1", re.S)
+    pattern = re.compile(
+        r"localStorage\s*\.\s*(?:getItem|setItem|removeItem)\s*\(\s*(['\"])(.*?)\1",
+        re.S,
+    )
     for text in all_pages.values():
         for match in pattern.finditer(text):
             found.add(match.group(2))
     return sorted(found)
 
 
-def contract(path: Path):
+def contract(path: Path) -> dict[str, object]:
     text = path.read_text(encoding="utf-8")
     all_pages = pages(text)
-    hashes = {}
-    schemas = {}
+    blocks: dict[str, dict[str, object]] = {}
+
     for page, names in BLOCKS.items():
         page_text = all_pages.get(page)
         if page_text is None:
             raise SystemExit(f"Missing embedded page: {page}")
+
         for name in names:
-            value = declaration(page_text, name)
-            if value is None:
+            raw = declaration_source(page_text, name)
+            if raw is None:
                 raise SystemExit(f"Missing database block: {page}.{name}")
-            key = f"{page}.{name}"
-            hashes[key] = digest(value)
-            if isinstance(value, list) and value and all(isinstance(row, dict) for row in value):
-                schemas[key] = sorted(set().union(*(row.keys() for row in value)))
-            elif isinstance(value, dict):
-                schemas[key] = {
-                    section: sorted(set().union(*(row.keys() for row in rows)))
-                    for section, rows in value.items()
-                    if isinstance(rows, list) and rows and all(isinstance(row, dict) for row in rows)
-                }
+            blocks[f"{page}.{name}"] = source_fingerprint(raw)
+
     return {
         "file": str(path),
-        "database_hashes": hashes,
-        "database_schemas": schemas,
+        "database_blocks": blocks,
         "literal_localStorage_keys": storage_keys({"outer-shell": text, **all_pages}),
+        "protection_method": (
+            "Exact balanced JavaScript source fingerprints. Any record, field, value, "
+            "schema, order or formatting change inside a protected block changes its SHA-256."
+        ),
     }
 
 
 def main() -> None:
     if len(sys.argv) != 4:
-        raise SystemExit("Usage: verify_database_unchanged.py BASELINE.html CANDIDATE.html REPORT.json")
+        raise SystemExit(
+            "Usage: verify_database_unchanged.py BASELINE.html CANDIDATE.html REPORT.json"
+        )
+
     baseline = contract(Path(sys.argv[1]))
     candidate = contract(Path(sys.argv[2]))
-    changed = [key for key, value in baseline["database_hashes"].items() if candidate["database_hashes"].get(key) != value]
-    schema_changed = [key for key, value in baseline["database_schemas"].items() if candidate["database_schemas"].get(key) != value]
-    storage_changed = baseline["literal_localStorage_keys"] != candidate["literal_localStorage_keys"]
+
+    baseline_blocks = baseline["database_blocks"]
+    candidate_blocks = candidate["database_blocks"]
+    changed = [
+        key
+        for key, fingerprint in baseline_blocks.items()
+        if candidate_blocks.get(key) != fingerprint
+    ]
+    missing = sorted(set(baseline_blocks) - set(candidate_blocks))
+    added = sorted(set(candidate_blocks) - set(baseline_blocks))
+    storage_changed = (
+        baseline["literal_localStorage_keys"]
+        != candidate["literal_localStorage_keys"]
+    )
+
+    passed = not changed and not missing and not added and not storage_changed
     report = {
         "baseline": baseline,
         "candidate": candidate,
-        "database_blocks_checked": len(baseline["database_hashes"]),
+        "database_blocks_checked": len(baseline_blocks),
         "changed_database_blocks": changed,
-        "changed_database_schemas": schema_changed,
+        "missing_database_blocks": missing,
+        "added_database_blocks": added,
+        "schema_protection": (
+            "Schema changes are covered by the exact protected-block fingerprints."
+        ),
         "localStorage_key_set_changed": storage_changed,
-        "passed": not changed and not schema_changed and not storage_changed,
+        "passed": passed,
     }
-    Path(sys.argv[3]).write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
-    if not report["passed"]:
-        raise SystemExit("DATABASE CONTRACT FAILED: " + json.dumps({"blocks": changed, "schemas": schema_changed, "storage_keys": storage_changed}))
-    print(f"Database contract passed: {report['database_blocks_checked']} blocks unchanged; localStorage key set unchanged.")
+    Path(sys.argv[3]).write_text(
+        json.dumps(report, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+
+    if not passed:
+        raise SystemExit(
+            "DATABASE CONTRACT FAILED: "
+            + json.dumps(
+                {
+                    "changed": changed,
+                    "missing": missing,
+                    "added": added,
+                    "storage_keys": storage_changed,
+                }
+            )
+        )
+
+    print(
+        "Database contract passed: "
+        f"{len(baseline_blocks)} exact blocks unchanged; "
+        "literal localStorage key set unchanged."
+    )
 
 
 if __name__ == "__main__":
