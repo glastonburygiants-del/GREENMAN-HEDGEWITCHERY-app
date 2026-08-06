@@ -89,9 +89,26 @@ jobs:
           INDEX_FILE="$PROJECT_DIR/app/src/main/assets/index.html"
           JAVA_FILE="$PROJECT_DIR/app/src/main/java/com/greenman/hedgewitchery/MainActivity.java"
           python "$GITHUB_WORKSPACE/tools/patch_customer_print.py" "$INDEX_FILE" "$INDEX_FILE" "$JAVA_FILE" "$JAVA_FILE"
-          sed -i 's/versionCode 1/versionCode 2/' "$PROJECT_DIR/app/build.gradle"
-          sed -i 's/versionName "1.0"/versionName "1.1-test"/' "$PROJECT_DIR/app/build.gradle"
+          python - "$INDEX_FILE" <<'PY'
+          from pathlib import Path
+          import sys
+          path = Path(sys.argv[1])
+          text = path.read_text(encoding='utf-8')
+          old = 'When you wish to keep the full working,'
+          new = 'When you wish to keep the full spell,'
+          count = text.count(old)
+          if count != 1:
+              raise SystemExit(f'Forbidden customer wording: expected 1 match, found {count}')
+          path.write_text(text.replace(old, new, 1), encoding='utf-8')
+          PY
+          sed -i 's/versionCode 1/versionCode 3/' "$PROJECT_DIR/app/build.gradle"
+          sed -i 's/versionName "1.0"/versionName "1.2-test"/' "$PROJECT_DIR/app/build.gradle"
           grep -q "Your Spell Is Gathered" "$INDEX_FILE"
+          grep -q "When you wish to keep the full spell" "$INDEX_FILE"
+          if grep -q "keep the full working" "$INDEX_FILE"; then
+            echo "Forbidden customer wording remains."
+            exit 1
+          fi
           grep -q "GreenmanAndroid.printHtml" "$JAVA_FILE"
           python "$GITHUB_WORKSPACE/tools/validate_greenman.py" "$INDEX_FILE"
           sha256sum "$INDEX_FILE" "$JAVA_FILE"
@@ -119,14 +136,14 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          cp "$PROJECT_DIR/app/src/main/assets/index.html" "$RUNNER_TEMP/GREENMAN_HEDGEWITCHERY_CUSTOMER_JOURNAL_PRINT_FIXED.html"
+          cp "$PROJECT_DIR/app/src/main/assets/index.html" "$RUNNER_TEMP/GREENMAN_HEDGEWITCHERY_CUSTOMER_JOURNAL_PRINT_FIXED_V2.html"
           cd "$(dirname "$PROJECT_DIR")"
-          zip -qr "$RUNNER_TEMP/GREENMAN_HEDGEWITCHERY_ANDROID_PROJECT_CUSTOMER_PRINT_FIXED.zip" "$(basename "$PROJECT_DIR")"
+          zip -qr "$RUNNER_TEMP/GREENMAN_HEDGEWITCHERY_ANDROID_PROJECT_CUSTOMER_PRINT_FIXED_V2.zip" "$(basename "$PROJECT_DIR")"
 
       - name: Upload installable APK
         uses: actions/upload-artifact@v4
         with:
-          name: GREENMAN-HEDGEWITCHERY-CUSTOMER-PRINT-FIX-APK
+          name: GREENMAN-HEDGEWITCHERY-CUSTOMER-PRINT-FIX-V2-APK
           path: ${{ env.APK_FILE }}
           if-no-files-found: error
           retention-days: 30
@@ -134,9 +151,9 @@ jobs:
       - name: Upload repaired source files
         uses: actions/upload-artifact@v4
         with:
-          name: GREENMAN-HEDGEWITCHERY-CUSTOMER-PRINT-FIX-SOURCE
+          name: GREENMAN-HEDGEWITCHERY-CUSTOMER-PRINT-FIX-V2-SOURCE
           path: |
-            ${{ runner.temp }}/GREENMAN_HEDGEWITCHERY_CUSTOMER_JOURNAL_PRINT_FIXED.html
-            ${{ runner.temp }}/GREENMAN_HEDGEWITCHERY_ANDROID_PROJECT_CUSTOMER_PRINT_FIXED.zip
+            ${{ runner.temp }}/GREENMAN_HEDGEWITCHERY_CUSTOMER_JOURNAL_PRINT_FIXED_V2.html
+            ${{ runner.temp }}/GREENMAN_HEDGEWITCHERY_ANDROID_PROJECT_CUSTOMER_PRINT_FIXED_V2.zip
           if-no-files-found: error
           retention-days: 30
