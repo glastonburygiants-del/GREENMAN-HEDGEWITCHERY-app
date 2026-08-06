@@ -13,6 +13,7 @@ on:
       - "GREENMAN_HEDGEWITCHERY_ANDROID_PROJECT_GATHER_FIXED*.zip"
       - "tools/patch_supply_room.py"
       - "tools/patch_customer_print.py"
+      - "tools/patch_lite_print_android.py"
       - "tools/validate_greenman.py"
       - "tools/verify_database_unchanged.py"
       - "tools/apply_oak_king_icon.py"
@@ -95,6 +96,7 @@ jobs:
           INDEX_FILE="$PROJECT_DIR/app/src/main/assets/index.html"
           JAVA_FILE="$PROJECT_DIR/app/src/main/java/com/greenman/hedgewitchery/MainActivity.java"
           python "$GITHUB_WORKSPACE/tools/patch_customer_print.py" "$INDEX_FILE" "$INDEX_FILE" "$JAVA_FILE" "$JAVA_FILE"
+          python "$GITHUB_WORKSPACE/tools/patch_lite_print_android.py" "$INDEX_FILE" "$INDEX_FILE"
           python - "$INDEX_FILE" <<'PY'
           from pathlib import Path
           import sys
@@ -107,10 +109,13 @@ jobs:
               raise SystemExit(f'Forbidden customer wording: expected 1 match, found {count}')
           path.write_text(text.replace(old, new, 1), encoding='utf-8')
           PY
-          sed -i 's/versionCode 1/versionCode 4/' "$PROJECT_DIR/app/build.gradle"
-          sed -i 's/versionName "1.0"/versionName "1.3-test"/' "$PROJECT_DIR/app/build.gradle"
+          sed -i 's/versionCode 1/versionCode 5/' "$PROJECT_DIR/app/build.gradle"
+          sed -i 's/versionName "1.0"/versionName "1.4-test"/' "$PROJECT_DIR/app/build.gradle"
           grep -q "Your Spell Is Gathered" "$INDEX_FILE"
           grep -q "When you wish to keep the full spell" "$INDEX_FILE"
+          grep -q "PRINT LITE PACK" "$INDEX_FILE"
+          grep -q "__GM_LITE_PRINT_NATIVE_WIRED__" "$INDEX_FILE"
+          grep -q "GreenmanAndroid.printHtml(liteHtml,liteTitle)" "$INDEX_FILE"
           if grep -q "keep the full working" "$INDEX_FILE"; then
             echo "Forbidden customer wording remains."
             exit 1
@@ -164,29 +169,29 @@ jobs:
           grep -q "application-icon" "$RUNNER_TEMP/OAK_KING_APK_BADGING.txt"
           grep -q "application-label:'Greenman HedgeWitchery'" "$RUNNER_TEMP/OAK_KING_APK_BADGING.txt"
 
-      - name: Package Oak King Android project
+      - name: Package Oak King Lite-print Android project
         shell: bash
         run: |
           set -euo pipefail
-          cp "$PROJECT_DIR/app/src/main/assets/index.html" "$RUNNER_TEMP/GREENMAN_HEDGEWITCHERY_OAK_KING_ICON_FIXED.html"
+          cp "$PROJECT_DIR/app/src/main/assets/index.html" "$RUNNER_TEMP/GREENMAN_HEDGEWITCHERY_OAK_KING_LITE_PRINT_FIXED.html"
           cd "$(dirname "$PROJECT_DIR")"
-          zip -qr "$RUNNER_TEMP/GREENMAN_HEDGEWITCHERY_ANDROID_PROJECT_OAK_KING_ICON_FIXED.zip" "$(basename "$PROJECT_DIR")"
+          zip -qr "$RUNNER_TEMP/GREENMAN_HEDGEWITCHERY_ANDROID_PROJECT_OAK_KING_LITE_PRINT_FIXED.zip" "$(basename "$PROJECT_DIR")"
 
-      - name: Upload Oak King installable APK
+      - name: Upload Oak King Lite-print APK
         uses: actions/upload-artifact@v4
         with:
-          name: GREENMAN-HEDGEWITCHERY-OAK-KING-ICON-APK
+          name: GREENMAN-HEDGEWITCHERY-OAK-KING-LITE-PRINT-APK
           path: ${{ env.APK_FILE }}
           if-no-files-found: error
           retention-days: 30
 
-      - name: Upload Oak King source and audit reports
+      - name: Upload Oak King Lite-print source and audit reports
         uses: actions/upload-artifact@v4
         with:
-          name: GREENMAN-HEDGEWITCHERY-OAK-KING-ICON-SOURCE
+          name: GREENMAN-HEDGEWITCHERY-OAK-KING-LITE-PRINT-SOURCE
           path: |
-            ${{ runner.temp }}/GREENMAN_HEDGEWITCHERY_OAK_KING_ICON_FIXED.html
-            ${{ runner.temp }}/GREENMAN_HEDGEWITCHERY_ANDROID_PROJECT_OAK_KING_ICON_FIXED.zip
+            ${{ runner.temp }}/GREENMAN_HEDGEWITCHERY_OAK_KING_LITE_PRINT_FIXED.html
+            ${{ runner.temp }}/GREENMAN_HEDGEWITCHERY_ANDROID_PROJECT_OAK_KING_LITE_PRINT_FIXED.zip
             ${{ runner.temp }}/GREENMAN_DATABASE_CONTRACT_BUILD_REPORT.json
             ${{ runner.temp }}/OAK_KING_ICON_BUILD_REPORT.txt
             ${{ runner.temp }}/OAK_KING_APK_BADGING.txt
