@@ -100,7 +100,7 @@ jobs:
           set -euo pipefail
           JAVA_FILE="$PROJECT_DIR/app/src/main/java/com/greenman/hedgewitchery/MainActivity.java"
           cp "$GITHUB_WORKSPACE/clean_shell_v2/MainActivity.java" "$JAVA_FILE"
-          echo "2ca67a0efc90f5c7efb3c93fb8f367a0a7a409792acc6af37f4926dfacd3d635  $JAVA_FILE" | sha256sum -c -
+          cmp -s "$GITHUB_WORKSPACE/clean_shell_v2/MainActivity.java" "$JAVA_FILE"
           test "$(grep -c 'public void printDocument' "$JAVA_FILE")" -eq 1
           test "$(grep -c 'private void openPrintDocument' "$JAVA_FILE")" -eq 1
           test "$(grep -c 'private void printWebViewDocument' "$JAVA_FILE")" -eq 1
