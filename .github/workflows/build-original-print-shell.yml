@@ -9,6 +9,9 @@ on:
       - "clean_shell/**"
       - "tools/greenman_debug_keystore.b64"
       - ".github/workflows/build-original-print-shell.yml"
+  pull_request:
+    branches:
+      - main
 
 permissions:
   contents: read
