@@ -1,13 +1,25 @@
+# Main build refresh: 2026-08-07
 name: Build Greenman APK
 
 on:
   workflow_dispatch:
   push:
     branches:
-      - clean-original-print-shell
+      - main
+      - agent/supply-room-load-fix
+      - agent/customer-journal-print-fix
+      - agent/android-boundary-db-guard
+      - agent/oak-king-app-icon
     paths:
       - "GREENMAN_HEDGEWITCHERY_ANDROID_PROJECT_GATHER_FIXED*.zip"
-      - "clean_shell/**"
+      - "tools/patch_supply_room.py"
+      - "tools/patch_customer_print.py"
+      - "tools/patch_lite_print_android.py"
+      - "tools/patch_android_print_lifecycle.py"
+      - "tools/validate_greenman.py"
+      - "tools/verify_database_unchanged.py"
+      - "tools/apply_oak_king_icon.py"
+      - "tools/oak_king_icon_source.part*.b64"
       - "tools/greenman_debug_keystore.b64"
       - ".github/workflows/build-greenman-apk.yml"
 
@@ -20,7 +32,7 @@ jobs:
     timeout-minutes: 30
 
     steps:
-      - name: Check out clean branch
+      - name: Check out repository
         uses: actions/checkout@v4
 
       - name: Set up Java 17
@@ -42,7 +54,7 @@ jobs:
         with:
           gradle-version: "8.9"
 
-      - name: Install stable Greenman signing key
+      - name: Install stable Greenman test signing key
         shell: bash
         run: |
           set -euo pipefail
@@ -51,110 +63,96 @@ jobs:
           chmod 600 "$HOME/.android/debug.keystore"
           keytool -list -keystore "$HOME/.android/debug.keystore" -storepass android -alias androiddebugkey >/dev/null
 
-      - name: Unpack last clean Gather app
+      - name: Unpack protected Greenman project
         shell: bash
         run: |
           set -euo pipefail
           ZIP_FILE="$(find "$GITHUB_WORKSPACE" -maxdepth 1 -type f -name 'GREENMAN_HEDGEWITCHERY_ANDROID_PROJECT_GATHER_FIXED*.zip' -print -quit)"
-          test -s "$ZIP_FILE"
+          test -n "$ZIP_FILE"
           mkdir -p "$GITHUB_WORKSPACE/extracted"
           unzip -q "$ZIP_FILE" -d "$GITHUB_WORKSPACE/extracted"
           PROJECT_DIR="$(find "$GITHUB_WORKSPACE/extracted" -type f -name settings.gradle -printf '%h\n' | head -n 1)"
           test -n "$PROJECT_DIR"
           echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
-          echo "SOURCE_ZIP=$ZIP_FILE" >> "$GITHUB_ENV"
+          cp "$PROJECT_DIR/app/src/main/assets/index.html" "$RUNNER_TEMP/GREENMAN_DATABASE_BASELINE.html"
 
-      - name: Prove original app print system is untouched
+      - name: Apply Supply Cupboard room-load repair
         shell: bash
         run: |
           set -euo pipefail
           INDEX_FILE="$PROJECT_DIR/app/src/main/assets/index.html"
-          echo "90dd2304a3292124893ab2dba441762d1eb84b08173cf5e329bf0e04998618ef  $INDEX_FILE" | sha256sum -c -
-          grep -q "function printLiteThree" "$INDEX_FILE"
-          grep -q "function renderPrint(pages,kind)" "$INDEX_FILE"
-          grep -q "function printWholeBos" "$INDEX_FILE"
-          grep -q "function printAll" "$INDEX_FILE"
-          grep -q "printGrimoireEntry" "$INDEX_FILE"
+          python "$GITHUB_WORKSPACE/tools/patch_supply_room.py" "$INDEX_FILE" "$INDEX_FILE"
+          grep -q "All items rendered" "$INDEX_FILE"
 
-      - name: Restore verified 1.7 shell baseline
+      - name: Apply final print owner
         shell: bash
         run: |
           set -euo pipefail
+          INDEX_FILE="$PROJECT_DIR/app/src/main/assets/index.html"
           JAVA_FILE="$PROJECT_DIR/app/src/main/java/com/greenman/hedgewitchery/MainActivity.java"
-          : > "$JAVA_FILE"
-          for part in \
-            MainActivity.chunk01.b64 \
-            MainActivity.chunk02.b64 \
-            MainActivity.tail01.b64 \
-            MainActivity.tail02.b64 \
-            MainActivity.tail03.b64; do
-            base64 --decode "$GITHUB_WORKSPACE/clean_shell/$part" >> "$JAVA_FILE"
-          done
-          echo "57d87d78d803623d5cc5f2227f16563899d0b5038d7d49b33327c1359e0ee771  $JAVA_FILE" | sha256sum -c -
-
-      - name: Apply one print WebView gate correction
-        shell: bash
-        run: |
-          set -euo pipefail
-          JAVA_FILE="$PROJECT_DIR/app/src/main/java/com/greenman/hedgewitchery/MainActivity.java"
-          python3 - "$JAVA_FILE" <<'PY'
+          python "$GITHUB_WORKSPACE/tools/patch_customer_print.py" "$INDEX_FILE" "$INDEX_FILE" "$JAVA_FILE" "$JAVA_FILE"
+          python "$GITHUB_WORKSPACE/tools/patch_lite_print_android.py" "$INDEX_FILE" "$INDEX_FILE"
+          python "$GITHUB_WORKSPACE/tools/patch_android_print_lifecycle.py" "$INDEX_FILE" "$INDEX_FILE" "$JAVA_FILE" "$JAVA_FILE"
+          python - "$INDEX_FILE" <<'PY'
           from pathlib import Path
-          import sys
-          p = Path(sys.argv[1])
-          s = p.read_text(encoding='utf-8')
-          marker = 'private final class PrintAssetWebViewClient extends WebViewClient {'
-          if marker not in s:
-              raise SystemExit('PrintAssetWebViewClient marker missing')
-          head, tail = s.split(marker, 1)
-
-          old_request = '''            Uri uri = request.getUrl();
-            if (!LOCAL_HOST.equalsIgnoreCase(uri.getHost())) {'''
-          new_request = '''            Uri uri = request.getUrl();
-            String scheme = uri.getScheme();
-            if ("data".equalsIgnoreCase(scheme) || "about".equalsIgnoreCase(scheme) || "blob".equalsIgnoreCase(scheme)) {
-                return null;
-            }
-            if (!LOCAL_HOST.equalsIgnoreCase(uri.getHost())) {'''
-          if old_request not in tail:
-              raise SystemExit('print request gate not found')
-          tail = tail.replace(old_request, new_request, 1)
-
-          old_nav = '''        public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
-            return !LOCAL_HOST.equalsIgnoreCase(request.getUrl().getHost());
-        }'''
-          new_nav = '''        public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
-            Uri uri = request.getUrl();
-            String scheme = uri.getScheme();
-            if ("data".equalsIgnoreCase(scheme) || "about".equalsIgnoreCase(scheme) || "blob".equalsIgnoreCase(scheme)) {
-                return false;
-            }
-            return !LOCAL_HOST.equalsIgnoreCase(uri.getHost());
-        }'''
-          if old_nav not in tail:
-              raise SystemExit('print navigation gate not found')
-          tail = tail.replace(old_nav, new_nav, 1)
-          p.write_text(head + marker + tail, encoding='utf-8')
+          import json, sys
+          path = Path(sys.argv[1])
+          text = path.read_text(encoding='utf-8')
+          old = 'When you wish to keep the full working,'
+          new = 'When you wish to keep the full spell,'
+          count = text.count(old)
+          if count != 1:
+              raise SystemExit(f'Forbidden customer wording: expected 1 match, found {count}')
+          text = text.replace(old, new, 1)
+          marker = 'const PAGES = '
+          start = text.index(marker) + len(marker)
+          pages, _ = json.JSONDecoder().raw_decode(text[start:])
+          for name in ('spellBuilder','journal','bos'):
+              page = pages[name]
+              if '<\\/script>' in page:
+                  raise SystemExit(f'{name}: broken literal <\\/script> remains inside decoded page')
+              if '</head>' not in page or '<body' not in page:
+                  raise SystemExit(f'{name}: page document boundary damaged')
+          path.write_text(text, encoding='utf-8')
           PY
-
-          grep -q '"data".equalsIgnoreCase(scheme)' "$JAVA_FILE"
-          grep -q '"about".equalsIgnoreCase(scheme)' "$JAVA_FILE"
-          grep -q '"blob".equalsIgnoreCase(scheme)' "$JAVA_FILE"
+          sed -i 's/versionCode 1/versionCode 7/' "$PROJECT_DIR/app/build.gradle"
+          sed -i 's/versionName "1.0"/versionName "1.6-test"/' "$PROJECT_DIR/app/build.gradle"
+          grep -q "Your Spell Is Gathered" "$INDEX_FILE"
+          grep -q "When you wish to keep the full spell" "$INDEX_FILE"
+          grep -q "PRINT LITE PACK" "$INDEX_FILE"
+          grep -q "__GM_NORMAL_SUMMARY_PRINT_SENT__" "$INDEX_FILE"
+          grep -q "__GM_LITE_PRINT_SENT__" "$INDEX_FILE"
+          grep -q "__GM_COMPACT_PRINT_SENT__" "$INDEX_FILE"
+          grep -q "gm-flat-common-" "$INDEX_FILE"
           grep -q "root.addView(target, 0, layout)" "$JAVA_FILE"
           grep -q "MediaSize.ISO_A4" "$JAVA_FILE"
-          cp "$JAVA_FILE" "$RUNNER_TEMP/MainActivity.java"
-          sha256sum "$JAVA_FILE" | tee "$RUNNER_TEMP/GREENMAN_PRINT_SHELL_JAVA_SHA256.txt"
+          if grep -q "keep the full working" "$INDEX_FILE"; then exit 1; fi
+          python "$GITHUB_WORKSPACE/tools/validate_greenman.py" "$INDEX_FILE"
+          sha256sum "$INDEX_FILE" "$JAVA_FILE"
 
-          sed -i -E 's/versionCode[[:space:]]+[0-9]+/versionCode 9/' "$PROJECT_DIR/app/build.gradle"
-          sed -i -E 's/versionName[[:space:]]+"[^"]+"/versionName "1.8-print-gate"/' "$PROJECT_DIR/app/build.gradle"
-
-      - name: Re-prove app HTML after shell correction
+      - name: Verify database and storage contract
         shell: bash
         run: |
           set -euo pipefail
           INDEX_FILE="$PROJECT_DIR/app/src/main/assets/index.html"
-          echo "90dd2304a3292124893ab2dba441762d1eb84b08173cf5e329bf0e04998618ef  $INDEX_FILE" | sha256sum -c -
+          python "$GITHUB_WORKSPACE/tools/verify_database_unchanged.py" \
+            "$RUNNER_TEMP/GREENMAN_DATABASE_BASELINE.html" \
+            "$INDEX_FILE" \
+            "$RUNNER_TEMP/GREENMAN_DATABASE_CONTRACT_BUILD_REPORT.json"
 
-      - name: Build APK
+      - name: Install exact Oak King launcher icon
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check --quiet "Pillow==10.4.0"
+          python "$GITHUB_WORKSPACE/tools/apply_oak_king_icon.py" "$PROJECT_DIR" \
+            | tee "$RUNNER_TEMP/OAK_KING_ICON_BUILD_REPORT.txt"
+          test ! -e "$PROJECT_DIR/app/src/main/res/drawable/ic_launcher_foreground.xml"
+          test ! -e "$PROJECT_DIR/app/src/main/res/mipmap-anydpi/ic_launcher.xml"
+          test -s "$PROJECT_DIR/app/src/main/res/drawable-nodpi/ic_launcher_foreground.png"
+          test -s "$PROJECT_DIR/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png"
+
+      - name: Build debug APK
         shell: bash
         run: |
           set -euo pipefail
@@ -166,31 +164,39 @@ jobs:
         run: |
           set -euo pipefail
           APK_FILE="$(find "$PROJECT_DIR/app/build/outputs/apk/debug" -type f -name 'app-debug.apk' -print -quit)"
-          test -s "$APK_FILE"
+          test -n "$APK_FILE"
           echo "APK_FILE=$APK_FILE" >> "$GITHUB_ENV"
-          sha256sum "$APK_FILE" | tee "$RUNNER_TEMP/GREENMAN_1_8_APK_SHA256.txt"
-          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK_FILE" | tee "$RUNNER_TEMP/GREENMAN_1_8_BADGING.txt"
-          grep -q "package: name='com.greenman.hedgewitchery' versionCode='9'" "$RUNNER_TEMP/GREENMAN_1_8_BADGING.txt"
-          grep -q "application-label:'Greenman HedgeWitchery'" "$RUNNER_TEMP/GREENMAN_1_8_BADGING.txt"
+          sha256sum "$APK_FILE"
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK_FILE" \
+            | tee "$RUNNER_TEMP/OAK_KING_APK_BADGING.txt"
+          grep -q "application-icon" "$RUNNER_TEMP/OAK_KING_APK_BADGING.txt"
+          grep -q "application-label:'Greenman HedgeWitchery'" "$RUNNER_TEMP/OAK_KING_APK_BADGING.txt"
 
-      - name: Upload installable APK
+      - name: Package final-print Android project
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp "$PROJECT_DIR/app/src/main/assets/index.html" "$RUNNER_TEMP/GREENMAN_HEDGEWITCHERY_FINAL_PRINT_OWNER.html"
+          cd "$(dirname "$PROJECT_DIR")"
+          zip -qr "$RUNNER_TEMP/GREENMAN_HEDGEWITCHERY_ANDROID_PROJECT_FINAL_PRINT_OWNER.zip" "$(basename "$PROJECT_DIR")"
+
+      - name: Upload final-print APK
         uses: actions/upload-artifact@v4
         with:
-          name: GREENMAN-HEDGEWITCHERY-1-8-PRINT-GATE-APK
+          name: GREENMAN-HEDGEWITCHERY-FINAL-PRINT-OWNER-APK
           path: ${{ env.APK_FILE }}
           if-no-files-found: error
           retention-days: 30
 
-      - name: Upload audit
+      - name: Upload final-print source and audit reports
         uses: actions/upload-artifact@v4
         with:
-          name: GREENMAN-HEDGEWITCHERY-1-8-PRINT-GATE-AUDIT
+          name: GREENMAN-HEDGEWITCHERY-FINAL-PRINT-OWNER-SOURCE
           path: |
-            ${{ runner.temp }}/MainActivity.java
-            ${{ runner.temp }}/GREENMAN_PRINT_SHELL_JAVA_SHA256.txt
-            ${{ runner.temp }}/GREENMAN_1_8_APK_SHA256.txt
-            ${{ runner.temp }}/GREENMAN_1_8_BADGING.txt
-            clean_shell/GREENMAN_ORIGINAL_PRINT_SHELL_AUDIT.md
-            clean_shell/GREENMAN_ORIGINAL_PRINT_SHELL_AUDIT.json
+            ${{ runner.temp }}/GREENMAN_HEDGEWITCHERY_FINAL_PRINT_OWNER.html
+            ${{ runner.temp }}/GREENMAN_HEDGEWITCHERY_ANDROID_PROJECT_FINAL_PRINT_OWNER.zip
+            ${{ runner.temp }}/GREENMAN_DATABASE_CONTRACT_BUILD_REPORT.json
+            ${{ runner.temp }}/OAK_KING_ICON_BUILD_REPORT.txt
+            ${{ runner.temp }}/OAK_KING_APK_BADGING.txt
           if-no-files-found: error
           retention-days: 30
