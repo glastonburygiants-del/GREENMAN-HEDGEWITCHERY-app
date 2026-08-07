@@ -81,7 +81,8 @@ jobs:
           set -euo pipefail
           INDEX_FILE="$PROJECT_DIR/app/src/main/assets/index.html"
           JAVA_FILE="$PROJECT_DIR/app/src/main/java/com/greenman/hedgewitchery/MainActivity.java"
-          cp "$GITHUB_WORKSPACE/clean_shell/MainActivity.java" "$JAVA_FILE"
+          cat "$GITHUB_WORKSPACE"/clean_shell/MainActivity.java.part*.b64 | base64 --decode > "$JAVA_FILE"
+          cp "$JAVA_FILE" "$RUNNER_TEMP/MainActivity.java"
           echo "57d87d78d803623d5cc5f2227f16563899d0b5038d7d49b33327c1359e0ee771  $JAVA_FILE" | sha256sum -c -
           echo "90dd2304a3292124893ab2dba441762d1eb84b08173cf5e329bf0e04998618ef  $INDEX_FILE" | sha256sum -c -
           grep -q "nativeBridge.printHtml(snapshot(doc)" "$JAVA_FILE"
@@ -123,7 +124,7 @@ jobs:
           name: GREENMAN-HEDGEWITCHERY-ORIGINAL-PRINT-SHELL-AUDIT
           path: |
             ${{ env.SOURCE_ZIP }}
-            clean_shell/MainActivity.java
+            ${{ runner.temp }}/MainActivity.java
             clean_shell/GREENMAN_ORIGINAL_PRINT_SHELL_AUDIT.md
             clean_shell/GREENMAN_ORIGINAL_PRINT_SHELL_AUDIT.json
             ${{ runner.temp }}/GREENMAN_ORIGINAL_PRINT_SHELL_APK_SHA256.txt
