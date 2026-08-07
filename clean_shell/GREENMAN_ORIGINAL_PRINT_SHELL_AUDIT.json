@@ -1,0 +1,23 @@
+{
+  "branch_base_commit": "87968268a19e57f44d443021346e72a319df8446",
+  "app_source": "GREENMAN_HEDGEWITCHERY_ANDROID_PROJECT_GATHER_FIXED.zip",
+  "app_html_sha256": "90dd2304a3292124893ab2dba441762d1eb84b08173cf5e329bf0e04998618ef",
+  "clean_main_activity_sha256": "57d87d78d803623d5cc5f2227f16563899d0b5038d7d49b33327c1359e0ee771",
+  "version_name": "1.8-print-internal-schemes",
+  "version_code": 9,
+  "print_pages": {
+    "spellBuilder": "525cab3dd4f93086f4ef34b479f1647fa6365363094298347b66c5d098d0d0c9",
+    "journal": "365b3cc4d9bb81fe427c514a6f291eff032c82f477c689b62bd9c9004474d7cd",
+    "bos": "ba4b1162dd3d31c71e7c1bf502ff056a2ce11799b09950cf2a83dd8a09700dfd",
+    "grimoire": "bd51e25c4b4f4810535eafa482f2b1f9a47ab1ae4c787c279b9854e32729d8e7",
+    "admin": "c10723d73e60df6da919282e5439fe65bafcdc21595f9307f5ab6fc29b7e3007"
+  },
+  "app_print_html_modified": false,
+  "database_blocks_modified": false,
+  "storage_keys_modified": false,
+  "main_app_webview_gate_modified": false,
+  "print_webview_change": "Allow WebView-owned data:, about: and blob: internal documents in PrintAssetWebViewClient while continuing to block other non-greenman.local network hosts.",
+  "phone_test_evidence": "Android Print Spooler displayed data:text/html;charset=utf-8;base64 with net::ERR_HTTP_RESPONSE_CODE_FAILURE in version 1.7.",
+  "final_main_activity_sha256": "recorded by workflow in GREENMAN_PRINT_SHELL_JAVA_SHA256.txt",
+  "retained_resources": "Existing app resources and styling retained."
+}
