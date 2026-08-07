@@ -16,7 +16,9 @@ def replace_once(old,new,label):
         raise SystemExit(f'{label} anchor count was {n}, expected 1')
     s=s.replace(old,new,1)
 
-# Full/master mode asks Android to re-enter immersive mode.
+# Every app-mode transition asks Android to re-enter immersive mode. This deliberately
+# covers both Full -> Lite and Lite -> Full, because either direction can make Android
+# reveal its system navigation strip while the Home page is being rebuilt.
 outer_old="""function mode(){ return (localStorage.getItem('gm_app_mode') || 'lite').toLowerCase(); }
 function setMode(m){
   m=(m||'lite').toLowerCase();
@@ -49,11 +51,10 @@ function setMode(m){
   }
   syncModeClass();
   refreshCurrent();
-  if(m!=='lite'){
-    requestNativeImmersive();
-    setTimeout(requestNativeImmersive,120);
-    setTimeout(requestNativeImmersive,480);
-  }
+  requestNativeImmersive();
+  setTimeout(requestNativeImmersive,160);
+  setTimeout(requestNativeImmersive,520);
+  setTimeout(requestNativeImmersive,950);
 }"""
 replace_once(outer_old,outer_new,'outer setMode')
 
@@ -71,13 +72,52 @@ view_new="""  if(m.type==='greenman-cupboard-view-changed'){
     gmResetAppViewport(m.view==='hedge');
     setTimeout(function(){gmResetAppViewport(false)},80);
     setTimeout(function(){gmResetAppViewport(false)},280);
-    if(fullRoom&&mode()!=='lite'){
+    if(fullRoom){
       requestNativeImmersive();
-      setTimeout(requestNativeImmersive,120);
+      setTimeout(requestNativeImmersive,160);
     }
     return;
   }"""
 replace_once(view_old,view_new,'full-room immersive handoff')
+
+# Returning to any normal shell page, especially Home after a mode change, also
+# reasserts immersive mode after the replacement iframe has settled.
+show_tail_old="""    setTimeout(function(){gmResetAppViewport(false)},0);
+    setTimeout(function(){gmResetAppViewport(false)},120);
+    setTimeout(function(){gmResetAppViewport(false)},420);
+  }catch(e){ f.srcdoc = html; setTimeout(function(){gmResetAppViewport(false)},120); }
+}"""
+show_tail_new="""    setTimeout(function(){gmResetAppViewport(false)},0);
+    setTimeout(function(){gmResetAppViewport(false)},120);
+    setTimeout(function(){gmResetAppViewport(false)},420);
+    requestNativeImmersive();
+    setTimeout(requestNativeImmersive,180);
+    setTimeout(requestNativeImmersive,620);
+  }catch(e){
+    f.srcdoc = html;
+    setTimeout(function(){gmResetAppViewport(false)},120);
+    requestNativeImmersive();
+    setTimeout(requestNativeImmersive,220);
+  }
+}"""
+replace_once(show_tail_old,show_tail_new,'showPage immersive return')
+
+# The mobile rule had shrunk the round Cupboard key from 64px to 56px, leaving the
+# diagonal key and its label cramped inside the gold disc. Keep the same control and
+# artwork, but give the round badge enough room for both.
+key_css_old="""@media(max-width:520px){
+  #gmCupboardKey{width:56px;height:56px;right:7px;bottom:66px}
+  #gmCupboardKey svg{width:27px;height:27px}
+  #gmCupboardKey span{font-size:7px}
+  body.gm-lite.page-home #gmCupboardKey{bottom:122px}
+}"""
+key_css_new="""@media(max-width:520px){
+  #gmCupboardKey{width:66px;height:66px;right:7px;bottom:66px;padding:6px 5px 5px}
+  #gmCupboardKey svg{width:29px;height:29px}
+  #gmCupboardKey span{font-size:7px;line-height:1}
+  body.gm-lite.page-home #gmCupboardKey{bottom:128px}
+}"""
+replace_once(key_css_old,key_css_new,'Cupboard key mobile fit')
 
 # Restore the earlier Greenman Gather card. The print feedback helper is deliberately
 # exported on window because the canonical A4 owner lives in a separate script scope.
@@ -192,9 +232,9 @@ if "alert('Spell gathered. Journal, shopping list, Admin capture and stock have 
     raise SystemExit('old browser Gather alert still present')
 if 'setPrintStatus(' in s:
     raise SystemExit('bare setPrintStatus call remains; canonical print owner would lose scope')
-for required in ('✦ Your Spell Is Gathered ✦','window.gmSetPrintStatus=function','window.gmSetPrintStatus(true','The Greenman is getting your A4 page ready to print…','requestNativeImmersive','refreshImmersive'):
+for required in ('✦ Your Spell Is Gathered ✦','window.gmSetPrintStatus=function','window.gmSetPrintStatus(true','The Greenman is getting your A4 page ready to print…','requestNativeImmersive','refreshImmersive','#gmCupboardKey{width:66px;height:66px'):
     if required not in s:
         raise SystemExit(f'missing required UI repair: {required}')
 
 out.write_text(s,encoding='utf-8')
-print('Installed scoped Greenman Gather dialog, global print feedback and full-mode immersive handoff')
+print('Installed Greenman Gather dialog, print feedback, all-mode immersive return and Cupboard key fit')
