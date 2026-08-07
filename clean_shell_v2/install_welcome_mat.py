@@ -87,7 +87,8 @@ mat_new = '''    #WELCOME_MAT{
     }'''
 replace_once(mat_old, mat_new, 'welcome mat opening animation')
 
-# Build guards: one invitation owner, no duplicate entrance route.
+# Build guards: embedded page HTML is stored in a JavaScript string, so quoted
+# markers may appear escaped. Accept the exact raw or escaped representation.
 for required in (
     'transform:translateY(-3px) scale(1.015,1.18)',
     'font-size:37px',
@@ -95,7 +96,7 @@ for required in (
     'drop-shadow(0 -8px 16px rgba(241,205,114,.42))',
     'id="WELCOME_MAT"'
 ):
-    if required not in s:
+    if required not in s and esc(required) not in s:
         raise SystemExit(f'missing welcome-mat change: {required}')
 
 if s.count(esc('id="WELCOME_MAT"')) != 1:
