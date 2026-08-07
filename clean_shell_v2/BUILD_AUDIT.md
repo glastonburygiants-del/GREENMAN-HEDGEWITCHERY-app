@@ -52,4 +52,6 @@ The shell uses the original print-frame layout context of 820 x 1120 and request
 - no hidden/off-screen alpha print WebView
 - no second or fallback Android print owner
 
+Draft PR #4 exists only to trigger and inspect the isolated device-test build.
+
 Nothing on this branch should be merged to `main` until the APK has been tested on the user's phone/tablet.
