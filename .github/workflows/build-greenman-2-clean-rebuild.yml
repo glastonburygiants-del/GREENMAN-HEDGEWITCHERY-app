@@ -93,8 +93,6 @@ jobs:
           set -euo pipefail
           INDEX_FILE="$PROJECT_DIR/app/src/main/assets/index.html"
           python "$GITHUB_WORKSPACE/clean_shell_v2/install_ui_feedback_v2.py" "$INDEX_FILE" "$INDEX_FILE"
-          cp "$INDEX_FILE" "$RUNNER_TEMP/EXPECTED_INDEX.html"
-          sha256sum "$INDEX_FILE" | tee "$RUNNER_TEMP/GREENMAN_2_4_INDEX_SHA256.txt"
           grep -q "Your Spell Is Gathered" "$INDEX_FILE"
           grep -q "window.gmSetPrintStatus=function" "$INDEX_FILE"
           grep -q "window.gmSetPrintStatus(true" "$INDEX_FILE"
@@ -103,9 +101,22 @@ jobs:
           grep -q "The Greenman is getting your Lite pack ready to print" "$INDEX_FILE"
           grep -q "setTimeout(requestNativeImmersive,950)" "$INDEX_FILE"
           grep -q "#gmCupboardKey{width:66px;height:66px" "$INDEX_FILE"
-          ! grep -q "if(m!=='lite'){" "$INDEX_FILE"
+          ! grep -q "if(m!='lite'){" "$INDEX_FILE"
           ! grep -q "setPrintStatus(" "$INDEX_FILE"
           ! grep -q "alert('Spell gathered. Journal, shopping list, Admin capture and stock have been updated.')" "$INDEX_FILE"
+
+      - name: Make the Cupboard welcome mat taller and brighter on opening
+        shell: bash
+        run: |
+          set -euo pipefail
+          INDEX_FILE="$PROJECT_DIR/app/src/main/assets/index.html"
+          python "$GITHUB_WORKSPACE/clean_shell_v2/install_welcome_mat.py" "$INDEX_FILE" "$INDEX_FILE"
+          cp "$INDEX_FILE" "$RUNNER_TEMP/EXPECTED_INDEX.html"
+          sha256sum "$INDEX_FILE" | tee "$RUNNER_TEMP/GREENMAN_2_5_INDEX_SHA256.txt"
+          grep -q "scale(1.015,1.18)" "$INDEX_FILE"
+          grep -q "font-size:37px" "$INDEX_FILE"
+          grep -q 'flood-opacity=\\\"0.88\\\"' "$INDEX_FILE"
+          grep -q "drop-shadow(0 -8px 16px rgba(241,205,114,.42))" "$INDEX_FILE"
 
       - name: Protect the single Summary and Android print owners
         shell: bash
@@ -143,12 +154,12 @@ jobs:
           grep -q 'FrameLayout.LayoutParams(820, 1120)' "$JAVA_FILE"
           grep -q 'MediaSize.ISO_A4' "$JAVA_FILE"
 
-      - name: Set fullscreen and Cupboard fit test version
+      - name: Set welcoming entrance test version
         shell: bash
         run: |
           set -euo pipefail
-          sed -i -E 's/versionCode[[:space:]]+[0-9]+/versionCode 15/' "$PROJECT_DIR/app/build.gradle"
-          sed -i -E 's/versionName[[:space:]]+"[^"]+"/versionName "2.4-fullscreen-key-fit"/' "$PROJECT_DIR/app/build.gradle"
+          sed -i -E 's/versionCode[[:space:]]+[0-9]+/versionCode 16/' "$PROJECT_DIR/app/build.gradle"
+          sed -i -E 's/versionName[[:space:]]+"[^"]+"/versionName "2.5-welcome-mat"/' "$PROJECT_DIR/app/build.gradle"
 
       - name: Build clean APK
         shell: bash
@@ -169,43 +180,46 @@ jobs:
           grep -q "window.gmSetPrintStatus=function" "$RUNNER_TEMP/apk-index.html"
           grep -q "setTimeout(requestNativeImmersive,950)" "$RUNNER_TEMP/apk-index.html"
           grep -q "#gmCupboardKey{width:66px;height:66px" "$RUNNER_TEMP/apk-index.html"
+          grep -q "scale(1.015,1.18)" "$RUNNER_TEMP/apk-index.html"
+          grep -q "font-size:37px" "$RUNNER_TEMP/apk-index.html"
           ! grep -q "setPrintStatus(" "$RUNNER_TEMP/apk-index.html"
-          sha256sum "$APK_FILE" | tee "$RUNNER_TEMP/GREENMAN_2_4_APK_SHA256.txt"
-          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK_FILE" | tee "$RUNNER_TEMP/GREENMAN_2_4_BADGING.txt"
-          grep -q "package: name='com.greenman.hedgewitchery' versionCode='15'" "$RUNNER_TEMP/GREENMAN_2_4_BADGING.txt"
-          grep -q "application-label:'Greenman HedgeWitchery'" "$RUNNER_TEMP/GREENMAN_2_4_BADGING.txt"
+          sha256sum "$APK_FILE" | tee "$RUNNER_TEMP/GREENMAN_2_5_APK_SHA256.txt"
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK_FILE" | tee "$RUNNER_TEMP/GREENMAN_2_5_BADGING.txt"
+          grep -q "package: name='com.greenman.hedgewitchery' versionCode='16'" "$RUNNER_TEMP/GREENMAN_2_5_BADGING.txt"
+          grep -q "application-label:'Greenman HedgeWitchery'" "$RUNNER_TEMP/GREENMAN_2_5_BADGING.txt"
 
       - name: Package clean rebuild source
         shell: bash
         run: |
           set -euo pipefail
-          cp "$PROJECT_DIR/app/src/main/assets/index.html" "$RUNNER_TEMP/GREENMAN_HEDGEWITCHERY_2_4_FULLSCREEN_KEY_FIT_TEST.html"
+          cp "$PROJECT_DIR/app/src/main/assets/index.html" "$RUNNER_TEMP/GREENMAN_HEDGEWITCHERY_2_5_WELCOME_MAT_TEST.html"
           cp "$PROJECT_DIR/app/src/main/java/com/greenman/hedgewitchery/MainActivity.java" "$RUNNER_TEMP/MainActivity_SINGLE_PRINT_OWNER.java"
           cd "$(dirname "$PROJECT_DIR")"
-          zip -qr "$RUNNER_TEMP/GREENMAN_HEDGEWITCHERY_2_4_FULLSCREEN_KEY_FIT_TEST_PROJECT.zip" "$(basename "$PROJECT_DIR")"
+          zip -qr "$RUNNER_TEMP/GREENMAN_HEDGEWITCHERY_2_5_WELCOME_MAT_TEST_PROJECT.zip" "$(basename "$PROJECT_DIR")"
 
-      - name: Upload installable 2.4 APK
+      - name: Upload installable 2.5 APK
         uses: actions/upload-artifact@v4
         with:
-          name: GREENMAN-HEDGEWITCHERY-2-4-FULLSCREEN-KEY-FIT-APK
+          name: GREENMAN-HEDGEWITCHERY-2-5-WELCOME-MAT-APK
           path: ${{ env.APK_FILE }}
           if-no-files-found: error
           retention-days: 30
 
-      - name: Upload 2.4 source and audit
+      - name: Upload 2.5 source and audit
         uses: actions/upload-artifact@v4
         with:
-          name: GREENMAN-HEDGEWITCHERY-2-4-FULLSCREEN-KEY-FIT-SOURCE
+          name: GREENMAN-HEDGEWITCHERY-2-5-WELCOME-MAT-SOURCE
           path: |
-            ${{ runner.temp }}/GREENMAN_HEDGEWITCHERY_2_4_FULLSCREEN_KEY_FIT_TEST.html
+            ${{ runner.temp }}/GREENMAN_HEDGEWITCHERY_2_5_WELCOME_MAT_TEST.html
             ${{ runner.temp }}/MainActivity_SINGLE_PRINT_OWNER.java
-            ${{ runner.temp }}/GREENMAN_HEDGEWITCHERY_2_4_FULLSCREEN_KEY_FIT_TEST_PROJECT.zip
+            ${{ runner.temp }}/GREENMAN_HEDGEWITCHERY_2_5_WELCOME_MAT_TEST_PROJECT.zip
             clean_shell_v2/BUILD_AUDIT.md
             clean_shell_v2/install_proven_summary_print.py
             clean_shell_v2/install_ui_feedback_v2.py
             clean_shell_v2/install_fullscreen_bridge.py
-            ${{ runner.temp }}/GREENMAN_2_4_INDEX_SHA256.txt
-            ${{ runner.temp }}/GREENMAN_2_4_APK_SHA256.txt
-            ${{ runner.temp }}/GREENMAN_2_4_BADGING.txt
+            clean_shell_v2/install_welcome_mat.py
+            ${{ runner.temp }}/GREENMAN_2_5_INDEX_SHA256.txt
+            ${{ runner.temp }}/GREENMAN_2_5_APK_SHA256.txt
+            ${{ runner.temp }}/GREENMAN_2_5_BADGING.txt
           if-no-files-found: error
           retention-days: 30
