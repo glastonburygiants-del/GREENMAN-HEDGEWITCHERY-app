@@ -87,6 +87,20 @@ jobs:
           grep -q "data-gm-summary2-fit" "$INDEX_FILE"
           test "$(grep -o 'print-color-adjust:economy!important' "$INDEX_FILE" | wc -l)" -eq 4
 
+      - name: Restore Greenman Gather and print feedback UI
+        shell: bash
+        run: |
+          set -euo pipefail
+          INDEX_FILE="$PROJECT_DIR/app/src/main/assets/index.html"
+          python "$GITHUB_WORKSPACE/clean_shell_v2/install_ui_feedback.py" "$INDEX_FILE" "$INDEX_FILE"
+          echo "f26222e0a4a71db8cea7180472f5fd980fc66c048c64074ee81bf82e7d7551ec  $INDEX_FILE" | sha256sum -c -
+          grep -q "Your Spell Is Gathered" "$INDEX_FILE"
+          grep -q "The Greenman is getting your A4 page ready to print" "$INDEX_FILE"
+          grep -q "The Greenman is getting your A4 pack ready to print" "$INDEX_FILE"
+          grep -q "The Greenman is getting your Lite pack ready to print" "$INDEX_FILE"
+          grep -q "requestNativeImmersive" "$INDEX_FILE"
+          ! grep -q "alert('Spell gathered. Journal, shopping list, Admin capture and stock have been updated.')" "$INDEX_FILE"
+
       - name: Protect the single Summary and Android print owners
         shell: bash
         run: |
@@ -103,13 +117,15 @@ jobs:
           ! grep -q "gmNativePrintHtml" "$INDEX_FILE"
           ! grep -q "GreenmanAndroid.printHtml" "$INDEX_FILE"
 
-      - name: Install the brand-new single-owner Android shell unchanged
+      - name: Install single-owner Android shell plus fullscreen refresh only
         shell: bash
         run: |
           set -euo pipefail
           JAVA_FILE="$PROJECT_DIR/app/src/main/java/com/greenman/hedgewitchery/MainActivity.java"
           cp "$GITHUB_WORKSPACE/clean_shell_v2/MainActivity.java" "$JAVA_FILE"
-          cmp -s "$GITHUB_WORKSPACE/clean_shell_v2/MainActivity.java" "$JAVA_FILE"
+          python "$GITHUB_WORKSPACE/clean_shell_v2/install_fullscreen_bridge.py" "$JAVA_FILE" "$JAVA_FILE"
+          echo "08f6e0919be07f805cdac350a2d16b549789037fde724d58760488fd8486cad3  $JAVA_FILE" | sha256sum -c -
+          test "$(grep -c 'public void refreshImmersive' "$JAVA_FILE")" -eq 1
           test "$(grep -c 'public void printDocument' "$JAVA_FILE")" -eq 1
           test "$(grep -c 'private void openPrintDocument' "$JAVA_FILE")" -eq 1
           test "$(grep -c 'private void printWebViewDocument' "$JAVA_FILE")" -eq 1
@@ -121,12 +137,12 @@ jobs:
           grep -q 'FrameLayout.LayoutParams(820, 1120)' "$JAVA_FILE"
           grep -q 'MediaSize.ISO_A4' "$JAVA_FILE"
 
-      - name: Set Summary test version
+      - name: Set UI feedback test version
         shell: bash
         run: |
           set -euo pipefail
-          sed -i -E 's/versionCode[[:space:]]+[0-9]+/versionCode 12/' "$PROJECT_DIR/app/build.gradle"
-          sed -i -E 's/versionName[[:space:]]+"[^"]+"/versionName "2.1-summary-fit-bw"/' "$PROJECT_DIR/app/build.gradle"
+          sed -i -E 's/versionCode[[:space:]]+[0-9]+/versionCode 13/' "$PROJECT_DIR/app/build.gradle"
+          sed -i -E 's/versionName[[:space:]]+"[^"]+"/versionName "2.2-ui-feedback"/' "$PROJECT_DIR/app/build.gradle"
 
       - name: Build clean APK
         shell: bash
@@ -135,7 +151,7 @@ jobs:
           cd "$PROJECT_DIR"
           gradle :app:assembleDebug --no-daemon --stacktrace
 
-      - name: Verify finished APK contains the intended Summary source
+      - name: Verify finished APK contains intended UI source
         shell: bash
         run: |
           set -euo pipefail
@@ -143,40 +159,44 @@ jobs:
           test -s "$APK_FILE"
           echo "APK_FILE=$APK_FILE" >> "$GITHUB_ENV"
           unzip -p "$APK_FILE" assets/index.html > "$RUNNER_TEMP/apk-index.html"
-          echo "da7cdc5a815fc48879a48d0b044845000bbb27b5d831a723e5b587a7ee4418a1  $RUNNER_TEMP/apk-index.html" | sha256sum -c -
-          sha256sum "$APK_FILE" | tee "$RUNNER_TEMP/GREENMAN_2_1_APK_SHA256.txt"
-          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK_FILE" | tee "$RUNNER_TEMP/GREENMAN_2_1_BADGING.txt"
-          grep -q "package: name='com.greenman.hedgewitchery' versionCode='12'" "$RUNNER_TEMP/GREENMAN_2_1_BADGING.txt"
-          grep -q "application-label:'Greenman HedgeWitchery'" "$RUNNER_TEMP/GREENMAN_2_1_BADGING.txt"
+          echo "f26222e0a4a71db8cea7180472f5fd980fc66c048c64074ee81bf82e7d7551ec  $RUNNER_TEMP/apk-index.html" | sha256sum -c -
+          grep -q "Your Spell Is Gathered" "$RUNNER_TEMP/apk-index.html"
+          grep -q "The Greenman is getting your A4 page ready to print" "$RUNNER_TEMP/apk-index.html"
+          sha256sum "$APK_FILE" | tee "$RUNNER_TEMP/GREENMAN_2_2_APK_SHA256.txt"
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK_FILE" | tee "$RUNNER_TEMP/GREENMAN_2_2_BADGING.txt"
+          grep -q "package: name='com.greenman.hedgewitchery' versionCode='13'" "$RUNNER_TEMP/GREENMAN_2_2_BADGING.txt"
+          grep -q "application-label:'Greenman HedgeWitchery'" "$RUNNER_TEMP/GREENMAN_2_2_BADGING.txt"
 
       - name: Package clean rebuild source
         shell: bash
         run: |
           set -euo pipefail
-          cp "$PROJECT_DIR/app/src/main/assets/index.html" "$RUNNER_TEMP/GREENMAN_HEDGEWITCHERY_2_1_SUMMARY_PRINT_TEST.html"
+          cp "$PROJECT_DIR/app/src/main/assets/index.html" "$RUNNER_TEMP/GREENMAN_HEDGEWITCHERY_2_2_UI_FEEDBACK_TEST.html"
           cp "$PROJECT_DIR/app/src/main/java/com/greenman/hedgewitchery/MainActivity.java" "$RUNNER_TEMP/MainActivity_SINGLE_PRINT_OWNER.java"
           cd "$(dirname "$PROJECT_DIR")"
-          zip -qr "$RUNNER_TEMP/GREENMAN_HEDGEWITCHERY_2_1_SUMMARY_PRINT_TEST_PROJECT.zip" "$(basename "$PROJECT_DIR")"
+          zip -qr "$RUNNER_TEMP/GREENMAN_HEDGEWITCHERY_2_2_UI_FEEDBACK_TEST_PROJECT.zip" "$(basename "$PROJECT_DIR")"
 
-      - name: Upload installable Summary test APK
+      - name: Upload installable UI feedback APK
         uses: actions/upload-artifact@v4
         with:
-          name: GREENMAN-HEDGEWITCHERY-2-1-SUMMARY-FIT-BW-APK
+          name: GREENMAN-HEDGEWITCHERY-2-2-UI-FEEDBACK-APK
           path: ${{ env.APK_FILE }}
           if-no-files-found: error
           retention-days: 30
 
-      - name: Upload Summary test source and audit
+      - name: Upload UI feedback source and audit
         uses: actions/upload-artifact@v4
         with:
-          name: GREENMAN-HEDGEWITCHERY-2-1-SUMMARY-FIT-BW-SOURCE
+          name: GREENMAN-HEDGEWITCHERY-2-2-UI-FEEDBACK-SOURCE
           path: |
-            ${{ runner.temp }}/GREENMAN_HEDGEWITCHERY_2_1_SUMMARY_PRINT_TEST.html
+            ${{ runner.temp }}/GREENMAN_HEDGEWITCHERY_2_2_UI_FEEDBACK_TEST.html
             ${{ runner.temp }}/MainActivity_SINGLE_PRINT_OWNER.java
-            ${{ runner.temp }}/GREENMAN_HEDGEWITCHERY_2_1_SUMMARY_PRINT_TEST_PROJECT.zip
+            ${{ runner.temp }}/GREENMAN_HEDGEWITCHERY_2_2_UI_FEEDBACK_TEST_PROJECT.zip
             clean_shell_v2/BUILD_AUDIT.md
             clean_shell_v2/install_proven_summary_print.py
-            ${{ runner.temp }}/GREENMAN_2_1_APK_SHA256.txt
-            ${{ runner.temp }}/GREENMAN_2_1_BADGING.txt
+            clean_shell_v2/install_ui_feedback.py
+            clean_shell_v2/install_fullscreen_bridge.py
+            ${{ runner.temp }}/GREENMAN_2_2_APK_SHA256.txt
+            ${{ runner.temp }}/GREENMAN_2_2_BADGING.txt
           if-no-files-found: error
           retention-days: 30
