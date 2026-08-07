@@ -20,6 +20,13 @@ def replace_once(old, new, label):
         raise SystemExit(f'{label} anchor count was {n}, expected 1')
     s = s.replace(old_e, new_e, 1)
 
+def replace_raw_once(old, new, label):
+    global s
+    n = s.count(old)
+    if n != 1:
+        raise SystemExit(f'{label} raw anchor count was {n}, expected 1')
+    s = s.replace(old, new, 1)
+
 # Brighten the existing invitation glow instead of adding another visual system.
 glow_old = '''    <filter id="matGlow" x="-35%" y="-65%" width="170%" height="230%">
       <feGaussianBlur in="SourceGraphic" stdDeviation="4.5" result="blur"/>
@@ -87,8 +94,96 @@ mat_new = '''    #WELCOME_MAT{
     }'''
 replace_once(mat_old, mat_new, 'welcome mat opening animation')
 
+# Keep the Greenman Gate entirely inside the visible area above the software keyboard.
+# The gate uses VisualViewport when Android exposes it, so it follows the real keyboard
+# height instead of using a device-specific hard-coded lift.
+gate_css_old = '''#gmGate{position:fixed;inset:0;z-index:100;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.75);padding:18px}#gmGate.open{display:flex}.gate-card{width:min(420px,100%);background:#f5ead0;color:#1a0e04;border:3px solid #c9a84c;border-radius:12px;padding:18px;box-shadow:0 12px 35px rgba(0,0,0,.55)}.gate-title{font-size:18px;font-weight:700;color:#2d4a1e;margin:0 0 8px;text-align:center}.gate-text{font-size:14px;line-height:1.35;margin:0 0 12px;color:#3a2010}.gate-card input{width:100%;font-size:18px;padding:12px;border:2px solid #8a6030;border-radius:8px;text-align:center;background:#fffaf0;color:#1a0e04}.gate-row{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}.gate-btn{background:#e8c040;color:#1a0e04;border:2px solid #8a6030;border-radius:7px;padding:10px;font-weight:700;font-family:Georgia,serif}.gate-btn.green{background:#2d4a1e;color:#f5ead0;border-color:#c9a84c}.gate-msg{font-size:13px;text-align:center;min-height:18px;color:#8a1a1a;margin-top:8px;font-style:italic}'''
+gate_css_new = gate_css_old + '''
+#gmGate.gm-keyboard-open{align-items:flex-start!important;justify-content:center!important;padding-top:10px!important;padding-bottom:10px!important;overflow-y:auto!important;overscroll-behavior:contain}
+#gmGate.gm-keyboard-open .gate-card{margin-top:0!important;max-height:calc(var(--gm-gate-visible-height,100vh) - 20px)!important;overflow-y:auto!important;overscroll-behavior:contain}
+#gmGate.gm-keyboard-open .gate-row{position:relative;z-index:2}'''
+replace_raw_once(gate_css_old, gate_css_new, 'Greenman Gate keyboard CSS')
+
+gate_js_old = '''function openGate(admin){
+  const g=document.getElementById('gmGate'); g.classList.add('open');
+  document.getElementById('gateMsg').textContent = admin ? 'Master access opens the Admin ledger.' : '';
+  setTimeout(()=>document.getElementById('gateInput').focus(),50);
+}
+function closeGate(){document.getElementById('gmGate').classList.remove('open'); document.getElementById('gateInput').value=''; document.getElementById('gateMsg').textContent='';}'''
+gate_js_new = '''function gmSyncGateKeyboard(){
+  const g=document.getElementById('gmGate');
+  const input=document.getElementById('gateInput');
+  if(!g||!input)return;
+  if(!g.classList.contains('open')){
+    g.classList.remove('gm-keyboard-open');
+    g.style.removeProperty('top');
+    g.style.removeProperty('bottom');
+    g.style.removeProperty('height');
+    g.style.removeProperty('--gm-gate-visible-height');
+    return;
+  }
+  const vv=window.visualViewport;
+  const base=parseFloat(g.dataset.gmGateBaseHeight||'0')||Math.max(window.innerHeight||0,document.documentElement.clientHeight||0);
+  const visible=vv?vv.height:(window.innerHeight||base);
+  const keyboardVisible=(base-visible)>110;
+  const inputActive=document.activeElement===input;
+  const lift=inputActive||keyboardVisible;
+  g.classList.toggle('gm-keyboard-open',lift);
+  if(lift&&vv){
+    const h=Math.max(260,Math.floor(vv.height));
+    g.style.setProperty('--gm-gate-visible-height',h+'px');
+    g.style.top=Math.max(0,Math.floor(vv.offsetTop||0))+'px';
+    g.style.bottom='auto';
+    g.style.height=h+'px';
+    g.scrollTop=0;
+  }else if(!lift){
+    g.style.removeProperty('top');
+    g.style.removeProperty('bottom');
+    g.style.removeProperty('height');
+    g.style.removeProperty('--gm-gate-visible-height');
+  }
+}
+function openGate(admin){
+  const g=document.getElementById('gmGate');
+  const vv=window.visualViewport;
+  g.dataset.gmGateBaseHeight=String(Math.max(window.innerHeight||0,document.documentElement.clientHeight||0,vv?vv.height:0));
+  g.classList.add('open');
+  document.getElementById('gateMsg').textContent = admin ? 'Master access opens the Admin ledger.' : '';
+  setTimeout(function(){
+    document.getElementById('gateInput').focus();
+    gmSyncGateKeyboard();
+  },50);
+  setTimeout(gmSyncGateKeyboard,180);
+  setTimeout(gmSyncGateKeyboard,420);
+}
+function closeGate(){
+  const g=document.getElementById('gmGate');
+  g.classList.remove('open','gm-keyboard-open');
+  g.style.removeProperty('top');
+  g.style.removeProperty('bottom');
+  g.style.removeProperty('height');
+  g.style.removeProperty('--gm-gate-visible-height');
+  delete g.dataset.gmGateBaseHeight;
+  document.getElementById('gateInput').value='';
+  document.getElementById('gateMsg').textContent='';
+}'''
+replace_raw_once(gate_js_old, gate_js_new, 'Greenman Gate keyboard JS')
+
+gate_listener_old = '''document.getElementById('gateInput').addEventListener('keydown', e=>{if(e.key==='Enter') submitGate();});
+document.getElementById('gmOpenFullFloat').addEventListener('click', ()=>openGate(false));'''
+gate_listener_new = '''document.getElementById('gateInput').addEventListener('keydown', e=>{if(e.key==='Enter') submitGate();});
+document.getElementById('gateInput').addEventListener('focus',function(){setTimeout(gmSyncGateKeyboard,40);setTimeout(gmSyncGateKeyboard,180);});
+document.getElementById('gateInput').addEventListener('blur',function(){setTimeout(gmSyncGateKeyboard,260);});
+if(window.visualViewport){
+  window.visualViewport.addEventListener('resize',gmSyncGateKeyboard);
+  window.visualViewport.addEventListener('scroll',gmSyncGateKeyboard);
+}
+window.addEventListener('resize',function(){if(document.getElementById('gmGate').classList.contains('open'))setTimeout(gmSyncGateKeyboard,60);});
+document.getElementById('gmOpenFullFloat').addEventListener('click', ()=>openGate(false));'''
+replace_raw_once(gate_listener_old, gate_listener_new, 'Greenman Gate keyboard listeners')
+
 # Build guards: embedded page HTML is stored in a JavaScript string, so quoted
-# markers may appear escaped. Accept the exact raw or escaped representation.
+# welcome-mat markers may appear escaped. Accept the exact raw or escaped representation.
 for required in (
     'transform:translateY(-3px) scale(1.015,1.18)',
     'font-size:37px',
@@ -102,5 +197,14 @@ for required in (
 if s.count(esc('id="WELCOME_MAT"')) != 1:
     raise SystemExit('WELCOME_MAT owner count changed')
 
+for required in (
+    '#gmGate.gm-keyboard-open',
+    'function gmSyncGateKeyboard()',
+    'window.visualViewport.addEventListener(\'resize\',gmSyncGateKeyboard)',
+    "g.style.setProperty('--gm-gate-visible-height',h+'px')"
+):
+    if required not in s:
+        raise SystemExit(f'missing Greenman Gate keyboard change: {required}')
+
 out.write_text(s, encoding='utf-8')
-print('Installed taller welcome mat, taller lettering and brighter golden invitation glow')
+print('Installed welcoming mat plus keyboard-safe Greenman Gate positioning')
