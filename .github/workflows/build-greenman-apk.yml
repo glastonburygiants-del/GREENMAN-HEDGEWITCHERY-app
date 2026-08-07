@@ -11,6 +11,9 @@ on:
       - "tools/greenman_debug_keystore.b64"
       - "clean_shell_v2/**"
       - ".github/workflows/build-greenman-apk.yml"
+  pull_request:
+    branches:
+      - main
 
 permissions:
   contents: read
