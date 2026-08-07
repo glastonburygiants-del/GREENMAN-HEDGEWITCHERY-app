@@ -77,12 +77,21 @@ jobs:
           echo "53224a35f792777ba70d2f13323d81f38a7037dadc9b2bb753b73157fee93cb2  $INDEX_FILE" | sha256sum -c -
           grep -q "All items rendered" "$INDEX_FILE"
 
-      - name: Protect the original print system
+      - name: Restore proven Summary page 2 fit and black-white print
         shell: bash
         run: |
           set -euo pipefail
           INDEX_FILE="$PROJECT_DIR/app/src/main/assets/index.html"
-          grep -q "gm-v65-summary-page2-autofit-style" "$INDEX_FILE"
+          python "$GITHUB_WORKSPACE/clean_shell_v2/install_proven_summary_print.py" "$INDEX_FILE" "$INDEX_FILE"
+          echo "da7cdc5a815fc48879a48d0b044845000bbb27b5d831a723e5b587a7ee4418a1  $INDEX_FILE" | sha256sum -c -
+          grep -q "data-gm-summary2-fit" "$INDEX_FILE"
+          test "$(grep -o 'print-color-adjust:economy!important' "$INDEX_FILE" | wc -l)" -eq 4
+
+      - name: Protect the single Summary and Android print owners
+        shell: bash
+        run: |
+          set -euo pipefail
+          INDEX_FILE="$PROJECT_DIR/app/src/main/assets/index.html"
           grep -q "GM CANONICAL PRINT/PAGE ROOT OWNER" "$INDEX_FILE"
           grep -q "function renderPrint(pages,kind)" "$INDEX_FILE"
           grep -q "function buildPack()" "$INDEX_FILE"
@@ -94,7 +103,7 @@ jobs:
           ! grep -q "gmNativePrintHtml" "$INDEX_FILE"
           ! grep -q "GreenmanAndroid.printHtml" "$INDEX_FILE"
 
-      - name: Install the brand-new single-owner Android shell
+      - name: Install the brand-new single-owner Android shell unchanged
         shell: bash
         run: |
           set -euo pipefail
@@ -112,12 +121,12 @@ jobs:
           grep -q 'FrameLayout.LayoutParams(820, 1120)' "$JAVA_FILE"
           grep -q 'MediaSize.ISO_A4' "$JAVA_FILE"
 
-      - name: Set clean rebuild version
+      - name: Set Summary test version
         shell: bash
         run: |
           set -euo pipefail
-          sed -i -E 's/versionCode[[:space:]]+[0-9]+/versionCode 11/' "$PROJECT_DIR/app/build.gradle"
-          sed -i -E 's/versionName[[:space:]]+"[^"]+"/versionName "2.0-clean-rebuild"/' "$PROJECT_DIR/app/build.gradle"
+          sed -i -E 's/versionCode[[:space:]]+[0-9]+/versionCode 12/' "$PROJECT_DIR/app/build.gradle"
+          sed -i -E 's/versionName[[:space:]]+"[^"]+"/versionName "2.1-summary-fit-bw"/' "$PROJECT_DIR/app/build.gradle"
 
       - name: Build clean APK
         shell: bash
@@ -126,7 +135,7 @@ jobs:
           cd "$PROJECT_DIR"
           gradle :app:assembleDebug --no-daemon --stacktrace
 
-      - name: Verify finished APK contains the protected app
+      - name: Verify finished APK contains the intended Summary source
         shell: bash
         run: |
           set -euo pipefail
@@ -134,39 +143,40 @@ jobs:
           test -s "$APK_FILE"
           echo "APK_FILE=$APK_FILE" >> "$GITHUB_ENV"
           unzip -p "$APK_FILE" assets/index.html > "$RUNNER_TEMP/apk-index.html"
-          echo "53224a35f792777ba70d2f13323d81f38a7037dadc9b2bb753b73157fee93cb2  $RUNNER_TEMP/apk-index.html" | sha256sum -c -
-          sha256sum "$APK_FILE" | tee "$RUNNER_TEMP/GREENMAN_2_0_APK_SHA256.txt"
-          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK_FILE" | tee "$RUNNER_TEMP/GREENMAN_2_0_BADGING.txt"
-          grep -q "package: name='com.greenman.hedgewitchery' versionCode='11'" "$RUNNER_TEMP/GREENMAN_2_0_BADGING.txt"
-          grep -q "application-label:'Greenman HedgeWitchery'" "$RUNNER_TEMP/GREENMAN_2_0_BADGING.txt"
+          echo "da7cdc5a815fc48879a48d0b044845000bbb27b5d831a723e5b587a7ee4418a1  $RUNNER_TEMP/apk-index.html" | sha256sum -c -
+          sha256sum "$APK_FILE" | tee "$RUNNER_TEMP/GREENMAN_2_1_APK_SHA256.txt"
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK_FILE" | tee "$RUNNER_TEMP/GREENMAN_2_1_BADGING.txt"
+          grep -q "package: name='com.greenman.hedgewitchery' versionCode='12'" "$RUNNER_TEMP/GREENMAN_2_1_BADGING.txt"
+          grep -q "application-label:'Greenman HedgeWitchery'" "$RUNNER_TEMP/GREENMAN_2_1_BADGING.txt"
 
       - name: Package clean rebuild source
         shell: bash
         run: |
           set -euo pipefail
-          cp "$PROJECT_DIR/app/src/main/assets/index.html" "$RUNNER_TEMP/GREENMAN_HEDGEWITCHERY_ORIGINAL_PLUS_PREPRINT_FIXES.html"
+          cp "$PROJECT_DIR/app/src/main/assets/index.html" "$RUNNER_TEMP/GREENMAN_HEDGEWITCHERY_2_1_SUMMARY_PRINT_TEST.html"
           cp "$PROJECT_DIR/app/src/main/java/com/greenman/hedgewitchery/MainActivity.java" "$RUNNER_TEMP/MainActivity_SINGLE_PRINT_OWNER.java"
           cd "$(dirname "$PROJECT_DIR")"
-          zip -qr "$RUNNER_TEMP/GREENMAN_HEDGEWITCHERY_2_0_CLEAN_REBUILD_PROJECT.zip" "$(basename "$PROJECT_DIR")"
+          zip -qr "$RUNNER_TEMP/GREENMAN_HEDGEWITCHERY_2_1_SUMMARY_PRINT_TEST_PROJECT.zip" "$(basename "$PROJECT_DIR")"
 
-      - name: Upload installable clean APK
+      - name: Upload installable Summary test APK
         uses: actions/upload-artifact@v4
         with:
-          name: GREENMAN-HEDGEWITCHERY-2-0-CLEAN-REBUILD-APK
+          name: GREENMAN-HEDGEWITCHERY-2-1-SUMMARY-FIT-BW-APK
           path: ${{ env.APK_FILE }}
           if-no-files-found: error
           retention-days: 30
 
-      - name: Upload clean rebuild source and audit
+      - name: Upload Summary test source and audit
         uses: actions/upload-artifact@v4
         with:
-          name: GREENMAN-HEDGEWITCHERY-2-0-CLEAN-REBUILD-SOURCE
+          name: GREENMAN-HEDGEWITCHERY-2-1-SUMMARY-FIT-BW-SOURCE
           path: |
-            ${{ runner.temp }}/GREENMAN_HEDGEWITCHERY_ORIGINAL_PLUS_PREPRINT_FIXES.html
+            ${{ runner.temp }}/GREENMAN_HEDGEWITCHERY_2_1_SUMMARY_PRINT_TEST.html
             ${{ runner.temp }}/MainActivity_SINGLE_PRINT_OWNER.java
-            ${{ runner.temp }}/GREENMAN_HEDGEWITCHERY_2_0_CLEAN_REBUILD_PROJECT.zip
+            ${{ runner.temp }}/GREENMAN_HEDGEWITCHERY_2_1_SUMMARY_PRINT_TEST_PROJECT.zip
             clean_shell_v2/BUILD_AUDIT.md
-            ${{ runner.temp }}/GREENMAN_2_0_APK_SHA256.txt
-            ${{ runner.temp }}/GREENMAN_2_0_BADGING.txt
+            clean_shell_v2/install_proven_summary_print.py
+            ${{ runner.temp }}/GREENMAN_2_1_APK_SHA256.txt
+            ${{ runner.temp }}/GREENMAN_2_1_BADGING.txt
           if-no-files-found: error
           retention-days: 30
