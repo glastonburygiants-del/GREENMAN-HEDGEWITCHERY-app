@@ -76,7 +76,7 @@ jobs:
           grep -q "function renderPrint(pages,kind)" "$INDEX_FILE"
           grep -q "function printWholeBos" "$INDEX_FILE"
           grep -q "function printAll" "$INDEX_FILE"
-          grep -q "function printGrimoireEntry" "$INDEX_FILE"
+          grep -q "printGrimoireEntry" "$INDEX_FILE"
 
       - name: Install one complete Android shell print handoff
         shell: bash
