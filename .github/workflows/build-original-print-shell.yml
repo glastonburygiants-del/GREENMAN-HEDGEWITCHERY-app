@@ -85,8 +85,13 @@ jobs:
           INDEX_FILE="$PROJECT_DIR/app/src/main/assets/index.html"
           JAVA_FILE="$PROJECT_DIR/app/src/main/java/com/greenman/hedgewitchery/MainActivity.java"
           : > "$JAVA_FILE"
-          for part in "$GITHUB_WORKSPACE"/clean_shell/MainActivity.java.part*.b64; do
-            base64 --decode "$part" >> "$JAVA_FILE"
+          for part in \
+            MainActivity.chunk01.b64 \
+            MainActivity.chunk02.b64 \
+            MainActivity.tail01.b64 \
+            MainActivity.tail02.b64 \
+            MainActivity.tail03.b64; do
+            base64 --decode "$GITHUB_WORKSPACE/clean_shell/$part" >> "$JAVA_FILE"
           done
           cp "$JAVA_FILE" "$RUNNER_TEMP/MainActivity.java"
           echo "57d87d78d803623d5cc5f2227f16563899d0b5038d7d49b33327c1359e0ee771  $JAVA_FILE" | sha256sum -c -
