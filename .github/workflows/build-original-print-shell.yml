@@ -1,0 +1,132 @@
+name: Build Greenman Original Print Shell
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - clean-original-print-shell
+    paths:
+      - "clean_shell/**"
+      - "tools/greenman_debug_keystore.b64"
+      - ".github/workflows/build-original-print-shell.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  build-apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Check out clean branch
+        uses: actions/checkout@v4
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android platform and build tools
+        run: |
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager "platforms;android-35" "build-tools;35.0.0"
+
+      - name: Set up Gradle 8.9
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.9"
+
+      - name: Install stable Greenman signing key
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$HOME/.android"
+          base64 --decode "$GITHUB_WORKSPACE/tools/greenman_debug_keystore.b64" > "$HOME/.android/debug.keystore"
+          chmod 600 "$HOME/.android/debug.keystore"
+          keytool -list -keystore "$HOME/.android/debug.keystore" -storepass android -alias androiddebugkey >/dev/null
+
+      - name: Unpack last clean Gather app
+        shell: bash
+        run: |
+          set -euo pipefail
+          ZIP_FILE="$(find "$GITHUB_WORKSPACE" -maxdepth 1 -type f -name 'GREENMAN_HEDGEWITCHERY_ANDROID_PROJECT_GATHER_FIXED*.zip' -print -quit)"
+          test -s "$ZIP_FILE"
+          mkdir -p "$GITHUB_WORKSPACE/extracted"
+          unzip -q "$ZIP_FILE" -d "$GITHUB_WORKSPACE/extracted"
+          PROJECT_DIR="$(find "$GITHUB_WORKSPACE/extracted" -type f -name settings.gradle -printf '%h\n' | head -n 1)"
+          test -n "$PROJECT_DIR"
+          echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
+          echo "SOURCE_ZIP=$ZIP_FILE" >> "$GITHUB_ENV"
+
+      - name: Verify original print app is untouched
+        shell: bash
+        run: |
+          set -euo pipefail
+          INDEX_FILE="$PROJECT_DIR/app/src/main/assets/index.html"
+          echo "90dd2304a3292124893ab2dba441762d1eb84b08173cf5e329bf0e04998618ef  $INDEX_FILE" | sha256sum -c -
+          grep -q "function printLiteThree" "$INDEX_FILE"
+          grep -q "function renderPrint(pages,kind)" "$INDEX_FILE"
+          grep -q "function printWholeBos" "$INDEX_FILE"
+          grep -q "function printAll" "$INDEX_FILE"
+          grep -q "function printGrimoireEntry" "$INDEX_FILE"
+
+      - name: Install one complete Android shell print handoff
+        shell: bash
+        run: |
+          set -euo pipefail
+          INDEX_FILE="$PROJECT_DIR/app/src/main/assets/index.html"
+          JAVA_FILE="$PROJECT_DIR/app/src/main/java/com/greenman/hedgewitchery/MainActivity.java"
+          cp "$GITHUB_WORKSPACE/clean_shell/MainActivity.java" "$JAVA_FILE"
+          echo "57d87d78d803623d5cc5f2227f16563899d0b5038d7d49b33327c1359e0ee771  $JAVA_FILE" | sha256sum -c -
+          echo "90dd2304a3292124893ab2dba441762d1eb84b08173cf5e329bf0e04998618ef  $INDEX_FILE" | sha256sum -c -
+          grep -q "nativeBridge.printHtml(snapshot(doc)" "$JAVA_FILE"
+          grep -q "root.addView(target, 0, layout)" "$JAVA_FILE"
+          grep -q "MediaSize.ISO_A4" "$JAVA_FILE"
+          sed -i -E 's/versionCode[[:space:]]+[0-9]+/versionCode 8/' "$PROJECT_DIR/app/build.gradle"
+          sed -i -E 's/versionName[[:space:]]+"[^"]+"/versionName "1.7-clean-shell"/' "$PROJECT_DIR/app/build.gradle"
+
+      - name: Build clean APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$PROJECT_DIR"
+          gradle :app:assembleDebug --no-daemon --stacktrace
+
+      - name: Verify APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK_FILE="$(find "$PROJECT_DIR/app/build/outputs/apk/debug" -type f -name 'app-debug.apk' -print -quit)"
+          test -s "$APK_FILE"
+          echo "APK_FILE=$APK_FILE" >> "$GITHUB_ENV"
+          sha256sum "$APK_FILE" | tee "$RUNNER_TEMP/GREENMAN_ORIGINAL_PRINT_SHELL_APK_SHA256.txt"
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK_FILE" | tee "$RUNNER_TEMP/GREENMAN_ORIGINAL_PRINT_SHELL_BADGING.txt"
+          grep -q "package: name='com.greenman.hedgewitchery' versionCode='8'" "$RUNNER_TEMP/GREENMAN_ORIGINAL_PRINT_SHELL_BADGING.txt"
+          grep -q "application-label:'Greenman HedgeWitchery'" "$RUNNER_TEMP/GREENMAN_ORIGINAL_PRINT_SHELL_BADGING.txt"
+
+      - name: Upload installable APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: GREENMAN-HEDGEWITCHERY-ORIGINAL-PRINT-SHELL-APK
+          path: ${{ env.APK_FILE }}
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload source and audit
+        uses: actions/upload-artifact@v4
+        with:
+          name: GREENMAN-HEDGEWITCHERY-ORIGINAL-PRINT-SHELL-AUDIT
+          path: |
+            ${{ env.SOURCE_ZIP }}
+            clean_shell/MainActivity.java
+            clean_shell/GREENMAN_ORIGINAL_PRINT_SHELL_AUDIT.md
+            clean_shell/GREENMAN_ORIGINAL_PRINT_SHELL_AUDIT.json
+            ${{ runner.temp }}/GREENMAN_ORIGINAL_PRINT_SHELL_APK_SHA256.txt
+            ${{ runner.temp }}/GREENMAN_ORIGINAL_PRINT_SHELL_BADGING.txt
+          if-no-files-found: error
+          retention-days: 30
