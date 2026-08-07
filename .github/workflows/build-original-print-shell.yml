@@ -78,7 +78,7 @@ jobs:
           grep -q "function printAll" "$INDEX_FILE"
           grep -q "printGrimoireEntry" "$INDEX_FILE"
 
-      - name: Install one complete Android shell print handoff
+      - name: Install clean Android shell baseline
         shell: bash
         run: |
           set -euo pipefail
@@ -93,14 +93,60 @@ jobs:
             MainActivity.tail03.b64; do
             base64 --decode "$GITHUB_WORKSPACE/clean_shell/$part" >> "$JAVA_FILE"
           done
-          cp "$JAVA_FILE" "$RUNNER_TEMP/MainActivity.java"
           echo "57d87d78d803623d5cc5f2227f16563899d0b5038d7d49b33327c1359e0ee771  $JAVA_FILE" | sha256sum -c -
           echo "90dd2304a3292124893ab2dba441762d1eb84b08173cf5e329bf0e04998618ef  $INDEX_FILE" | sha256sum -c -
           grep -q "nativeBridge.printHtml(snapshot(doc)" "$JAVA_FILE"
           grep -q "root.addView(target, 0, layout)" "$JAVA_FILE"
           grep -q "MediaSize.ISO_A4" "$JAVA_FILE"
-          sed -i -E 's/versionCode[[:space:]]+[0-9]+/versionCode 8/' "$PROJECT_DIR/app/build.gradle"
-          sed -i -E 's/versionName[[:space:]]+"[^"]+"/versionName "1.7-clean-shell"/' "$PROJECT_DIR/app/build.gradle"
+
+      - name: Allow only Android print-owned internal document schemes
+        shell: bash
+        run: |
+          set -euo pipefail
+          JAVA_FILE="$PROJECT_DIR/app/src/main/java/com/greenman/hedgewitchery/MainActivity.java"
+          python3 - "$JAVA_FILE" <<'PY'
+          from pathlib import Path
+          import sys
+          p=Path(sys.argv[1])
+          s=p.read_text(encoding='utf-8')
+          marker='private final class PrintAssetWebViewClient extends WebViewClient {'
+          if marker not in s:
+              raise SystemExit('PrintAssetWebViewClient marker missing')
+          head, tail=s.split(marker,1)
+          old1='''            Uri uri = request.getUrl();
+            if (!LOCAL_HOST.equalsIgnoreCase(uri.getHost())) {'''
+          new1='''            Uri uri = request.getUrl();
+            String scheme = uri.getScheme();
+            if ("data".equalsIgnoreCase(scheme) || "about".equalsIgnoreCase(scheme) || "blob".equalsIgnoreCase(scheme)) {
+                return null;
+            }
+            if (!LOCAL_HOST.equalsIgnoreCase(uri.getHost())) {'''
+          if old1 not in tail:
+              raise SystemExit('print request gate not found')
+          tail=tail.replace(old1,new1,1)
+          old2='''        public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
+            return !LOCAL_HOST.equalsIgnoreCase(request.getUrl().getHost());
+        }'''
+          new2='''        public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
+            Uri uri = request.getUrl();
+            String scheme = uri.getScheme();
+            if ("data".equalsIgnoreCase(scheme) || "about".equalsIgnoreCase(scheme) || "blob".equalsIgnoreCase(scheme)) {
+                return false;
+            }
+            return !LOCAL_HOST.equalsIgnoreCase(uri.getHost());
+        }'''
+          if old2 not in tail:
+              raise SystemExit('print navigation gate not found')
+          tail=tail.replace(old2,new2,1)
+          p.write_text(head+marker+tail,encoding='utf-8')
+          PY
+          grep -q '"data".equalsIgnoreCase(scheme)' "$JAVA_FILE"
+          grep -q '"about".equalsIgnoreCase(scheme)' "$JAVA_FILE"
+          grep -q '"blob".equalsIgnoreCase(scheme)' "$JAVA_FILE"
+          cp "$JAVA_FILE" "$RUNNER_TEMP/MainActivity.java"
+          sha256sum "$JAVA_FILE" | tee "$RUNNER_TEMP/GREENMAN_PRINT_SHELL_JAVA_SHA256.txt"
+          sed -i -E 's/versionCode[[:space:]]+[0-9]+/versionCode 9/' "$PROJECT_DIR/app/build.gradle"
+          sed -i -E 's/versionName[[:space:]]+"[^"]+"/versionName "1.8-print-internal-schemes"/' "$PROJECT_DIR/app/build.gradle"
 
       - name: Build clean APK
         shell: bash
@@ -118,13 +164,13 @@ jobs:
           echo "APK_FILE=$APK_FILE" >> "$GITHUB_ENV"
           sha256sum "$APK_FILE" | tee "$RUNNER_TEMP/GREENMAN_ORIGINAL_PRINT_SHELL_APK_SHA256.txt"
           "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK_FILE" | tee "$RUNNER_TEMP/GREENMAN_ORIGINAL_PRINT_SHELL_BADGING.txt"
-          grep -q "package: name='com.greenman.hedgewitchery' versionCode='8'" "$RUNNER_TEMP/GREENMAN_ORIGINAL_PRINT_SHELL_BADGING.txt"
+          grep -q "package: name='com.greenman.hedgewitchery' versionCode='9'" "$RUNNER_TEMP/GREENMAN_ORIGINAL_PRINT_SHELL_BADGING.txt"
           grep -q "application-label:'Greenman HedgeWitchery'" "$RUNNER_TEMP/GREENMAN_ORIGINAL_PRINT_SHELL_BADGING.txt"
 
       - name: Upload installable APK
         uses: actions/upload-artifact@v4
         with:
-          name: GREENMAN-HEDGEWITCHERY-ORIGINAL-PRINT-SHELL-APK
+          name: GREENMAN-HEDGEWITCHERY-PRINT-SCHEME-FIX-APK
           path: ${{ env.APK_FILE }}
           if-no-files-found: error
           retention-days: 30
@@ -132,12 +178,13 @@ jobs:
       - name: Upload source and audit
         uses: actions/upload-artifact@v4
         with:
-          name: GREENMAN-HEDGEWITCHERY-ORIGINAL-PRINT-SHELL-AUDIT
+          name: GREENMAN-HEDGEWITCHERY-PRINT-SCHEME-FIX-AUDIT
           path: |
             ${{ env.SOURCE_ZIP }}
             ${{ runner.temp }}/MainActivity.java
             clean_shell/GREENMAN_ORIGINAL_PRINT_SHELL_AUDIT.md
             clean_shell/GREENMAN_ORIGINAL_PRINT_SHELL_AUDIT.json
+            ${{ runner.temp }}/GREENMAN_PRINT_SHELL_JAVA_SHA256.txt
             ${{ runner.temp }}/GREENMAN_ORIGINAL_PRINT_SHELL_APK_SHA256.txt
             ${{ runner.temp }}/GREENMAN_ORIGINAL_PRINT_SHELL_BADGING.txt
           if-no-files-found: error
