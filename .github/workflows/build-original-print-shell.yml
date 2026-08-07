@@ -94,15 +94,19 @@ jobs:
           grep -q "MediaSize.ISO_A4" "$JAVA_FILE"
           cp "$JAVA_FILE" "$RUNNER_TEMP/MainActivity.java"
           sha256sum "$JAVA_FILE" > "$RUNNER_TEMP/GREENMAN_1_8_JAVA_SHA256.txt"
-          sed -i -E 's/versionCode[[:space:]]+[0-9]+/versionCode 9/' "$PROJECT_DIR/app/build.gradle"
-          sed -i -E 's/versionName[[:space:]]+"[^"]+"/versionName "1.8-print-gate"/' "$PROJECT_DIR/app/build.gradle"
 
-      - name: Recheck original HTML after shell edit
+      - name: Apply Summary print monochrome correction
         shell: bash
         run: |
           set -euo pipefail
           INDEX_FILE="$PROJECT_DIR/app/src/main/assets/index.html"
-          echo "90dd2304a3292124893ab2dba441762d1eb84b08173cf5e329bf0e04998618ef  $INDEX_FILE" | sha256sum -c -
+          python3 clean_shell/patch_summary_print_monochrome.py "$INDEX_FILE"
+          grep -q "gm-v40-print-stack \*{color:#000!important" "$INDEX_FILE"
+          grep -q ".bos-cover{" "$INDEX_FILE"
+          cp "$INDEX_FILE" "$RUNNER_TEMP/index.html"
+          sha256sum "$INDEX_FILE" > "$RUNNER_TEMP/GREENMAN_1_9_HTML_SHA256.txt"
+          sed -i -E 's/versionCode[[:space:]]+[0-9]+/versionCode 10/' "$PROJECT_DIR/app/build.gradle"
+          sed -i -E 's/versionName[[:space:]]+"[^"]+"/versionName "1.9-print-mono"/' "$PROJECT_DIR/app/build.gradle"
 
       - name: Build APK
         shell: bash
@@ -118,15 +122,15 @@ jobs:
           APK_FILE="$(find "$PROJECT_DIR/app/build/outputs/apk/debug" -type f -name 'app-debug.apk' -print -quit)"
           test -s "$APK_FILE"
           echo "APK_FILE=$APK_FILE" >> "$GITHUB_ENV"
-          sha256sum "$APK_FILE" > "$RUNNER_TEMP/GREENMAN_1_8_APK_SHA256.txt"
-          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK_FILE" > "$RUNNER_TEMP/GREENMAN_1_8_BADGING.txt"
-          grep -q "package: name='com.greenman.hedgewitchery' versionCode='9'" "$RUNNER_TEMP/GREENMAN_1_8_BADGING.txt"
-          grep -q "application-label:'Greenman HedgeWitchery'" "$RUNNER_TEMP/GREENMAN_1_8_BADGING.txt"
+          sha256sum "$APK_FILE" > "$RUNNER_TEMP/GREENMAN_1_9_APK_SHA256.txt"
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK_FILE" > "$RUNNER_TEMP/GREENMAN_1_9_BADGING.txt"
+          grep -q "package: name='com.greenman.hedgewitchery' versionCode='10'" "$RUNNER_TEMP/GREENMAN_1_9_BADGING.txt"
+          grep -q "application-label:'Greenman HedgeWitchery'" "$RUNNER_TEMP/GREENMAN_1_9_BADGING.txt"
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: GREENMAN-HEDGEWITCHERY-1-8-PRINT-GATE-APK
+          name: GREENMAN-HEDGEWITCHERY-1-9-PRINT-MONO-APK
           path: ${{ env.APK_FILE }}
           if-no-files-found: error
           retention-days: 30
@@ -134,12 +138,15 @@ jobs:
       - name: Upload audit
         uses: actions/upload-artifact@v4
         with:
-          name: GREENMAN-HEDGEWITCHERY-1-8-PRINT-GATE-AUDIT
+          name: GREENMAN-HEDGEWITCHERY-1-9-PRINT-MONO-AUDIT
           path: |
             ${{ runner.temp }}/MainActivity.java
+            ${{ runner.temp }}/index.html
             ${{ runner.temp }}/GREENMAN_1_8_JAVA_SHA256.txt
-            ${{ runner.temp }}/GREENMAN_1_8_APK_SHA256.txt
-            ${{ runner.temp }}/GREENMAN_1_8_BADGING.txt
+            ${{ runner.temp }}/GREENMAN_1_9_HTML_SHA256.txt
+            ${{ runner.temp }}/GREENMAN_1_9_APK_SHA256.txt
+            ${{ runner.temp }}/GREENMAN_1_9_BADGING.txt
             clean_shell/patch_print_internal_schemes.py
+            clean_shell/patch_summary_print_monochrome.py
           if-no-files-found: error
           retention-days: 30
