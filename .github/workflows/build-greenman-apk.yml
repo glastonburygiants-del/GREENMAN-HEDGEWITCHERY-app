@@ -4,9 +4,11 @@ on:
   workflow_dispatch:
   push:
     branches:
-      - main
+      - clean-original-print-shell
     paths:
       - "GREENMAN_HEDGEWITCHERY_ANDROID_PROJECT_GATHER_FIXED*.zip"
+      - "clean_shell/**"
+      - "tools/greenman_debug_keystore.b64"
       - ".github/workflows/build-greenman-apk.yml"
 
 permissions:
@@ -18,7 +20,7 @@ jobs:
     timeout-minutes: 30
 
     steps:
-      - name: Check out repository
+      - name: Check out clean branch
         uses: actions/checkout@v4
 
       - name: Set up Java 17
@@ -40,48 +42,155 @@ jobs:
         with:
           gradle-version: "8.9"
 
-      - name: Unpack protected Greenman project
+      - name: Install stable Greenman signing key
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$HOME/.android"
+          base64 --decode "$GITHUB_WORKSPACE/tools/greenman_debug_keystore.b64" > "$HOME/.android/debug.keystore"
+          chmod 600 "$HOME/.android/debug.keystore"
+          keytool -list -keystore "$HOME/.android/debug.keystore" -storepass android -alias androiddebugkey >/dev/null
+
+      - name: Unpack last clean Gather app
         shell: bash
         run: |
           set -euo pipefail
           ZIP_FILE="$(find "$GITHUB_WORKSPACE" -maxdepth 1 -type f -name 'GREENMAN_HEDGEWITCHERY_ANDROID_PROJECT_GATHER_FIXED*.zip' -print -quit)"
-          if [ -z "$ZIP_FILE" ]; then
-            echo "Corrected Greenman Android project ZIP was not found."
-            exit 1
-          fi
+          test -s "$ZIP_FILE"
           mkdir -p "$GITHUB_WORKSPACE/extracted"
           unzip -q "$ZIP_FILE" -d "$GITHUB_WORKSPACE/extracted"
           PROJECT_DIR="$(find "$GITHUB_WORKSPACE/extracted" -type f -name settings.gradle -printf '%h\n' | head -n 1)"
-          if [ -z "$PROJECT_DIR" ]; then
-            echo "Android settings.gradle was not found inside the ZIP."
-            exit 1
-          fi
+          test -n "$PROJECT_DIR"
           echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
-          echo "Building protected project from: $PROJECT_DIR"
+          echo "SOURCE_ZIP=$ZIP_FILE" >> "$GITHUB_ENV"
 
-      - name: Build debug APK
+      - name: Prove original app print system is untouched
+        shell: bash
+        run: |
+          set -euo pipefail
+          INDEX_FILE="$PROJECT_DIR/app/src/main/assets/index.html"
+          echo "90dd2304a3292124893ab2dba441762d1eb84b08173cf5e329bf0e04998618ef  $INDEX_FILE" | sha256sum -c -
+          grep -q "function printLiteThree" "$INDEX_FILE"
+          grep -q "function renderPrint(pages,kind)" "$INDEX_FILE"
+          grep -q "function printWholeBos" "$INDEX_FILE"
+          grep -q "function printAll" "$INDEX_FILE"
+          grep -q "printGrimoireEntry" "$INDEX_FILE"
+
+      - name: Restore verified 1.7 shell baseline
+        shell: bash
+        run: |
+          set -euo pipefail
+          JAVA_FILE="$PROJECT_DIR/app/src/main/java/com/greenman/hedgewitchery/MainActivity.java"
+          : > "$JAVA_FILE"
+          for part in \
+            MainActivity.chunk01.b64 \
+            MainActivity.chunk02.b64 \
+            MainActivity.tail01.b64 \
+            MainActivity.tail02.b64 \
+            MainActivity.tail03.b64; do
+            base64 --decode "$GITHUB_WORKSPACE/clean_shell/$part" >> "$JAVA_FILE"
+          done
+          echo "57d87d78d803623d5cc5f2227f16563899d0b5038d7d49b33327c1359e0ee771  $JAVA_FILE" | sha256sum -c -
+
+      - name: Apply one print WebView gate correction
+        shell: bash
+        run: |
+          set -euo pipefail
+          JAVA_FILE="$PROJECT_DIR/app/src/main/java/com/greenman/hedgewitchery/MainActivity.java"
+          python3 - "$JAVA_FILE" <<'PY'
+          from pathlib import Path
+          import sys
+          p = Path(sys.argv[1])
+          s = p.read_text(encoding='utf-8')
+          marker = 'private final class PrintAssetWebViewClient extends WebViewClient {'
+          if marker not in s:
+              raise SystemExit('PrintAssetWebViewClient marker missing')
+          head, tail = s.split(marker, 1)
+
+          old_request = '''            Uri uri = request.getUrl();
+            if (!LOCAL_HOST.equalsIgnoreCase(uri.getHost())) {'''
+          new_request = '''            Uri uri = request.getUrl();
+            String scheme = uri.getScheme();
+            if ("data".equalsIgnoreCase(scheme) || "about".equalsIgnoreCase(scheme) || "blob".equalsIgnoreCase(scheme)) {
+                return null;
+            }
+            if (!LOCAL_HOST.equalsIgnoreCase(uri.getHost())) {'''
+          if old_request not in tail:
+              raise SystemExit('print request gate not found')
+          tail = tail.replace(old_request, new_request, 1)
+
+          old_nav = '''        public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
+            return !LOCAL_HOST.equalsIgnoreCase(request.getUrl().getHost());
+        }'''
+          new_nav = '''        public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
+            Uri uri = request.getUrl();
+            String scheme = uri.getScheme();
+            if ("data".equalsIgnoreCase(scheme) || "about".equalsIgnoreCase(scheme) || "blob".equalsIgnoreCase(scheme)) {
+                return false;
+            }
+            return !LOCAL_HOST.equalsIgnoreCase(uri.getHost());
+        }'''
+          if old_nav not in tail:
+              raise SystemExit('print navigation gate not found')
+          tail = tail.replace(old_nav, new_nav, 1)
+          p.write_text(head + marker + tail, encoding='utf-8')
+          PY
+
+          grep -q '"data".equalsIgnoreCase(scheme)' "$JAVA_FILE"
+          grep -q '"about".equalsIgnoreCase(scheme)' "$JAVA_FILE"
+          grep -q '"blob".equalsIgnoreCase(scheme)' "$JAVA_FILE"
+          grep -q "root.addView(target, 0, layout)" "$JAVA_FILE"
+          grep -q "MediaSize.ISO_A4" "$JAVA_FILE"
+          cp "$JAVA_FILE" "$RUNNER_TEMP/MainActivity.java"
+          sha256sum "$JAVA_FILE" | tee "$RUNNER_TEMP/GREENMAN_PRINT_SHELL_JAVA_SHA256.txt"
+
+          sed -i -E 's/versionCode[[:space:]]+[0-9]+/versionCode 9/' "$PROJECT_DIR/app/build.gradle"
+          sed -i -E 's/versionName[[:space:]]+"[^"]+"/versionName "1.8-print-gate"/' "$PROJECT_DIR/app/build.gradle"
+
+      - name: Re-prove app HTML after shell correction
+        shell: bash
+        run: |
+          set -euo pipefail
+          INDEX_FILE="$PROJECT_DIR/app/src/main/assets/index.html"
+          echo "90dd2304a3292124893ab2dba441762d1eb84b08173cf5e329bf0e04998618ef  $INDEX_FILE" | sha256sum -c -
+
+      - name: Build APK
         shell: bash
         run: |
           set -euo pipefail
           cd "$PROJECT_DIR"
           gradle :app:assembleDebug --no-daemon --stacktrace
 
-      - name: Verify APK exists
+      - name: Verify APK
         shell: bash
         run: |
           set -euo pipefail
           APK_FILE="$(find "$PROJECT_DIR/app/build/outputs/apk/debug" -type f -name 'app-debug.apk' -print -quit)"
-          if [ -z "$APK_FILE" ]; then
-            echo "APK was not produced."
-            exit 1
-          fi
+          test -s "$APK_FILE"
           echo "APK_FILE=$APK_FILE" >> "$GITHUB_ENV"
-          sha256sum "$APK_FILE"
+          sha256sum "$APK_FILE" | tee "$RUNNER_TEMP/GREENMAN_1_8_APK_SHA256.txt"
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK_FILE" | tee "$RUNNER_TEMP/GREENMAN_1_8_BADGING.txt"
+          grep -q "package: name='com.greenman.hedgewitchery' versionCode='9'" "$RUNNER_TEMP/GREENMAN_1_8_BADGING.txt"
+          grep -q "application-label:'Greenman HedgeWitchery'" "$RUNNER_TEMP/GREENMAN_1_8_BADGING.txt"
 
       - name: Upload installable APK
         uses: actions/upload-artifact@v4
         with:
-          name: GREENMAN-HEDGEWITCHERY-debug-APK
+          name: GREENMAN-HEDGEWITCHERY-1-8-PRINT-GATE-APK
           path: ${{ env.APK_FILE }}
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload audit
+        uses: actions/upload-artifact@v4
+        with:
+          name: GREENMAN-HEDGEWITCHERY-1-8-PRINT-GATE-AUDIT
+          path: |
+            ${{ runner.temp }}/MainActivity.java
+            ${{ runner.temp }}/GREENMAN_PRINT_SHELL_JAVA_SHA256.txt
+            ${{ runner.temp }}/GREENMAN_1_8_APK_SHA256.txt
+            ${{ runner.temp }}/GREENMAN_1_8_BADGING.txt
+            clean_shell/GREENMAN_ORIGINAL_PRINT_SHELL_AUDIT.md
+            clean_shell/GREENMAN_ORIGINAL_PRINT_SHELL_AUDIT.json
           if-no-files-found: error
           retention-days: 30
