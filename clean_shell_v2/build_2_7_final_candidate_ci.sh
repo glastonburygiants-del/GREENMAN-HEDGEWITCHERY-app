@@ -84,19 +84,33 @@ python "$GITHUB_WORKSPACE/clean_shell_v2/install_custom_app_icon.py" "$PROJECT_D
 ICON_FILE="$PROJECT_DIR/app/src/main/res/drawable-nodpi/greenman_launcher_art.webp"
 echo "0915a0ddfee14a7bbba4b998128b4da04d5aa139b0bcbcc81cba0253e8090dc1  $ICON_FILE" | sha256sum -c -
 
-# Start from the proven 2.7.1 native print owner. No raster/PhoneFriendly adapter.
+# Install the intended Greenman print fonts as LOCAL APK assets. Nothing depends on internet at print time.
+python "$GITHUB_WORKSPACE/clean_shell_v2/install_print_font_assets.py" "$PROJECT_DIR"
+FONT_DIR="$PROJECT_DIR/app/src/main/assets/fonts"
+for font in Cinzel.ttf IMFellEnglish-Regular.ttf IMFellEnglish-Italic.ttf CrimsonText-Regular.ttf CrimsonText-Italic.ttf CrimsonText-SemiBold.ttf CrimsonText-SemiBoldItalic.ttf CrimsonText-Bold.ttf CrimsonText-BoldItalic.ttf; do
+  test -s "$FONT_DIR/$font"
+done
+
+# Start from the proven 2.7.1 native print owner. Do NOT stack the 2.7.4 patch.
 cp "$GITHUB_WORKSPACE/clean_shell_v2/MainActivity.java" "$JAVA_FILE"
 python "$GITHUB_WORKSPACE/clean_shell_v2/install_fullscreen_bridge.py" "$JAVA_FILE" "$JAVA_FILE"
 echo "08f6e0919be07f805cdac350a2d16b549789037fde724d58760488fd8486cad3  $JAVA_FILE" | sha256sum -c -
 
-# 2.7.4: simplify only the frozen print clone and give every print job a descriptive name.
-python "$GITHUB_WORKSPACE/clean_shell_v2/install_pdf_lightweight_names.py" "$JAVA_FILE" "$JAVA_FILE"
-grep -q "function slimPrintClone" "$JAVA_FILE"
-grep -q "gm-pdf-lightweight-print" "$JAVA_FILE"
+# 2.7.5 single repair: harden the frozen print copy, use canonical Tumbler God/Goddess SVGs,
+# eliminate the known heavy fallback glyphs, load local fonts, and retain dynamic PDF names.
+python "$GITHUB_WORKSPACE/clean_shell_v2/install_pdf_hardened_names.py" "$JAVA_FILE" "$JAVA_FILE" "$INDEX_FILE"
+grep -q "function hardenPrintClone" "$JAVA_FILE"
+grep -q "gm-pdf-hardened-print" "$JAVA_FILE"
+grep -q "GM_PDF_GOD_SVG" "$JAVA_FILE"
+grep -q "GM_PDF_GODDESS_SVG" "$JAVA_FILE"
+grep -q "fonts/Cinzel.ttf" "$JAVA_FILE"
+grep -q "fonts/IMFellEnglish-Regular.ttf" "$JAVA_FILE"
+grep -q "fonts/CrimsonText-Regular.ttf" "$JAVA_FILE"
 grep -q "function printJobName" "$JAVA_FILE"
 grep -q "nativeBridge.printDocument(freeze(doc),printJobName(doc))" "$JAVA_FILE"
-cp "$JAVA_FILE" "$RUNNER_TEMP/MainActivity_2_7_4_PDF_LIGHT_NAMES.java"
-sha256sum "$JAVA_FILE" > "$RUNNER_TEMP/GREENMAN_2_7_4_JAVA_SHA256.txt"
+grep -q 'return "font/ttf";' "$JAVA_FILE"
+cp "$JAVA_FILE" "$RUNNER_TEMP/MainActivity_2_7_5_PDF_HARDENED.java"
+sha256sum "$JAVA_FILE" > "$RUNNER_TEMP/GREENMAN_2_7_5_JAVA_SHA256.txt"
 
 test "$(grep -c 'public void printDocument' "$JAVA_FILE")" -eq 1
 test "$(grep -c 'private void openPrintDocument' "$JAVA_FILE")" -eq 1
@@ -105,9 +119,10 @@ test "$(grep -c 'private void printWebViewDocument' "$JAVA_FILE")" -eq 1
 ! grep -q "capturePicture" "$JAVA_FILE"
 ! grep -q "nativePrintHtml" "$JAVA_FILE"
 ! grep -q "gmNativePrintHtml" "$JAVA_FILE"
+! grep -q "function slimPrintClone" "$JAVA_FILE"
 
-sed -i -E 's/versionCode[[:space:]]+[0-9]+/versionCode 22/' "$PROJECT_DIR/app/build.gradle"
-sed -i -E 's/versionName[[:space:]]+"[^"]+"/versionName "2.7.4-pdf-light-names"/' "$PROJECT_DIR/app/build.gradle"
+sed -i -E 's/versionCode[[:space:]]+[0-9]+/versionCode 23/' "$PROJECT_DIR/app/build.gradle"
+sed -i -E 's/versionName[[:space:]]+"[^"]+"/versionName "2.7.5-pdf-hardened"/' "$PROJECT_DIR/app/build.gradle"
 
 cd "$PROJECT_DIR"
 gradle :app:assembleDebug --no-daemon --stacktrace
@@ -117,10 +132,13 @@ test -s "$APK_FILE"
 unzip -p "$APK_FILE" assets/index.html > "$RUNNER_TEMP/GREENMAN_27_APK_INDEX.html"
 cmp -s "$RUNNER_TEMP/GREENMAN_27_EXPECTED.html" "$RUNNER_TEMP/GREENMAN_27_APK_INDEX.html"
 unzip -l "$APK_FILE" | grep -q 'greenman_launcher_art.*webp'
+unzip -l "$APK_FILE" | grep -q 'assets/fonts/Cinzel.ttf'
+unzip -l "$APK_FILE" | grep -q 'assets/fonts/IMFellEnglish-Regular.ttf'
+unzip -l "$APK_FILE" | grep -q 'assets/fonts/CrimsonText-Regular.ttf'
 "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK_FILE" > "$RUNNER_TEMP/GREENMAN_27_BADGING.txt"
-grep -q "package: name='com.greenman.hedgewitchery' versionCode='22'" "$RUNNER_TEMP/GREENMAN_27_BADGING.txt"
+grep -q "package: name='com.greenman.hedgewitchery' versionCode='23'" "$RUNNER_TEMP/GREENMAN_27_BADGING.txt"
 grep -q "application-label:'Greenman HedgeWitchery'" "$RUNNER_TEMP/GREENMAN_27_BADGING.txt"
 sha256sum "$APK_FILE" > "$RUNNER_TEMP/GREENMAN_27_APK_SHA256.txt"
 
-cp "$APK_FILE" "$RUNNER_TEMP/GREENMAN_HEDGEWITCHERY_2.7.4_PDF_LIGHT_NAMES.apk"
-echo "APK_FILE=$RUNNER_TEMP/GREENMAN_HEDGEWITCHERY_2.7.4_PDF_LIGHT_NAMES.apk" >> "$GITHUB_ENV"
+cp "$APK_FILE" "$RUNNER_TEMP/GREENMAN_HEDGEWITCHERY_2.7.5_PDF_HARDENED.apk"
+echo "APK_FILE=$RUNNER_TEMP/GREENMAN_HEDGEWITCHERY_2.7.5_PDF_HARDENED.apk" >> "$GITHUB_ENV"
