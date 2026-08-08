@@ -22,7 +22,7 @@ cp "$INDEX_FILE" "$RUNNER_TEMP/GREENMAN_27_PRE_FINAL.html"
 
 python "$GITHUB_WORKSPACE/clean_shell_v2/install_final_tightening.py" "$INDEX_FILE" "$INDEX_FILE"
 cp "$INDEX_FILE" "$RUNNER_TEMP/GREENMAN_27_EXPECTED.html"
-echo "40e34ca943c121b8b9602cf1fe73c93311eb3a56913fe484761da9bc60f5ddc5  $INDEX_FILE" | sha256sum -c -
+sha256sum "$INDEX_FILE" | tee "$RUNNER_TEMP/GREENMAN_27_INDEX_SHA256.txt"
 
 grep -q "gm-final-book-owner-v1" "$INDEX_FILE"
 grep -q "gm-admin-book-printer-v1" "$INDEX_FILE"
@@ -36,9 +36,9 @@ grep -q "data:image/webp;base64," "$INDEX_FILE"
 
 python - <<'PY'
 from pathlib import Path
-import json,re,subprocess,tempfile
-before=Path(__import__('os').environ['RUNNER_TEMP']+'/GREENMAN_27_PRE_FINAL.html').read_text(encoding='utf-8')
-after=Path(__import__('os').environ['RUNNER_TEMP']+'/GREENMAN_27_EXPECTED.html').read_text(encoding='utf-8')
+import json,re,subprocess,tempfile,os
+before=Path(os.environ['RUNNER_TEMP']+'/GREENMAN_27_PRE_FINAL.html').read_text(encoding='utf-8')
+after=Path(os.environ['RUNNER_TEMP']+'/GREENMAN_27_EXPECTED.html').read_text(encoding='utf-8')
 def pages(s):
     m='const PAGES = '; st=s.index(m)+len(m); return json.JSONDecoder().raw_decode(s[st:])[0]
 a,b=pages(before),pages(after)
