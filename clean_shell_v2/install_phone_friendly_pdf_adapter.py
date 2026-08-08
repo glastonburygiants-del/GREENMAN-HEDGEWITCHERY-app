@@ -244,7 +244,6 @@ adapter = r'''    /*
 '''
 s = s.replace(class_anchor, adapter + class_anchor, 1)
 
-# Build guards.
 for required in (
     'new PhoneFriendlyPrintAdapter(target, jobName)',
     'class PhoneFriendlyPrintAdapter extends PrintDocumentAdapter',
@@ -255,8 +254,7 @@ for required in (
     if required not in s:
         raise SystemExit(f'missing phone-friendly PDF marker: {required}')
 
-if s.count('target.createPrintDocumentAdapter(jobName)') != 1:
-    # Exactly one call is retained inside PhoneFriendlyPrintAdapter's constructor.
+if s.count('.createPrintDocumentAdapter(jobName)') != 1:
     raise SystemExit('unexpected Chromium adapter owner count')
 
 out.write_text(s, encoding='utf-8')
