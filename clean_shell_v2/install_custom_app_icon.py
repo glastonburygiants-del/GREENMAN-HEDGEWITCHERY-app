@@ -7,20 +7,21 @@ if len(sys.argv) != 2:
 
 project = Path(sys.argv[1])
 res = project / 'app/src/main/res'
-source_b64 = Path(__file__).with_name('greenman_custom_app_icon_256.b64')
+source_b64 = Path(__file__).with_name('greenman_custom_app_icon_192_webp.b64')
 raw = base64.b64decode(source_b64.read_text(encoding='ascii'))
-expected = 'dfb2e8a5d88b0e6d1df5b2cdcbc97651d20cb0f68bab0cd6b210bdcd18ead372'
+expected = '0915a0ddfee14a7bbba4b998128b4da04d5aa139b0bcbcc81cba0253e8090dc1'
 actual = hashlib.sha256(raw).hexdigest()
 if actual != expected:
     raise SystemExit(f'approved Greenman icon checksum mismatch: {actual}')
 
-# Store the exact approved Greenman image once and let Android scale it.
+# Store the approved Greenman image once. 192px is the native xxxhdpi legacy
+# launcher size; Android scales it for the other density buckets and adaptive mask.
 drawable_nodpi = res / 'drawable-nodpi'
 drawable_nodpi.mkdir(parents=True, exist_ok=True)
-art = drawable_nodpi / 'greenman_launcher_art.png'
+art = drawable_nodpi / 'greenman_launcher_art.webp'
 art.write_bytes(raw)
 
-# Pre-Android-8 launcher resources: use the approved image directly.
+# Pre-Android-8 launcher resources use the approved image directly.
 legacy = '''<?xml version="1.0" encoding="utf-8"?>
 <bitmap xmlns:android="http://schemas.android.com/apk/res/android"
     android:src="@drawable/greenman_launcher_art"
@@ -33,8 +34,8 @@ legacy_dir.mkdir(parents=True, exist_ok=True)
 (legacy_dir / 'ic_launcher.xml').write_text(legacy, encoding='utf-8')
 (legacy_dir / 'ic_launcher_round.xml').write_text(legacy, encoding='utf-8')
 
-# Android adaptive foreground: keep the whole approved picture comfortably inside
-# launcher masks so the gold rim and shield are not chopped off on Samsung/Pixel icons.
+# Adaptive foreground keeps the whole gold rim and Greenman shield comfortably
+# inside common Samsung/Pixel launcher masks.
 foreground = '''<?xml version="1.0" encoding="utf-8"?>
 <inset xmlns:android="http://schemas.android.com/apk/res/android"
     android:drawable="@drawable/greenman_launcher_art"
@@ -47,8 +48,7 @@ drawable = res / 'drawable'
 drawable.mkdir(parents=True, exist_ok=True)
 (drawable / 'ic_launcher_foreground.xml').write_text(foreground, encoding='utf-8')
 
-# Leave the existing adaptive icon owners in mipmap-anydpi-v26 in place. They already
-# point to @color/greenman_deep_green and @drawable/ic_launcher_foreground.
+# Existing adaptive owners stay authoritative and must still point at our foreground.
 for name in ('ic_launcher.xml', 'ic_launcher_round.xml'):
     p = res / 'mipmap-anydpi-v26' / name
     if not p.exists():
@@ -60,4 +60,4 @@ for name in ('ic_launcher.xml', 'ic_launcher_round.xml'):
 if hashlib.sha256(art.read_bytes()).hexdigest() != expected:
     raise SystemExit('installed Greenman launcher art changed during write')
 
-print('Installed approved Greenman image as Android launcher icon')
+print('Installed approved Greenman picture as Android launcher icon')

@@ -124,8 +124,8 @@ jobs:
         run: |
           set -euo pipefail
           python "$GITHUB_WORKSPACE/clean_shell_v2/install_custom_app_icon.py" "$PROJECT_DIR"
-          ICON_FILE="$PROJECT_DIR/app/src/main/res/drawable-nodpi/greenman_launcher_art.png"
-          echo "dfb2e8a5d88b0e6d1df5b2cdcbc97651d20cb0f68bab0cd6b210bdcd18ead372  $ICON_FILE" | sha256sum -c -
+          ICON_FILE="$PROJECT_DIR/app/src/main/res/drawable-nodpi/greenman_launcher_art.webp"
+          echo "0915a0ddfee14a7bbba4b998128b4da04d5aa139b0bcbcc81cba0253e8090dc1  $ICON_FILE" | sha256sum -c -
           grep -q '@drawable/greenman_launcher_art' "$PROJECT_DIR/app/src/main/res/drawable/ic_launcher_foreground.xml"
           grep -q '@drawable/greenman_launcher_art' "$PROJECT_DIR/app/src/main/res/mipmap-anydpi/ic_launcher.xml"
           grep -q '@drawable/greenman_launcher_art' "$PROJECT_DIR/app/src/main/res/mipmap-anydpi/ic_launcher_round.xml"
@@ -196,7 +196,7 @@ jobs:
           grep -q "font-size:37px" "$RUNNER_TEMP/apk-index.html"
           grep -q "gm-keyboard-open" "$RUNNER_TEMP/apk-index.html"
           ! grep -q "setPrintStatus(" "$RUNNER_TEMP/apk-index.html"
-          unzip -l "$APK_FILE" | grep -q 'greenman_launcher_art.*png'
+          unzip -l "$APK_FILE" | grep -q 'greenman_launcher_art.*webp'
           sha256sum "$APK_FILE" | tee "$RUNNER_TEMP/GREENMAN_2_6_APK_SHA256.txt"
           "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK_FILE" | tee "$RUNNER_TEMP/GREENMAN_2_6_BADGING.txt"
           grep -q "package: name='com.greenman.hedgewitchery' versionCode='17'" "$RUNNER_TEMP/GREENMAN_2_6_BADGING.txt"
@@ -234,7 +234,7 @@ jobs:
             clean_shell_v2/install_fullscreen_bridge.py
             clean_shell_v2/install_welcome_mat.py
             clean_shell_v2/install_custom_app_icon.py
-            clean_shell_v2/greenman_custom_app_icon_256.b64
+            clean_shell_v2/greenman_custom_app_icon_192_webp.b64
             ${{ runner.temp }}/GREENMAN_2_6_INDEX_SHA256.txt
             ${{ runner.temp }}/GREENMAN_2_6_APK_SHA256.txt
             ${{ runner.temp }}/GREENMAN_2_6_BADGING.txt
