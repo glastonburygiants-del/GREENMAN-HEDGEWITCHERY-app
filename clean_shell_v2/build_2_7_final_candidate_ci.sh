@@ -94,12 +94,14 @@ test "$(grep -c 'private void printWebViewDocument' "$JAVA_FILE")" -eq 1
 ! grep -q "gmNativePrintHtml" "$JAVA_FILE"
 
 # Isolated 2.7.2 experiment: simplify only the final PDF representation.
-# Chromium still creates the exact same A4 layout first.
+# The Greenman HTML and page builders are unchanged; Android captures the completed A4 pages.
 python "$GITHUB_WORKSPACE/clean_shell_v2/install_phone_friendly_pdf_adapter.py" "$JAVA_FILE" "$JAVA_FILE"
-grep -q "class PhoneFriendlyPrintAdapter extends PrintDocumentAdapter" "$JAVA_FILE"
-grep -q "new PdfRenderer(input)" "$JAVA_FILE"
-grep -q "RASTER_SCALE = 2.0f" "$JAVA_FILE"
+grep -q "class PhoneFriendlyPictureAdapter extends PrintDocumentAdapter" "$JAVA_FILE"
+grep -q "new PrintedPdfDocument(MainActivity.this, attrs)" "$JAVA_FILE"
+grep -q "target.capturePicture()" "$JAVA_FILE"
+grep -q "RASTER_WIDTH = 1190" "$JAVA_FILE"
 test "$(grep -c 'public void printDocument' "$JAVA_FILE")" -eq 1
+test "$(grep -c 'private void printWebViewDocument' "$JAVA_FILE")" -eq 1
 
 sed -i -E 's/versionCode[[:space:]]+[0-9]+/versionCode 20/' "$PROJECT_DIR/app/build.gradle"
 sed -i -E 's/versionName[[:space:]]+"[^"]+"/versionName "2.7.2-phone-pdf-test"/' "$PROJECT_DIR/app/build.gradle"
