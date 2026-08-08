@@ -21,6 +21,7 @@ python "$GITHUB_WORKSPACE/clean_shell_v2/install_welcome_mat.py" "$INDEX_FILE" "
 cp "$INDEX_FILE" "$RUNNER_TEMP/GREENMAN_27_PRE_FINAL.html"
 
 python "$GITHUB_WORKSPACE/clean_shell_v2/install_final_tightening.py" "$INDEX_FILE" "$INDEX_FILE"
+python "$GITHUB_WORKSPACE/clean_shell_v2/repair_embedded_script_boundaries.py" "$INDEX_FILE" "$INDEX_FILE"
 cp "$INDEX_FILE" "$RUNNER_TEMP/GREENMAN_27_EXPECTED.html"
 sha256sum "$INDEX_FILE" | tee "$RUNNER_TEMP/GREENMAN_27_INDEX_SHA256.txt"
 
@@ -39,15 +40,28 @@ from pathlib import Path
 import json,re,subprocess,tempfile,os
 before=Path(os.environ['RUNNER_TEMP']+'/GREENMAN_27_PRE_FINAL.html').read_text(encoding='utf-8')
 after=Path(os.environ['RUNNER_TEMP']+'/GREENMAN_27_EXPECTED.html').read_text(encoding='utf-8')
-def pages(s):
-    m='const PAGES = '; st=s.index(m)+len(m); return json.JSONDecoder().raw_decode(s[st:])[0]
-a,b=pages(before),pages(after)
+
+def pages_with_raw(s):
+    m='const PAGES = '; st=s.index(m)+len(m); obj,end=json.JSONDecoder().raw_decode(s[st:]); return obj,s[st:st+end]
+
+a,raw_before=pages_with_raw(before)
+b,raw_after=pages_with_raw(after)
+
+# Critical single-file HTML boundary guard. Inner closing script tags must never
+# be literal because they terminate the outer PAGES script in Android WebView.
+unsafe=raw_after.lower().count('</script>')
+protected=raw_after.lower().count('<\\/script>')
+assert unsafe==0, f'FATAL: {unsafe} unsafe inner </script> boundaries remain'
+assert protected==70, f'expected 70 protected inner script closers, got {protected}'
+print('Boundary guard passed: 0 unsafe,',protected,'protected inner script closers')
+
 for key in ('home','journal','moon','numerology','planetTiming','planets'):
     assert a[key]==b[key], f'unexpected page changed: {key}'
 def assigned(page,mark):
     i=page.index(mark)+len(mark); return json.JSONDecoder().raw_decode(page[i:].lstrip())[0]
 assert assigned(a['grimoire'],'const ITEMS =')==assigned(b['grimoire'],'const ITEMS ='),'Grimoire ITEMS changed'
 assert assigned(a['spellBuilder'],'window.GM_DATA =')==assigned(b['spellBuilder'],'window.GM_DATA ='),'Spell Builder GM_DATA changed'
+
 count=0
 for name,html in b.items():
     for n,js in enumerate(re.findall(r'<script(?:\s[^>]*)?>(.*?)</script>',html,re.S|re.I)):
@@ -58,6 +72,16 @@ for name,html in b.items():
             print(r.stderr); raise SystemExit(f'JavaScript syntax failure: {name} script {n}')
 assert count==70, f'expected 70 embedded scripts, got {count}'
 print('Database guard passed; embedded scripts checked:',count)
+
+# Also syntax-check every actual outer-shell script after raw boundary protection.
+outer_count=0
+for n,js in enumerate(re.findall(r'<script(?:\s[^>]*)?>(.*?)</script>',after,re.S|re.I)):
+    outer_count+=1
+    p=Path(tempfile.gettempdir())/f'greenman27_outer_{n}.js'; p.write_text(js,encoding='utf-8')
+    r=subprocess.run(['node','--check',str(p)],capture_output=True,text=True)
+    if r.returncode:
+        print(r.stderr); raise SystemExit(f'Outer-shell JavaScript syntax failure: script {n}')
+print('Outer-shell scripts checked:',outer_count)
 PY
 
 python "$GITHUB_WORKSPACE/clean_shell_v2/install_custom_app_icon.py" "$PROJECT_DIR"
@@ -73,8 +97,8 @@ test "$(grep -c 'private void printWebViewDocument' "$JAVA_FILE")" -eq 1
 ! grep -q "nativePrintHtml" "$JAVA_FILE"
 ! grep -q "gmNativePrintHtml" "$JAVA_FILE"
 
-sed -i -E 's/versionCode[[:space:]]+[0-9]+/versionCode 18/' "$PROJECT_DIR/app/build.gradle"
-sed -i -E 's/versionName[[:space:]]+"[^"]+"/versionName "2.7-final-candidate"/' "$PROJECT_DIR/app/build.gradle"
+sed -i -E 's/versionCode[[:space:]]+[0-9]+/versionCode 19/' "$PROJECT_DIR/app/build.gradle"
+sed -i -E 's/versionName[[:space:]]+"[^"]+"/versionName "2.7.1-boundary-fixed"/' "$PROJECT_DIR/app/build.gradle"
 
 cd "$PROJECT_DIR"
 gradle :app:assembleDebug --no-daemon --stacktrace
@@ -85,9 +109,9 @@ unzip -p "$APK_FILE" assets/index.html > "$RUNNER_TEMP/GREENMAN_27_APK_INDEX.htm
 cmp -s "$RUNNER_TEMP/GREENMAN_27_EXPECTED.html" "$RUNNER_TEMP/GREENMAN_27_APK_INDEX.html"
 unzip -l "$APK_FILE" | grep -q 'greenman_launcher_art.*webp'
 "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK_FILE" > "$RUNNER_TEMP/GREENMAN_27_BADGING.txt"
-grep -q "package: name='com.greenman.hedgewitchery' versionCode='18'" "$RUNNER_TEMP/GREENMAN_27_BADGING.txt"
+grep -q "package: name='com.greenman.hedgewitchery' versionCode='19'" "$RUNNER_TEMP/GREENMAN_27_BADGING.txt"
 grep -q "application-label:'Greenman HedgeWitchery'" "$RUNNER_TEMP/GREENMAN_27_BADGING.txt"
 sha256sum "$APK_FILE" > "$RUNNER_TEMP/GREENMAN_27_APK_SHA256.txt"
 
-cp "$APK_FILE" "$RUNNER_TEMP/GREENMAN_HEDGEWITCHERY_2.7_FINAL_CANDIDATE.apk"
-echo "APK_FILE=$RUNNER_TEMP/GREENMAN_HEDGEWITCHERY_2.7_FINAL_CANDIDATE.apk" >> "$GITHUB_ENV"
+cp "$APK_FILE" "$RUNNER_TEMP/GREENMAN_HEDGEWITCHERY_2.7.1_BOUNDARY_FIXED.apk"
+echo "APK_FILE=$RUNNER_TEMP/GREENMAN_HEDGEWITCHERY_2.7.1_BOUNDARY_FIXED.apk" >> "$GITHUB_ENV"
