@@ -124,7 +124,7 @@ chunk=src[start:end]
 lits=re.findall(r'"(?:\\.|[^"\\])*"', chunk)
 js=''.join(json.loads(x) for x in lits)
 Path(sys.argv[2]).write_text(js, encoding='utf-8')
-assert 'window.print=function()' in js
+assert 'win.print=function()' in js
 assert 'function hardenPrintClone' in js
 assert 'nativeBridge.printDocument(freeze(doc),printJobName(doc))' in js
 print('Native print bridge extracted:', len(js), 'chars')
