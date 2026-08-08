@@ -1,4 +1,4 @@
-name: GREENMAN 2.7.4 PDF LIGHT + NAMES - INSPECTABLE
+name: GREENMAN 2.7.5 PDF HARDENED - INSPECTABLE
 
 on:
   pull_request:
@@ -45,30 +45,31 @@ jobs:
           chmod 600 "$HOME/.android/debug.keystore"
           keytool -list -keystore "$HOME/.android/debug.keystore" -storepass android -alias androiddebugkey >/dev/null
 
-      - name: Build and audit 2.7.4 PDF light + names
+      - name: Build and audit 2.7.5 PDF hardened
         shell: bash
         run: bash "$GITHUB_WORKSPACE/clean_shell_v2/build_2_7_final_candidate_ci.sh"
 
-      - name: Upload 2.7.4 APK
+      - name: Upload 2.7.5 APK
         uses: actions/upload-artifact@v4
         with:
-          name: GREENMAN-HEDGEWITCHERY-2-7-4-PDF-LIGHT-NAMES-APK
+          name: GREENMAN-HEDGEWITCHERY-2-7-5-PDF-HARDENED-APK
           path: ${{ env.APK_FILE }}
           if-no-files-found: error
           retention-days: 30
 
-      - name: Upload 2.7.4 audit
+      - name: Upload 2.7.5 audit
         uses: actions/upload-artifact@v4
         with:
-          name: GREENMAN-HEDGEWITCHERY-2-7-4-PDF-LIGHT-NAMES-AUDIT
+          name: GREENMAN-HEDGEWITCHERY-2-7-5-PDF-HARDENED-AUDIT
           path: |
             ${{ runner.temp }}/GREENMAN_27_APK_SHA256.txt
             ${{ runner.temp }}/GREENMAN_27_BADGING.txt
             ${{ runner.temp }}/GREENMAN_27_EXPECTED.html
-            ${{ runner.temp }}/GREENMAN_2_7_4_JAVA_SHA256.txt
-            ${{ runner.temp }}/MainActivity_2_7_4_PDF_LIGHT_NAMES.java
+            ${{ runner.temp }}/GREENMAN_2_7_5_JAVA_SHA256.txt
+            ${{ runner.temp }}/MainActivity_2_7_5_PDF_HARDENED.java
             clean_shell_v2/install_final_tightening.py
-            clean_shell_v2/install_pdf_lightweight_names.py
+            clean_shell_v2/install_print_font_assets.py
+            clean_shell_v2/install_pdf_hardened_names.py
             clean_shell_v2/build_2_7_final_candidate_ci.sh
           if-no-files-found: error
           retention-days: 30
