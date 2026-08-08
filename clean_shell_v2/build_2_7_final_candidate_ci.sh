@@ -21,6 +21,10 @@ python "$GITHUB_WORKSPACE/clean_shell_v2/install_welcome_mat.py" "$INDEX_FILE" "
 cp "$INDEX_FILE" "$RUNNER_TEMP/GREENMAN_27_PRE_FINAL.html"
 
 python "$GITHUB_WORKSPACE/clean_shell_v2/install_final_tightening.py" "$INDEX_FILE" "$INDEX_FILE"
+# 2.7.7: repair the two device-visible layout faults without changing the print owner:
+# saved BoS pages must not be crushed to miniature scale, and instruction pages
+# are measured only after the packaged Greenman fonts are loaded.
+python "$GITHUB_WORKSPACE/clean_shell_v2/install_print_layout_277.py" "$INDEX_FILE" "$INDEX_FILE"
 python "$GITHUB_WORKSPACE/clean_shell_v2/repair_embedded_script_boundaries.py" "$INDEX_FILE" "$INDEX_FILE"
 cp "$INDEX_FILE" "$RUNNER_TEMP/GREENMAN_27_EXPECTED.html"
 sha256sum "$INDEX_FILE" | tee "$RUNNER_TEMP/GREENMAN_27_INDEX_SHA256.txt"
@@ -34,6 +38,9 @@ grep -q "if(g==='Sundries')renderSundries()" "$INDEX_FILE"
 grep -q "Your record of spells cast and magic worked." "$INDEX_FILE"
 grep -q "data:image/webp;base64," "$INDEX_FILE"
 ! grep -q "gm-journal-bos-print-wait-patch-v4" "$INDEX_FILE"
+grep -q "gmEnsureJournalPrintFonts" "$INDEX_FILE"
+grep -q "GM_LOCAL_PRINT_FONT_CSS" "$INDEX_FILE"
+grep -q "data-gm-instruction-fit" "$INDEX_FILE"
 
 python - <<'PY'
 from pathlib import Path
@@ -52,12 +59,13 @@ assert unsafe==0, f'FATAL: {unsafe} unsafe inner </script> boundaries remain'
 assert protected==70, f'expected 70 protected inner script closers, got {protected}'
 print('Boundary guard passed: 0 unsafe,',protected,'protected inner script closers')
 
-for key in ('home','journal','moon','numerology','planetTiming','planets'):
+for key in ('home','moon','numerology','planetTiming','planets'):
     assert a[key]==b[key], f'unexpected page changed: {key}'
 def assigned(page,mark):
     i=page.index(mark)+len(mark); return json.JSONDecoder().raw_decode(page[i:].lstrip())[0]
 assert assigned(a['grimoire'],'const ITEMS =')==assigned(b['grimoire'],'const ITEMS ='),'Grimoire ITEMS changed'
 assert assigned(a['spellBuilder'],'window.GM_DATA =')==assigned(b['spellBuilder'],'window.GM_DATA ='),'Spell Builder GM_DATA changed'
+assert 'gmEnsureJournalPrintFonts' in b['journal'] and 'data-gm-instruction-fit' in b['spellBuilder'],'2.7.7 print layout repair missing'
 
 count=0
 for name,html in b.items():
@@ -96,7 +104,7 @@ cp "$GITHUB_WORKSPACE/clean_shell_v2/MainActivity.java" "$JAVA_FILE"
 python "$GITHUB_WORKSPACE/clean_shell_v2/install_fullscreen_bridge.py" "$JAVA_FILE" "$JAVA_FILE"
 echo "08f6e0919be07f805cdac350a2d16b549789037fde724d58760488fd8486cad3  $JAVA_FILE" | sha256sum -c -
 
-# 2.7.6 repaired print bridge + hardening: harden the frozen print copy, use canonical Tumbler God/Goddess SVGs,
+# 2.7.7 retains the repaired 2.7.6 print bridge + hardening: harden the frozen print copy, use canonical Tumbler God/Goddess SVGs,
 # eliminate the known heavy fallback glyphs, load local fonts, and retain dynamic PDF names.
 python "$GITHUB_WORKSPACE/clean_shell_v2/install_pdf_hardened_names.py" "$JAVA_FILE" "$JAVA_FILE" "$INDEX_FILE"
 grep -q "function hardenPrintClone" "$JAVA_FILE"
@@ -109,8 +117,8 @@ grep -q "fonts/CrimsonText-Regular.ttf" "$JAVA_FILE"
 grep -q "function printJobName" "$JAVA_FILE"
 grep -q "nativeBridge.printDocument(freeze(doc),printJobName(doc))" "$JAVA_FILE"
 grep -q 'return "font/ttf";' "$JAVA_FILE"
-cp "$JAVA_FILE" "$RUNNER_TEMP/MainActivity_2_7_6_PDF_HARDENED_PRINTFIX.java"
-sha256sum "$JAVA_FILE" > "$RUNNER_TEMP/GREENMAN_2_7_6_JAVA_SHA256.txt"
+cp "$JAVA_FILE" "$RUNNER_TEMP/MainActivity_2_7_7_BOS_INSTRUCTION_LAYOUT.java"
+sha256sum "$JAVA_FILE" > "$RUNNER_TEMP/GREENMAN_2_7_7_JAVA_SHA256.txt"
 
 # CRITICAL: Java can compile even when the JavaScript bridge string is malformed.
 # Extract the exact bridge JavaScript from the generated MainActivity and syntax-check it with Node.
@@ -141,8 +149,8 @@ test "$(grep -c 'private void printWebViewDocument' "$JAVA_FILE")" -eq 1
 ! grep -q "gmNativePrintHtml" "$JAVA_FILE"
 ! grep -q "function slimPrintClone" "$JAVA_FILE"
 
-sed -i -E 's/versionCode[[:space:]]+[0-9]+/versionCode 24/' "$PROJECT_DIR/app/build.gradle"
-sed -i -E 's/versionName[[:space:]]+"[^"]+"/versionName "2.7.6-pdf-hardened-printfix"/' "$PROJECT_DIR/app/build.gradle"
+sed -i -E 's/versionCode[[:space:]]+[0-9]+/versionCode 25/' "$PROJECT_DIR/app/build.gradle"
+sed -i -E 's/versionName[[:space:]]+"[^"]+"/versionName "2.7.7-bos-instruction-layout"/' "$PROJECT_DIR/app/build.gradle"
 
 cd "$PROJECT_DIR"
 gradle :app:assembleDebug --no-daemon --stacktrace
@@ -156,9 +164,9 @@ unzip -l "$APK_FILE" | grep -q 'assets/fonts/Cinzel.ttf'
 unzip -l "$APK_FILE" | grep -q 'assets/fonts/IMFellEnglish-Regular.ttf'
 unzip -l "$APK_FILE" | grep -q 'assets/fonts/CrimsonText-Regular.ttf'
 "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK_FILE" > "$RUNNER_TEMP/GREENMAN_27_BADGING.txt"
-grep -q "package: name='com.greenman.hedgewitchery' versionCode='24'" "$RUNNER_TEMP/GREENMAN_27_BADGING.txt"
+grep -q "package: name='com.greenman.hedgewitchery' versionCode='25'" "$RUNNER_TEMP/GREENMAN_27_BADGING.txt"
 grep -q "application-label:'Greenman HedgeWitchery'" "$RUNNER_TEMP/GREENMAN_27_BADGING.txt"
 sha256sum "$APK_FILE" > "$RUNNER_TEMP/GREENMAN_27_APK_SHA256.txt"
 
-cp "$APK_FILE" "$RUNNER_TEMP/GREENMAN_HEDGEWITCHERY_2.7.6_PDF_HARDENED_PRINTFIX.apk"
-echo "APK_FILE=$RUNNER_TEMP/GREENMAN_HEDGEWITCHERY_2.7.6_PDF_HARDENED_PRINTFIX.apk" >> "$GITHUB_ENV"
+cp "$APK_FILE" "$RUNNER_TEMP/GREENMAN_HEDGEWITCHERY_2.7.7_BOS_INSTRUCTION_LAYOUT.apk"
+echo "APK_FILE=$RUNNER_TEMP/GREENMAN_HEDGEWITCHERY_2.7.7_BOS_INSTRUCTION_LAYOUT.apk" >> "$GITHUB_ENV"
