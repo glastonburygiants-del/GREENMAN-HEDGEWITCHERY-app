@@ -1,4 +1,4 @@
-name: GREENMAN 2.7.8 BOS SNAPSHOT SCALE RECOVERY - INSPECTABLE
+name: GREENMAN 2.7.9 WHOLE BOS DOUBLE-SCALE REPAIR - INSPECTABLE
 
 on:
   pull_request:
@@ -45,22 +45,85 @@ jobs:
           chmod 600 "$HOME/.android/debug.keystore"
           keytool -list -keystore "$HOME/.android/debug.keystore" -storepass android -alias androiddebugkey >/dev/null
 
-      - name: Build and audit 2.7.8 BoS snapshot scale recovery
+      - name: Prepare 2.7.9 whole-book scale repair
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+
+          owner=Path('clean_shell_v2/install_final_tightening.py')
+          s=owner.read_text(encoding='utf-8')
+          old="function fitGenerated(root){qsa('.a4-page:not(.gm-flat):not(.gm-book-front):not(.gm-book-frontmatter)',root)"
+          new="function fitGenerated(root){qsa('.a4-page:not(.gm-flat):not(.gm-book-front):not(.gm-book-frontmatter):not(.grimoire-page):not(.summary-page)',root)"
+          if s.count(old)!=1:
+              raise SystemExit('2.7.9: whole-book fitGenerated anchor changed')
+          s=s.replace(old,new,1)
+          owner.write_text(s,encoding='utf-8')
+
+          build=Path('clean_shell_v2/build_2_7_final_candidate_ci.sh')
+          b=build.read_text(encoding='utf-8')
+          replacements=[
+              ('versionCode 26','versionCode 27'),
+              ('2.7.8-bos-snapshot-scale-recovery','2.7.9-whole-bos-double-scale-fix'),
+              ("versionCode='26'","versionCode='27'"),
+              ('GREENMAN_HEDGEWITCHERY_2.7.8_BOS_SNAPSHOT_SCALE_RECOVERY.apk','GREENMAN_HEDGEWITCHERY_2.7.9_WHOLE_BOS_DOUBLE_SCALE_FIX.apk'),
+          ]
+          for a,z in replacements:
+              if a not in b:
+                  raise SystemExit('2.7.9 build anchor missing: '+a)
+              b=b.replace(a,z)
+          build.write_text(b,encoding='utf-8')
+          print('Prepared one targeted repair: specialist Grimoire/Summary fitters keep ownership; generic whole-book fitter cannot scale them again.')
+          PY
+
+      - name: Build and audit 2.7.9 whole BoS repair
         shell: bash
         run: bash "$GITHUB_WORKSPACE/clean_shell_v2/build_2_7_final_candidate_ci.sh"
 
-      - name: Upload 2.7.8 APK
+      - name: Prove whole-book scale ownership
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          import json, os
+          p=Path(os.environ['RUNNER_TEMP'])/'GREENMAN_27_EXPECTED.html'
+          s=p.read_text(encoding='utf-8')
+          marker='const PAGES = '
+          st=s.index(marker)+len(marker)
+          pages,_=json.JSONDecoder().raw_decode(s[st:])
+          bos=pages['bos']
+          selector=".a4-page:not(.gm-flat):not(.gm-book-front):not(.gm-book-frontmatter):not(.grimoire-page):not(.summary-page)"
+          if selector not in bos:
+              raise SystemExit('2.7.9 proof failed: specialist pages still reachable by generic fitter')
+          if "const minScale=page.classList.contains('incense-bos-one-page')?.58:.82;" not in bos:
+              raise SystemExit('2.7.9 proof failed: Grimoire specialist fitter missing')
+          if "try{fitGrimoirePages(area);}catch(e){}try{fitFlatPages(area);}catch(e){}try{fitGenerated(area);}catch(e){}" not in bos:
+              raise SystemExit('2.7.9 proof failed: whole-book fit order changed')
+          proof=Path(os.environ['RUNNER_TEMP'])/'GREENMAN_2_7_9_WHOLE_BOOK_SCALE_PROOF.txt'
+          proof.write_text(
+              '2.7.9 WHOLE BOS SCALE PROOF\n'
+              'Grimoire pages: specialist fitter only, minimum normal scale 0.82.\n'
+              'Summary pages: specialist fitter only.\n'
+              'Generic whole-book fitter explicitly excludes both page families.\n'
+              'This removes the second transform that could overwrite the Grimoire scale with the generic 0.30 floor.\n',
+              encoding='utf-8')
+          print(proof.read_text(encoding='utf-8'))
+          PY
+
+      - name: Upload 2.7.9 APK
         uses: actions/upload-artifact@v4
         with:
-          name: GREENMAN-HEDGEWITCHERY-2-7-8-BOS-SNAPSHOT-SCALE-RECOVERY-APK
+          name: GREENMAN-HEDGEWITCHERY-2-7-9-WHOLE-BOS-DOUBLE-SCALE-FIX-APK
           path: ${{ env.APK_FILE }}
           if-no-files-found: error
           retention-days: 30
 
-      - name: Upload 2.7.8 audit
+      - name: Upload 2.7.9 audit
         uses: actions/upload-artifact@v4
         with:
-          name: GREENMAN-HEDGEWITCHERY-2-7-8-BOS-SNAPSHOT-SCALE-RECOVERY-AUDIT
+          name: GREENMAN-HEDGEWITCHERY-2-7-9-WHOLE-BOS-DOUBLE-SCALE-FIX-AUDIT
           path: |
             ${{ runner.temp }}/GREENMAN_27_APK_SHA256.txt
             ${{ runner.temp }}/GREENMAN_27_BADGING.txt
@@ -68,6 +131,7 @@ jobs:
             ${{ runner.temp }}/GREENMAN_2_7_8_JAVA_SHA256.txt
             ${{ runner.temp }}/GREENMAN_NATIVE_PRINT_BRIDGE.js
             ${{ runner.temp }}/MainActivity_2_7_8_BOS_SNAPSHOT_SCALE_RECOVERY.java
+            ${{ runner.temp }}/GREENMAN_2_7_9_WHOLE_BOOK_SCALE_PROOF.txt
             clean_shell_v2/install_final_tightening.py
             clean_shell_v2/install_print_layout_277.py
             clean_shell_v2/install_bos_snapshot_recovery_278.py
