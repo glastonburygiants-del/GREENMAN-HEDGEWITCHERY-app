@@ -1,4 +1,4 @@
-name: GREENMAN 2.7.6 PDF HARDENED PRINTFIX - INSPECTABLE
+name: GREENMAN 2.7.7 BOS + INSTRUCTION LAYOUT - INSPECTABLE
 
 on:
   pull_request:
@@ -45,30 +45,31 @@ jobs:
           chmod 600 "$HOME/.android/debug.keystore"
           keytool -list -keystore "$HOME/.android/debug.keystore" -storepass android -alias androiddebugkey >/dev/null
 
-      - name: Build and audit 2.7.6 PDF hardened printfix
+      - name: Build and audit 2.7.7 BoS and instruction layout
         shell: bash
         run: bash "$GITHUB_WORKSPACE/clean_shell_v2/build_2_7_final_candidate_ci.sh"
 
-      - name: Upload 2.7.6 APK
+      - name: Upload 2.7.7 APK
         uses: actions/upload-artifact@v4
         with:
-          name: GREENMAN-HEDGEWITCHERY-2-7-6-PDF-HARDENED-PRINTFIX-APK
+          name: GREENMAN-HEDGEWITCHERY-2-7-7-BOS-INSTRUCTION-LAYOUT-APK
           path: ${{ env.APK_FILE }}
           if-no-files-found: error
           retention-days: 30
 
-      - name: Upload 2.7.6 audit
+      - name: Upload 2.7.7 audit
         uses: actions/upload-artifact@v4
         with:
-          name: GREENMAN-HEDGEWITCHERY-2-7-6-PDF-HARDENED-PRINTFIX-AUDIT
+          name: GREENMAN-HEDGEWITCHERY-2-7-7-BOS-INSTRUCTION-LAYOUT-AUDIT
           path: |
             ${{ runner.temp }}/GREENMAN_27_APK_SHA256.txt
             ${{ runner.temp }}/GREENMAN_27_BADGING.txt
             ${{ runner.temp }}/GREENMAN_27_EXPECTED.html
-            ${{ runner.temp }}/GREENMAN_2_7_6_JAVA_SHA256.txt
+            ${{ runner.temp }}/GREENMAN_2_7_7_JAVA_SHA256.txt
             ${{ runner.temp }}/GREENMAN_NATIVE_PRINT_BRIDGE.js
-            ${{ runner.temp }}/MainActivity_2_7_6_PDF_HARDENED_PRINTFIX.java
+            ${{ runner.temp }}/MainActivity_2_7_7_BOS_INSTRUCTION_LAYOUT.java
             clean_shell_v2/install_final_tightening.py
+            clean_shell_v2/install_print_layout_277.py
             clean_shell_v2/install_print_font_assets.py
             clean_shell_v2/install_pdf_hardened_names.py
             clean_shell_v2/build_2_7_final_candidate_ci.sh
