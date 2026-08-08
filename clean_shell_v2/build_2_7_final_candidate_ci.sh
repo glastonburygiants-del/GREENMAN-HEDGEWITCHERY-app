@@ -46,9 +46,6 @@ def pages_with_raw(s):
 
 a,raw_before=pages_with_raw(before)
 b,raw_after=pages_with_raw(after)
-
-# Critical single-file HTML boundary guard. Inner closing script tags must never
-# be literal because they terminate the outer PAGES script in Android WebView.
 unsafe=raw_after.lower().count('</script>')
 protected=raw_after.lower().count('<\\/script>')
 assert unsafe==0, f'FATAL: {unsafe} unsafe inner </script> boundaries remain'
@@ -73,7 +70,6 @@ for name,html in b.items():
 assert count==70, f'expected 70 embedded scripts, got {count}'
 print('Database guard passed; embedded scripts checked:',count)
 
-# Also syntax-check every actual outer-shell script after raw boundary protection.
 outer_count=0
 for n,js in enumerate(re.findall(r'<script(?:\s[^>]*)?>(.*?)</script>',after,re.S|re.I)):
     outer_count+=1
@@ -97,8 +93,16 @@ test "$(grep -c 'private void printWebViewDocument' "$JAVA_FILE")" -eq 1
 ! grep -q "nativePrintHtml" "$JAVA_FILE"
 ! grep -q "gmNativePrintHtml" "$JAVA_FILE"
 
-sed -i -E 's/versionCode[[:space:]]+[0-9]+/versionCode 19/' "$PROJECT_DIR/app/build.gradle"
-sed -i -E 's/versionName[[:space:]]+"[^"]+"/versionName "2.7.1-boundary-fixed"/' "$PROJECT_DIR/app/build.gradle"
+# Isolated 2.7.2 experiment: simplify only the final PDF representation.
+# Chromium still creates the exact same A4 layout first.
+python "$GITHUB_WORKSPACE/clean_shell_v2/install_phone_friendly_pdf_adapter.py" "$JAVA_FILE" "$JAVA_FILE"
+grep -q "class PhoneFriendlyPrintAdapter extends PrintDocumentAdapter" "$JAVA_FILE"
+grep -q "new PdfRenderer(input)" "$JAVA_FILE"
+grep -q "RASTER_SCALE = 2.0f" "$JAVA_FILE"
+test "$(grep -c 'public void printDocument' "$JAVA_FILE")" -eq 1
+
+sed -i -E 's/versionCode[[:space:]]+[0-9]+/versionCode 20/' "$PROJECT_DIR/app/build.gradle"
+sed -i -E 's/versionName[[:space:]]+"[^"]+"/versionName "2.7.2-phone-pdf-test"/' "$PROJECT_DIR/app/build.gradle"
 
 cd "$PROJECT_DIR"
 gradle :app:assembleDebug --no-daemon --stacktrace
@@ -109,9 +113,9 @@ unzip -p "$APK_FILE" assets/index.html > "$RUNNER_TEMP/GREENMAN_27_APK_INDEX.htm
 cmp -s "$RUNNER_TEMP/GREENMAN_27_EXPECTED.html" "$RUNNER_TEMP/GREENMAN_27_APK_INDEX.html"
 unzip -l "$APK_FILE" | grep -q 'greenman_launcher_art.*webp'
 "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK_FILE" > "$RUNNER_TEMP/GREENMAN_27_BADGING.txt"
-grep -q "package: name='com.greenman.hedgewitchery' versionCode='19'" "$RUNNER_TEMP/GREENMAN_27_BADGING.txt"
+grep -q "package: name='com.greenman.hedgewitchery' versionCode='20'" "$RUNNER_TEMP/GREENMAN_27_BADGING.txt"
 grep -q "application-label:'Greenman HedgeWitchery'" "$RUNNER_TEMP/GREENMAN_27_BADGING.txt"
 sha256sum "$APK_FILE" > "$RUNNER_TEMP/GREENMAN_27_APK_SHA256.txt"
 
-cp "$APK_FILE" "$RUNNER_TEMP/GREENMAN_HEDGEWITCHERY_2.7.1_BOUNDARY_FIXED.apk"
-echo "APK_FILE=$RUNNER_TEMP/GREENMAN_HEDGEWITCHERY_2.7.1_BOUNDARY_FIXED.apk" >> "$GITHUB_ENV"
+cp "$APK_FILE" "$RUNNER_TEMP/GREENMAN_HEDGEWITCHERY_2.7.2_PHONE_PDF_TEST.apk"
+echo "APK_FILE=$RUNNER_TEMP/GREENMAN_HEDGEWITCHERY_2.7.2_PHONE_PDF_TEST.apk" >> "$GITHUB_ENV"
