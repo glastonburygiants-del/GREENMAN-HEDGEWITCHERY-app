@@ -22,29 +22,35 @@ def replace_once(text,old,new,label):
     return text.replace(old,new,1)
 
 # ---------------------------------------------------------------------------
-# JOURNAL / BOS PRINT RECOVERY
+# JOURNAL / BOS SAVED-PAGE RECOVERY
 # ---------------------------------------------------------------------------
-# The saved GM-BOS-PAGES-2 record already contains each canonical page's own CSS.
-# Older records may also contain runtime fitting residue in inline styles and in the
-# captured global head CSS. The tell-tale failure is a full-width page whose type
-# and rows are only a fraction of their intended height. For these four A4 source
-# pages there are no authored inline geometry/font styles, so geometry/font inline
-# values are runtime residue and can be safely removed while preserving dynamic
-# visibility and grid-column values.
+# Preserve authored layout. Remove only known runtime fit residue. In particular,
+# --summary-fit-scale is a runtime value and was the surviving cause of miniature
+# saved Summary pages. The 2.7.7 fitFlatPages owner remains in control afterwards,
+# so a page can reduce just enough to stay inside A4 but can never collapse tiny.
 helper=r'''
 function gmRecoverBosSnapshotPage(root){
   if(!root)return root;
   var nodes=[root].concat(qsa('*',root));
   nodes.forEach(function(el){
     if(!el||el.nodeType!==1)return;
-    var tag=String(el.nodeName||'').toLowerCase();
-    if(tag==='svg'||tag==='path'||tag==='circle'||tag==='ellipse'||tag==='line'||tag==='polyline'||tag==='polygon'||tag==='g')return;
-    /* Older fitters could shorten a text leaf after saving its full value here. */
-    if(el.dataset&&el.dataset.gmFullText!=null){el.textContent=String(el.dataset.gmFullText||'');el.removeAttribute('data-gm-full-text');}
-    var st=el.style;if(!st)return;
-    ['zoom','transform','transform-origin','width','min-width','max-width','height','min-height','max-height',
-     'font-size','line-height','padding','padding-top','padding-right','padding-bottom','padding-left','overflow','box-sizing']
-      .forEach(function(p){st.removeProperty(p);});
+    if(el.dataset&&el.dataset.gmFullText!=null){
+      el.textContent=String(el.dataset.gmFullText||'');
+      el.removeAttribute('data-gm-full-text');
+      if(el.style){el.style.removeProperty('font-size');el.style.removeProperty('line-height');}
+    }
+    if(el.style){
+      el.style.removeProperty('--summary-fit-scale');
+      el.style.removeProperty('--grimoire-fit-scale');
+    }
+  });
+  var fitted=[];
+  if(root.matches&&root.matches('.true-page,.true-content,[data-gm-summary2-fit],[data-gm-instruction-fit],[data-gm-print-fit],[data-gm-scale],[data-gm-fit-scale]'))fitted.push(root);
+  if(root.querySelectorAll)fitted=fitted.concat(qsa('.true-page,.true-content,[data-gm-summary2-fit],[data-gm-instruction-fit],[data-gm-print-fit],[data-gm-scale],[data-gm-fit-scale]',root));
+  fitted.forEach(function(el){
+    if(!el||!el.style)return;
+    ['zoom','transform','transform-origin','width','min-width','max-width','height','min-height','max-height']
+      .forEach(function(p){el.style.removeProperty(p);});
     ['data-gm-summary2-fit','data-gm-instruction-fit','data-gm-print-fit','data-gm-scale','data-gm-fit-scale']
       .forEach(function(a){el.removeAttribute(a);});
   });
@@ -84,8 +90,6 @@ new_append=r'''function appendFlatSnapshot(container,e,activeOnly){
   pages.forEach(function(pg,i){
     if(activeOnly!=null&&i!==activeOnly)return;
     var cls='gm-flat-'+(++GM_FLAT_SEQ);
-    /* The page-local CSS is the canonical A4 design. Captured global head CSS can
-       contain old phone/print fitters, so never replay it when local page CSS exists. */
     var pageCss=String(pg.css||'').trim()||String(snap.css||'');
     css+=gmScopeCss(pageCss,'.'+cls);
     var sec=document.createElement('section');
@@ -102,62 +106,39 @@ new_append=r'''function appendFlatSnapshot(container,e,activeOnly){
 }'''
 journal=replace_once(journal,old_append,new_append,'Journal flat snapshot recovery owner')
 
-# Saved pages are already fixed 756 x 1058 design canvases. Never apply another
-# whole-page scale in Journal printing. That extra fit was the remaining path that
-# could turn a good A4 snapshot into a miniature page.
-fit_start=journal.index('function fitFlatPages(root){')
-fit_end=journal.index('\nfunction gmEnsureJournalPrintFonts',fit_start)
-new_fit=r'''function fitFlatPages(root){
-  qsa('.gm-flat .true-page',root).forEach(function(pg){
-    gmRecoverBosSnapshotPage(pg);
-    pg.style.setProperty('width','756px','important');
-    pg.style.setProperty('min-width','756px','important');
-    pg.style.setProperty('max-width','756px','important');
-    pg.style.setProperty('height','1058px','important');
-    pg.style.setProperty('min-height','1058px','important');
-    pg.style.setProperty('max-height','1058px','important');
-    pg.style.setProperty('zoom','1','important');
-    pg.style.setProperty('transform','none','important');
-    pg.style.setProperty('overflow','hidden','important');
-    var c=pg.querySelector(':scope > .true-content')||pg.querySelector('.true-content');
-    if(c){
-      c.style.setProperty('zoom','1','important');
-      c.style.setProperty('transform','none','important');
-      c.style.setProperty('transform-origin','top left','important');
-      c.style.removeProperty('width');c.style.removeProperty('height');
-      c.style.removeProperty('min-width');c.style.removeProperty('max-width');
-      c.style.removeProperty('min-height');c.style.removeProperty('max-height');
-    }
-    pg.setAttribute('data-gm-print-fit','1.0000');
-  });
-}
-'''
-journal=journal[:fit_start]+new_fit+journal[fit_end:]
-
-# Strong print-only geometry guard. Page-local CSS continues to own all typography,
-# grids and decoration; this only prevents a stored runtime scale from returning.
-css_anchor='.gm-flat .true-page>.true-content{transform-origin:top left!important;}'
-css_repl=css_anchor+".gm-flat.gm-bos-native .true-page>.true-content{zoom:1!important;transform:none!important;transform-origin:top left!important;width:auto!important;max-width:none!important;height:auto!important;min-height:0!important;}.gm-flat.gm-bos-native .true-page{zoom:1!important;transform:none!important;}"
-journal=replace_once(journal,css_anchor,css_repl,'Journal native BoS print geometry guard')
+# Keep the safer 2.7.7 A4 fitter. Add recovery immediately before it measures.
+fit_anchor="qsa('.gm-flat .true-page',root).forEach(function(pg){\n    var c=pg.querySelector(':scope > .true-content')||pg.querySelector('.true-content')||pg.firstElementChild;if(!c)return;"
+fit_repl="qsa('.gm-flat .true-page',root).forEach(function(pg){\n    gmRecoverBosSnapshotPage(pg);\n    var c=pg.querySelector(':scope > .true-content')||pg.querySelector('.true-content')||pg.firstElementChild;if(!c)return;"
+journal=replace_once(journal,fit_anchor,fit_repl,'Journal safe A4 fitter recovery hook')
 
 # ---------------------------------------------------------------------------
 # SPELL BUILDER FUTURE SNAPSHOT CLEANUP
 # ---------------------------------------------------------------------------
-# Clean future captures before they enter localStorage, so device/display fit state
-# can never become part of a BoS page again.
+# Future captures preserve authored inline geometry and typography. Only known fit
+# residue is removed before the snapshot enters localStorage.
 spell_helper=r'''
   function gmCleanBosSnapshotClone(clone){
     if(!clone)return clone;
     const nodes=[clone].concat(qa('*',clone));
     nodes.forEach(function(el){
       if(!el||el.nodeType!==1)return;
-      const tag=String(el.nodeName||'').toLowerCase();
-      if(tag==='svg'||tag==='path'||tag==='circle'||tag==='ellipse'||tag==='line'||tag==='polyline'||tag==='polygon'||tag==='g')return;
-      if(el.dataset&&el.dataset.gmFullText!=null){el.textContent=String(el.dataset.gmFullText||'');el.removeAttribute('data-gm-full-text');}
-      const st=el.style;if(!st)return;
-      ['zoom','transform','transform-origin','width','min-width','max-width','height','min-height','max-height',
-       'font-size','line-height','padding','padding-top','padding-right','padding-bottom','padding-left','overflow','box-sizing']
-        .forEach(function(p){st.removeProperty(p);});
+      if(el.dataset&&el.dataset.gmFullText!=null){
+        el.textContent=String(el.dataset.gmFullText||'');
+        el.removeAttribute('data-gm-full-text');
+        if(el.style){el.style.removeProperty('font-size');el.style.removeProperty('line-height');}
+      }
+      if(el.style){
+        el.style.removeProperty('--summary-fit-scale');
+        el.style.removeProperty('--grimoire-fit-scale');
+      }
+    });
+    let fitted=[];
+    if(clone.matches&&clone.matches('.true-page,.true-content,[data-gm-summary2-fit],[data-gm-instruction-fit],[data-gm-print-fit],[data-gm-scale],[data-gm-fit-scale]'))fitted.push(clone);
+    fitted=fitted.concat(qa('.true-page,.true-content,[data-gm-summary2-fit],[data-gm-instruction-fit],[data-gm-print-fit],[data-gm-scale],[data-gm-fit-scale]',clone));
+    fitted.forEach(function(el){
+      if(!el||!el.style)return;
+      ['zoom','transform','transform-origin','width','min-width','max-width','height','min-height','max-height']
+        .forEach(function(p){el.style.removeProperty(p);});
       ['data-gm-summary2-fit','data-gm-instruction-fit','data-gm-print-fit','data-gm-scale','data-gm-fit-scale']
         .forEach(function(a){el.removeAttribute(a);});
     });
@@ -186,7 +167,7 @@ obj['journal']=journal;obj['spellBuilder']=spell
 new_json=json.dumps(obj,ensure_ascii=False,separators=(',',':'))
 s=s[:st]+new_json+s[st+end:]
 
-for term in ('gmRecoverBosSnapshotPage','gm-bos-native','gmCleanBosSnapshotClone',"data-gm-print-fit','1.0000"):
-    if term not in s: raise SystemExit('missing 2.7.8 guard '+term)
+for term in ('gmRecoverBosSnapshotPage','gm-bos-native','gmCleanBosSnapshotClone','--summary-fit-scale'):
+    if term not in s: raise SystemExit('missing BoS recovery guard '+term)
 out.write_text(s,encoding='utf-8')
-print('Installed 2.7.8 BoS snapshot scale recovery: discard captured global fit CSS, restore canonical page geometry, clean future snapshots')
+print('Installed safe BoS snapshot recovery: remove only runtime fit residue, preserve authored layout, keep 2.7.7 A4 containment')
