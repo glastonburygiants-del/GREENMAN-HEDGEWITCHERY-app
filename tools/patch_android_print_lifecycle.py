@@ -163,7 +163,7 @@ def patch_html(src,dst):
     pages['journal']=patch_journal(pages['journal'],'journal')
     pages['bos']=patch_journal(pages['bos'],'bos')
     enc=json.dumps(pages,ensure_ascii=False,separators=(',',':'))
-    enc=re.sub(r'</script',r'<\\/script',enc,flags=re.I)
+    enc=re.sub(r'</script',r'<\/script',enc,flags=re.I)
     tail=text[end:]
     listener="window.addEventListener('message', ev=>{"
     if 'window.gmNativePrintHtml=function' not in tail:
