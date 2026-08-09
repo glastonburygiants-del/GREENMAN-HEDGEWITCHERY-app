@@ -185,8 +185,8 @@ test "$(grep -c 'private void printWebViewDocument' "$JAVA_FILE")" -eq 1
 ! grep -q "gmNativePrintHtml" "$JAVA_FILE"
 ! grep -q "function slimPrintClone" "$JAVA_FILE"
 
-sed -i -E 's/versionCode[[:space:]]+[0-9]+/versionCode 30/' "$PROJECT_DIR/app/build.gradle"
-sed -i -E 's/versionName[[:space:]]+"[^"]+"/versionName "2.7.13-print-fit-restore"/' "$PROJECT_DIR/app/build.gradle"
+sed -i -E 's/versionCode[[:space:]]+[0-9]+/versionCode 29/' "$PROJECT_DIR/app/build.gradle"
+sed -i -E 's/versionName[[:space:]]+"[^"]+"/versionName "2.7.11-grimoire-single-greenman-dialogs"/' "$PROJECT_DIR/app/build.gradle"
 
 python "$GITHUB_WORKSPACE/clean_shell_v2/force_stable_debug_signing.py" "$PROJECT_DIR/app/build.gradle"
 grep -q "GREENMAN_STABLE_DEBUG_SIGNING_V1" "$PROJECT_DIR/app/build.gradle"
@@ -203,7 +203,7 @@ unzip -l "$APK_FILE" | grep -q 'assets/fonts/Cinzel.ttf'
 unzip -l "$APK_FILE" | grep -q 'assets/fonts/IMFellEnglish-Regular.ttf'
 unzip -l "$APK_FILE" | grep -q 'assets/fonts/CrimsonText-Regular.ttf'
 "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK_FILE" > "$RUNNER_TEMP/GREENMAN_27_BADGING.txt"
-grep -q "package: name='com.greenman.hedgewitchery' versionCode='30'" "$RUNNER_TEMP/GREENMAN_27_BADGING.txt"
+grep -q "package: name='com.greenman.hedgewitchery' versionCode='29'" "$RUNNER_TEMP/GREENMAN_27_BADGING.txt"
 grep -q "application-label:'Greenman HedgeWitchery'" "$RUNNER_TEMP/GREENMAN_27_BADGING.txt"
 sha256sum "$APK_FILE" > "$RUNNER_TEMP/GREENMAN_27_APK_SHA256.txt"
 
