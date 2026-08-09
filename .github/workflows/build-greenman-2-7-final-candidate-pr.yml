@@ -1,4 +1,4 @@
-name: GREENMAN 2.7.10 GRIMOIRE A4 PAGINATION - INSPECTABLE
+name: GREENMAN 2.7.11 GRIMOIRE ONE PAGE + GREENMAN DIALOGS - INSPECTABLE
 
 on:
   pull_request:
@@ -45,91 +45,68 @@ jobs:
           chmod 600 "$HOME/.android/debug.keystore"
           keytool -list -v -keystore "$HOME/.android/debug.keystore" -storepass android -alias androiddebugkey > "$RUNNER_TEMP/GREENMAN_STABLE_KEY.txt"
 
-      - name: Prepare one 2.7.10 build
-        shell: bash
-        run: |
-          set -euo pipefail
-          python - <<'PY'
-          from pathlib import Path
-          p=Path('clean_shell_v2/build_2_7_final_candidate_ci.sh')
-          s=p.read_text(encoding='utf-8')
-          anchor='python "$GITHUB_WORKSPACE/clean_shell_v2/install_bos_snapshot_recovery_278.py" "$INDEX_FILE" "$INDEX_FILE"\n'
-          add=anchor+'# 2.7.10: paginate long Grimoire entries at the page-builder level instead of shrinking or clipping them.\npython "$GITHUB_WORKSPACE/clean_shell_v2/install_grimoire_pagination_2710.py" "$INDEX_FILE" "$INDEX_FILE"\n'
-          if s.count(anchor)!=1:
-              raise SystemExit('2.7.10 pagination insertion anchor changed')
-          s=s.replace(anchor,add,1)
-          replacements=[
-              ('versionCode 26','versionCode 28'),
-              ('2.7.8-bos-snapshot-scale-recovery','2.7.10-grimoire-a4-pagination'),
-              ("versionCode='26'","versionCode='28'"),
-              ('GREENMAN_HEDGEWITCHERY_2.7.8_BOS_SNAPSHOT_SCALE_RECOVERY.apk','GREENMAN_HEDGEWITCHERY_2.7.10_GRIMOIRE_A4_PAGINATION.apk'),
-          ]
-          for old,new in replacements:
-              if old not in s:
-                  raise SystemExit('2.7.10 build anchor missing: '+old)
-              s=s.replace(old,new)
-          needle='grep -q "gmCleanBosSnapshotClone" "$INDEX_FILE"\n'
-          extra=needle+'grep -q "gm-grimoire-pagination-v1" "$INDEX_FILE"\ngrep -q "gm-grimoire-split-2" "$INDEX_FILE"\n'
-          if s.count(needle)!=1:
-              raise SystemExit('2.7.10 audit insertion anchor changed')
-          s=s.replace(needle,extra,1)
-          sign_anchor='cd "$PROJECT_DIR"\n'
-          sign_block='python "$GITHUB_WORKSPACE/clean_shell_v2/force_stable_debug_signing.py" "$PROJECT_DIR/app/build.gradle"\ngrep -q "GREENMAN_STABLE_DEBUG_SIGNING_V1" "$PROJECT_DIR/app/build.gradle"\n\n'+sign_anchor
-          if s.count(sign_anchor)!=1:
-              raise SystemExit('2.7.10 signing insertion anchor changed')
-          s=s.replace(sign_anchor,sign_block,1)
-          p.write_text(s,encoding='utf-8')
-          PY
-
-      - name: Build and audit 2.7.10
+      - name: Build and audit 2.7.11
         shell: bash
         run: bash "$GITHUB_WORKSPACE/clean_shell_v2/build_2_7_final_candidate_ci.sh"
 
-      - name: Prove Grimoire pagination and signing
+      - name: Prove one-page Grimoire, Greenman dialogs and signing
         shell: bash
         run: |
           set -euo pipefail
           python - <<'PY'
           from pathlib import Path
-          import json, os
-          p=Path(os.environ['RUNNER_TEMP'])/'GREENMAN_27_EXPECTED.html'
+          import json, os, re
+          td=Path(os.environ['RUNNER_TEMP'])
+          p=td/'GREENMAN_27_EXPECTED.html'
           s=p.read_text(encoding='utf-8')
           st=s.index('const PAGES = ')+len('const PAGES = ')
           pages,_=json.JSONDecoder().raw_decode(s[st:])
           bos=pages['bos']; grim=pages['grimoire']
-          selector=".a4-page:not(.gm-flat):not(.gm-book-front):not(.gm-book-frontmatter):not(.grimoire-page):not(.summary-page)"
-          assert selector in bos, 'generic whole-book fitter can still touch Grimoire pages'
-          for term in ('gm-grimoire-pagination-v1','gm-grimoire-native','gm-grimoire-split-1','gm-grimoire-split-2',"'1 of 2'","'2 of 2'"):
-              assert term in bos, 'missing pagination marker '+term
+          assert 'gm-grimoire-single-page-v2' in bos
+          assert 'gm-grimoire-one' in bos
+          assert 'gm-grimoire-split-1' not in bos and 'gm-grimoire-split-2' not in bos
+          builder=bos[bos.index('function buildGrimoirePages(e){'):bos.index('\n\nfunction fitTextInsideBox',bos.index('function buildGrimoirePages(e){'))]
+          assert "'1 of 1'" in builder
+          assert "'1 of 2'" not in builder and "'2 of 2'" not in builder
           mi=grim.index('const ITEMS =')+len('const ITEMS =')
           items,_=json.JSONDecoder().raw_decode(grim[mi:].lstrip())
           acorn=next(x for x in items if str(x.get('_name') or x.get('Name') or '').upper()=='ACORN')
           fields=[acorn.get('Magical Uses',''),acorn.get('Powers',''),acorn.get('Greenman Energy',''),acorn.get('Description',''),acorn.get('Folk Lore',''),acorn.get('Geology',''),acorn.get('Warning','')]
           weight=len(' '.join(map(str,fields)))
-          assert weight>900 and len(str(acorn.get('Magical Uses','')))>520, 'ACORN no longer exercises long-entry split path'
-          proof=Path(os.environ['RUNNER_TEMP'])/'GREENMAN_2_7_10_GRIMOIRE_PAGINATION_PROOF.txt'
+          alert_pages=[]
+          native_confirms=[]
+          for name,html in pages.items():
+              if re.search(r'\balert\s*\(',html):
+                  alert_pages.append(name)
+                  assert '__GM_GREENMAN_DIALOG_SHIM__' in html, 'alert page lacks shim: '+name
+              if re.search(r'\bconfirm\s*\(',html):
+                  native_confirms.append(name)
+          assert not native_confirms, 'native confirm remains in '+','.join(native_confirms)
+          assert 'gm-greenman-dialog-style' in s[:st]
+          assert '__GM_GREENMAN_DIALOG_OWNER__' in s
+          proof=td/'GREENMAN_2_7_11_ONE_PAGE_DIALOG_PROOF.txt'
           proof.write_text(
-              '2.7.10 GRIMOIRE PAGINATION PROOF\n'
-              f'ACORN long-entry text weight: {weight} characters.\n'
-              'Long Grimoire entries produce page 1 of 2 + page 2 of 2.\n'
-              'Short entries retain the 1 of 1 path.\n'
-              'New Grimoire pages are native-scale pages; their text boxes fit themselves instead of shrinking the whole sheet.\n'
-              'Whole-book generic fitter still excludes Grimoire and Summary pages.\n',encoding='utf-8')
+              '2.7.11 ONE PAGE + GREENMAN DIALOG PROOF\n'
+              f'Packaged HTML bytes: {len(s.encode("utf-8"))}.\n'
+              f'ACORN long-entry text weight: {weight} characters; builder remains 1 of 1.\n'
+              'Grimoire split markers: 0.\n'
+              f'Pages containing alert calls routed through Greenman shim: {len(alert_pages)} ({", ".join(alert_pages)}).\n'
+              'Native confirm() call sites: 0.\n'
+              'One outer parchment-and-gold dialog owner serves the app.\n',encoding='utf-8')
           print(proof.read_text(encoding='utf-8'))
           PY
+
           APK_FILE="${APK_FILE:?APK_FILE missing}"
-          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --print-certs "$APK_FILE" > "$RUNNER_TEMP/GREENMAN_2_7_10_APK_CERT.txt"
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --print-certs "$APK_FILE" > "$RUNNER_TEMP/GREENMAN_2_7_11_APK_CERT.txt"
           python - <<'PY'
           from pathlib import Path
           import os,re
           td=Path(os.environ['RUNNER_TEMP'])
           kt=(td/'GREENMAN_STABLE_KEY.txt').read_text(encoding='utf-8',errors='ignore')
-          at=(td/'GREENMAN_2_7_10_APK_CERT.txt').read_text(encoding='utf-8',errors='ignore')
+          at=(td/'GREENMAN_2_7_11_APK_CERT.txt').read_text(encoding='utf-8',errors='ignore')
           km=re.search(r'SHA256\s*:\s*([0-9A-Fa-f:]+)',kt,re.I)
           am=re.search(r'certificate\s+SHA-256\s+digest\s*:\s*([0-9A-Fa-f:]+)',at,re.I)
           if not km or not am:
-              print('Keytool fingerprint lines:',[x for x in kt.splitlines() if 'SHA' in x.upper()])
-              print('APK certificate lines:',[x for x in at.splitlines() if 'CERTIFICATE' in x.upper() or 'SHA' in x.upper()])
               raise SystemExit('Could not parse signing fingerprints')
           norm=lambda x:re.sub(r'[^0-9A-F]','',x.upper())
           key_fp=norm(km.group(1)); apk_fp=norm(am.group(1))
@@ -137,31 +114,32 @@ jobs:
           print('APK signer SHA256:',apk_fp)
           if key_fp!=apk_fp:
               raise SystemExit('APK signer does not match stable Greenman key')
-          (td/'GREENMAN_2_7_10_SIGNING_PROOF.txt').write_text('Stable APK signer verified: '+apk_fp+'\n',encoding='utf-8')
+          (td/'GREENMAN_2_7_11_SIGNING_PROOF.txt').write_text('Stable APK signer verified: '+apk_fp+'\n',encoding='utf-8')
           PY
 
-      - name: Upload 2.7.10 APK
+      - name: Upload 2.7.11 APK
         uses: actions/upload-artifact@v4
         with:
-          name: GREENMAN-HEDGEWITCHERY-2-7-10-GRIMOIRE-A4-PAGINATION-APK
+          name: GREENMAN-HEDGEWITCHERY-2-7-11-GRIMOIRE-ONE-PAGE-GREENMAN-DIALOGS-APK
           path: ${{ env.APK_FILE }}
           if-no-files-found: error
           retention-days: 30
 
-      - name: Upload 2.7.10 audit
+      - name: Upload 2.7.11 audit
         uses: actions/upload-artifact@v4
         with:
-          name: GREENMAN-HEDGEWITCHERY-2-7-10-GRIMOIRE-A4-PAGINATION-AUDIT
+          name: GREENMAN-HEDGEWITCHERY-2-7-11-GRIMOIRE-ONE-PAGE-GREENMAN-DIALOGS-AUDIT
           path: |
             ${{ runner.temp }}/GREENMAN_27_APK_SHA256.txt
             ${{ runner.temp }}/GREENMAN_27_BADGING.txt
             ${{ runner.temp }}/GREENMAN_27_EXPECTED.html
             ${{ runner.temp }}/GREENMAN_NATIVE_PRINT_BRIDGE.js
-            ${{ runner.temp }}/GREENMAN_2_7_10_GRIMOIRE_PAGINATION_PROOF.txt
-            ${{ runner.temp }}/GREENMAN_2_7_10_APK_CERT.txt
-            ${{ runner.temp }}/GREENMAN_2_7_10_SIGNING_PROOF.txt
+            ${{ runner.temp }}/GREENMAN_2_7_11_ONE_PAGE_DIALOG_PROOF.txt
+            ${{ runner.temp }}/GREENMAN_2_7_11_APK_CERT.txt
+            ${{ runner.temp }}/GREENMAN_2_7_11_SIGNING_PROOF.txt
+            ${{ runner.temp }}/GREENMAN_2_7_11_JAVA_SHA256.txt
             clean_shell_v2/force_stable_debug_signing.py
-            clean_shell_v2/install_grimoire_pagination_2710.py
+            clean_shell_v2/install_single_grimoire_dialogs_2711.py
             clean_shell_v2/install_final_tightening.py
             clean_shell_v2/install_print_layout_277.py
             clean_shell_v2/install_bos_snapshot_recovery_278.py
