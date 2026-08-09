@@ -65,14 +65,60 @@ def replace_function(text, name, new_code):
         i += 1
     raise SystemExit('closing brace missing: ' + name)
 
+def function_source(text, name):
+    m = re.search(r'function\s+' + re.escape(name) + r'\s*\(', text)
+    if not m:
+        raise SystemExit('function not found: ' + name)
+    begin = m.start()
+    brace = text.find('{', m.end())
+    if brace < 0:
+        raise SystemExit('opening brace missing: ' + name)
+    depth = 0
+    i = brace
+    quote = None
+    escaped = False
+    line_comment = False
+    block_comment = False
+    while i < len(text):
+        c = text[i]
+        n = text[i + 1] if i + 1 < len(text) else ''
+        if line_comment:
+            if c == '\n':
+                line_comment = False
+        elif block_comment:
+            if c == '*' and n == '/':
+                block_comment = False
+                i += 1
+        elif quote:
+            if escaped:
+                escaped = False
+            elif c == '\\':
+                escaped = True
+            elif c == quote:
+                quote = None
+        else:
+            if c == '/' and n == '/':
+                line_comment = True
+                i += 1
+            elif c == '/' and n == '*':
+                block_comment = True
+                i += 1
+            elif c in ("'", '"', '`'):
+                quote = c
+            elif c == '{':
+                depth += 1
+            elif c == '}':
+                depth -= 1
+                if depth == 0:
+                    return text[begin:i + 1]
+        i += 1
+    raise SystemExit('closing brace missing: ' + name)
+
 bos_before = obj.get('bos')
 if not isinstance(bos_before, str):
     raise SystemExit('missing PAGES.bos')
 
-bos_after = replace_function(
-    bos_before,
-    'printAll',
-    '''function printAll(){
+new_print_all = '''function printAll(){
   if(bosIsLiteMode())return;
   const list=entries(),area=qs('#printArea');
   area.innerHTML='';
@@ -94,15 +140,17 @@ bos_after = replace_function(
   });
   setTimeout(()=>window.print(),180);
 }'''
-)
+
+bos_after = replace_function(bos_before, 'printAll', new_print_all)
 
 if bos_after == bos_before:
     raise SystemExit('BoS Print All owner was not changed')
+print_all_source = function_source(bos_after, 'printAll')
 for required in ('appendBosSnapshotInto(area,e,null)', 'fitSummaryPages(tmp)', 'fitGrimoirePages(tmp)', 'setTimeout(()=>window.print(),180)'):
-    if required not in bos_after:
+    if required not in print_all_source:
         raise SystemExit('BoS Print All owner missing: ' + required)
 for forbidden in ('fitSummaryPages(area)', 'fitGrimoirePages(area)', 'gmFlatPrint(area)', 'appendFlatSnapshot(area,e,null)'):
-    if forbidden in bos_after[bos_after.find('function printAll'):]:
+    if forbidden in print_all_source:
         raise SystemExit('whole-book print pass survived: ' + forbidden)
 obj['bos'] = bos_after
 
