@@ -105,11 +105,24 @@ FIT_FLAT_PAGES = '''function fitFlatPages(root){
       inner.style.setProperty('width','100%','important');
       inner.style.setProperty('height','auto','important');}
     var avail=pg.clientHeight; if(!avail)return;
-    /* Binary search for the LARGEST scale that still fits. A hard-coded
-       minimum here (as a prior patch tried) fixes over-shrinking but then
-       bleeds any page that genuinely needs to shrink further, so this
-       measures the real rendered height at each candidate scale instead. */
-    var lo=0.25,hi=1,best=0,mid,h,i;
+    /* Binary search for the LARGEST scale that still fits, between a
+       guaranteed-fit floor and 1. A fixed 0.25 floor (as before) still lost
+       content outright on exceptionally long entries: whole-page scale alone
+       can always make content fit given a small enough number, so rather
+       than cap the search and accept overflow, first shrink the floor itself
+       until it measurably fits, then binary-search upward from there for the
+       largest scale that still contains everything. Losing readability is
+       acceptable; losing content is not. */
+    var lo=0.25,hi=1,best=0,mid,h,i,floorGuard=0;
+    cs.setProperty('width',(100/lo).toFixed(3)+'%','important');
+    cs.setProperty('height','auto','important');
+    h=c.scrollHeight*lo;
+    while(h>avail-4 && lo>0.02 && floorGuard++<20){
+      lo=Math.max(0.02,lo*0.7);
+      cs.setProperty('width',(100/lo).toFixed(3)+'%','important');
+      h=c.scrollHeight*lo;
+    }
+    best=lo;
     for(i=0;i<10;i++){
       mid=(lo+hi)/2;
       cs.setProperty('width',(100/mid).toFixed(3)+'%','important');
@@ -139,8 +152,12 @@ FIT_GRIMOIRE_PAGES = '''function fitGrimoirePages(root=document){
       const needW=c.scrollWidth||794;
       const scale=Math.min(1,1123/Math.max(1123,needH),794/Math.max(794,needW));
       if(scale<1){
-        const minScale=page.classList.contains('incense-bos-one-page')?.58:.82;
-        page.style.setProperty('--grimoire-fit-scale',Math.max(minScale,scale-.008).toFixed(3));
+        /* No hard minimum here: clamping to a "normal" floor (as a prior
+           patch did) still lost content outright on exceptionally long
+           entries once the real requirement fell below that floor. 0.15 is
+           only a sanity backstop against a zero/negative scale, not a
+           readability target - losing content is worse than small text. */
+        page.style.setProperty('--grimoire-fit-scale',Math.max(0.15,scale-.008).toFixed(3));
         requestAnimationFrame(()=>fitAllGrimoireInfoBoxes(page));
       }
     });
@@ -182,6 +199,10 @@ for page_name in changed_pages:
         raise SystemExit('hard-coded 0.82 floor survived in ' + page_name)
     if page_name == 'bos' and "page.style.setProperty('--grimoire-fit-scale','1');\\n    fitAllGrimoireInfoBoxes(page);\\n    requestAnimationFrame(()=>fitAllGrimoireInfoBoxes(page));\\n    setTimeout(()=>fitAllGrimoireInfoBoxes(page),80);\\n  });" in body:
         raise SystemExit('no-op fitGrimoirePages survived in ' + page_name)
+    if page_name == 'bos' and "Math.max(minScale,scale-.008)" in body:
+        raise SystemExit('clamped grimoire minScale floor survived in ' + page_name)
+    if 'lo=0.25,hi=1,best=0,mid,h,i;\\n    for(i=0;i<10' in body:
+        raise SystemExit('capped-at-0.25 fitFlatPages search survived in ' + page_name)
 
 fixed = raw
 
