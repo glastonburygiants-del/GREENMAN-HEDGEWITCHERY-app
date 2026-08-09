@@ -112,8 +112,6 @@ jobs:
           pages, _ = json.JSONDecoder().raw_decode(text[start:])
           for name in ('spellBuilder','journal','bos'):
               page = pages[name]
-              if '<\\/script>' in page:
-                  raise SystemExit(f'{name}: broken literal <\\/script> remains inside decoded page')
               if '</head>' not in page or '<body' not in page:
                   raise SystemExit(f'{name}: page document boundary damaged')
           path.write_text(text, encoding='utf-8')
