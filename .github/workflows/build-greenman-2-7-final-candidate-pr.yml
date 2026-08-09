@@ -1,4 +1,4 @@
-name: GREENMAN 2.7.11 GRIMOIRE ONE PAGE + GREENMAN DIALOGS - INSPECTABLE
+name: GREENMAN 2.7.12 BOS + JOURNAL PRINT RESTORE - INSPECTABLE
 
 on:
   pull_request:
@@ -45,106 +45,203 @@ jobs:
           chmod 600 "$HOME/.android/debug.keystore"
           keytool -list -v -keystore "$HOME/.android/debug.keystore" -storepass android -alias androiddebugkey > "$RUNNER_TEMP/GREENMAN_STABLE_KEY.txt"
 
-      - name: Build and audit 2.7.11
-        shell: bash
-        run: bash "$GITHUB_WORKSPACE/clean_shell_v2/build_2_7_final_candidate_ci.sh"
-
-      - name: Prove one-page Grimoire, Greenman dialogs and signing
+      - name: Prepare surgical Journal and BoS print restore
         shell: bash
         run: |
           set -euo pipefail
+          cat > "$RUNNER_TEMP/restore_bos_journal_print_2712.py" <<'PYRESTORE'
+          #!/usr/bin/env python3
+          from pathlib import Path
+          import json,re,sys,hashlib
+
+          if len(sys.argv)!=3:
+              raise SystemExit('usage: restore_bos_journal_print_2712.py INPUT OUTPUT')
+          src=Path(sys.argv[1]); out=Path(sys.argv[2])
+          s=src.read_text(encoding='utf-8')
+          marker='const PAGES = '
+          st=s.index(marker)+len(marker)
+          pages,end=json.JSONDecoder().raw_decode(s[st:])
+          before=dict(pages)
+          journal=pages['journal']; bos=pages['bos']
+
+          def replace_function(text,name,new_code):
+              m=re.search(r'function\s+'+re.escape(name)+r'\s*\(',text)
+              if not m: raise SystemExit('function not found: '+name)
+              start=m.start(); brace=text.find('{',m.end())
+              if brace<0: raise SystemExit('opening brace missing: '+name)
+              depth=0; i=brace; quote=None; esc=False; line=False; block=False
+              while i<len(text):
+                  c=text[i]; n=text[i+1] if i+1<len(text) else ''
+                  if line:
+                      if c=='\n': line=False
+                  elif block:
+                      if c=='*' and n=='/': block=False; i+=1
+                  elif quote:
+                      if esc: esc=False
+                      elif c=='\\': esc=True
+                      elif c==quote: quote=None
+                  else:
+                      if c=='/' and n=='/': line=True; i+=1
+                      elif c=='/' and n=='*': block=True; i+=1
+                      elif c in ("'",'"','`'): quote=c
+                      elif c=='{': depth+=1
+                      elif c=='}':
+                          depth-=1
+                          if depth==0:
+                              return text[:start]+new_code+text[i+1:]
+                  i+=1
+              raise SystemExit('closing brace missing: '+name)
+
+          # Restore the supplied Journal v57 direct print path. No flat-copy printer,
+          # no extra font wait, no second saved-page fitter.
+          journal=replace_function(journal,'printHtml',r'''function printHtml(html){const area=qs('#printArea'); area.innerHTML=html; fitSummaryPages(area); fitInstructionText(); setTimeout(()=>window.print(),120);}''')
+          journal=replace_function(journal,'printCurrentEntry',r'''function printCurrentEntry(){const e=activeEntry(); if(!e)return; if(hasBosSnapshot(e)){const area=qs('#printArea');renderBosSnapshotInto(area,e,null);setTimeout(()=>window.print(),180);return;} printHtml(buildEntryPages(e));}''')
+          journal=replace_function(journal,'printCurrentPage',r'''function printCurrentPage(){const e=activeEntry(); if(!e)return; if(hasBosSnapshot(e)){const area=qs('#printArea');renderBosSnapshotInto(area,e,activePageIndex);setTimeout(()=>window.print(),180);return;} const pagesHtml=buildEntryPages(e); const tmp=document.createElement('div'); tmp.innerHTML=pagesHtml; const pages=qsa('.a4-page',tmp); printHtml(pages[activePageIndex]?pages[activePageIndex].outerHTML:pagesHtml);}''')
+          journal=replace_function(journal,'printWholeBos',r'''function printWholeBos(){const list=entriesSorted().sort((a,b)=>CATEGORIES.indexOf(a.category)-CATEGORIES.indexOf(b.category)||String(a.savedAt||'').localeCompare(String(b.savedAt||''))); const cover=pageFrame(pageHead('Greenman Book of Shadows','Front Page','1 of *')+'<main class="bos-cover" style="color:#faf6ec;margin-top:180px"><div class="bos-title">Greenman Book of Shadows</div><div class="bos-sub">Your record of spells cast and magic worked.</div></main>',true,'bos-cover-page'); const area=qs('#printArea');area.innerHTML=cover;list.forEach(function(e){if(hasBosSnapshot(e))appendBosSnapshotInto(area,e,null);else area.insertAdjacentHTML('beforeend',buildEntryPages(e));});fitSummaryPages(area);fitInstructionText();setTimeout(()=>window.print(),180);}''')
+
+          # Restore the supplied BoS v59 saved-spell print path. Keep the current Lite
+          # gate and current Grimoire fitter for non-snapshot records, but do not run
+          # the later flat-copy / frame-fit stack over saved spell snapshots.
+          bos=replace_function(bos,'printHtml',r'''function printHtml(html){const pa=qs('#printArea');pa.innerHTML=html;fitSummaryPages(pa);fitGrimoirePages(pa);setTimeout(()=>window.print(),80);}''')
+          bos=replace_function(bos,'printPage',r'''function printPage(){if(bosIsLiteMode())return;const e=activeEntry();if(!e)return;if(hasBosSnapshot(e)){const area=qs('#printArea');renderBosSnapshotInto(area,e,activePageIndex);setTimeout(()=>window.print(),180);return;}const tmp=document.createElement('div');tmp.innerHTML=buildEntryPages(e);fitSummaryPages(tmp);fitGrimoirePages(tmp);const pages=qsa('.a4-page',tmp);printHtml(pages[activePageIndex]?pages[activePageIndex].outerHTML:tmp.innerHTML);}''')
+          bos=replace_function(bos,'printEntry',r'''function printEntry(){if(bosIsLiteMode())return;const e=activeEntry();if(!e)return;if(hasBosSnapshot(e)){const area=qs('#printArea');renderBosSnapshotInto(area,e,null);setTimeout(()=>window.print(),180);return;}printHtml(buildEntryPages(e));}''')
+          bos=replace_function(bos,'printAll',r'''function printAll(){if(bosIsLiteMode())return;const list=entries(),area=qs('#printArea');area.innerHTML='';if(!list.length){area.innerHTML='<section class="a4-page active"><div class="a4-content">No Book of Shadows entries saved.</div></section>';}else{list.forEach(function(e){if(hasBosSnapshot(e))appendBosSnapshotInto(area,e,null);else area.insertAdjacentHTML('beforeend',buildEntryPages(e));});}fitSummaryPages(area);fitGrimoirePages(area);setTimeout(()=>window.print(),180);}''')
+
+          pages['journal']=journal; pages['bos']=bos
+          for key in pages:
+              if key not in ('journal','bos') and pages[key]!=before[key]:
+                  raise SystemExit('NON-PRINT PAGE CHANGED: '+key)
+          if pages['grimoire']!=before['grimoire']:
+              raise SystemExit('Grimoire changed')
+
+          def fn(text,name):
+              m=re.search(r'function\s+'+re.escape(name)+r'\s*\(',text)
+              if not m:return ''
+              start=m.start(); b=text.find('{',m.end()); d=0; i=b; q=None; esc=False; line=False; block=False
+              while i<len(text):
+                  c=text[i]; n=text[i+1] if i+1<len(text) else ''
+                  if line:
+                      if c=='\n':line=False
+                  elif block:
+                      if c=='*' and n=='/':block=False;i+=1
+                  elif q:
+                      if esc:esc=False
+                      elif c=='\\':esc=True
+                      elif c==q:q=None
+                  else:
+                      if c=='/' and n=='/':line=True;i+=1
+                      elif c=='/' and n=='*':block=True;i+=1
+                      elif c in ("'",'"','`'):q=c
+                      elif c=='{':d+=1
+                      elif c=='}':
+                          d-=1
+                          if d==0:return text[start:i+1]
+                  i+=1
+              return ''
+
+          active='\n'.join(fn(journal,n) for n in ('printHtml','printCurrentEntry','printCurrentPage','printWholeBos'))+'\n'+\
+                 '\n'.join(fn(bos,n) for n in ('printHtml','printPage','printEntry','printAll'))
+          for forbidden in ('gmFlatPrint(','appendFlatSnapshot(','gmEnsureJournalPrintFonts(','fitBosFrames('):
+              if forbidden in active: raise SystemExit('late print stack still active: '+forbidden)
+          for required in ('renderBosSnapshotInto(','appendBosSnapshotInto('):
+              if required not in active: raise SystemExit('supplied direct print path missing: '+required)
+
+          new_json=json.dumps(pages,ensure_ascii=False,separators=(',',':'))
+          s=s[:st]+new_json+s[st+end:]
+          out.write_text(s,encoding='utf-8')
+          proof=Path(__import__('os').environ['RUNNER_TEMP'])/'GREENMAN_2_7_12_PRINT_RESTORE_PROOF.txt'
+          proof.write_text(
+              '2.7.12 JOURNAL + BOS PRINT RESTORE\n'
+              'Changed pages: journal, bos only.\n'
+              'Grimoire page: byte-identical before/after restore.\n'
+              'Saved spell print owner: renderBosSnapshotInto / appendBosSnapshotInto.\n'
+              'Active late stack calls removed: gmFlatPrint, appendFlatSnapshot, gmEnsureJournalPrintFonts, fitBosFrames.\n',encoding='utf-8')
+          print(proof.read_text())
+          PYRESTORE
+
+          python - <<'PYBUILD'
+          from pathlib import Path
+          p=Path('clean_shell_v2/build_2_7_final_candidate_ci.sh')
+          s=p.read_text(encoding='utf-8')
+          anchor='python "$GITHUB_WORKSPACE/clean_shell_v2/install_single_grimoire_dialogs_2711.py" "$INDEX_FILE" "$INDEX_FILE"\n'
+          add=anchor+'# 2.7.12: restore only the supplied Journal/BoS direct print paths.\npython "$RUNNER_TEMP/restore_bos_journal_print_2712.py" "$INDEX_FILE" "$INDEX_FILE"\n'
+          if s.count(anchor)!=1: raise SystemExit('restore insertion anchor changed')
+          s=s.replace(anchor,add,1)
+          replacements=[
+              ('versionCode 29','versionCode 30'),
+              ("versionCode='29'","versionCode='30'"),
+              ('2.7.11-grimoire-single-greenman-dialogs','2.7.12-bos-journal-print-restore'),
+              ('GREENMAN_HEDGEWITCHERY_2.7.11_GRIMOIRE_SINGLE_GREENMAN_DIALOGS.apk','GREENMAN_HEDGEWITCHERY_2.7.12_BOS_JOURNAL_PRINT_RESTORE.apk'),
+              ('MainActivity_2_7_11_GRIMOIRE_SINGLE_GREENMAN_DIALOGS.java','MainActivity_2_7_12_BOS_JOURNAL_PRINT_RESTORE.java'),
+              ('GREENMAN_2_7_11_JAVA_SHA256.txt','GREENMAN_2_7_12_JAVA_SHA256.txt'),
+          ]
+          for old,new in replacements:
+              if old not in s: raise SystemExit('build anchor missing: '+old)
+              s=s.replace(old,new)
+          p.write_text(s,encoding='utf-8')
+          PYBUILD
+
+      - name: Build and audit 2.7.12
+        shell: bash
+        run: bash "$GITHUB_WORKSPACE/clean_shell_v2/build_2_7_final_candidate_ci.sh"
+
+      - name: Prove print restore and signing
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat "$RUNNER_TEMP/GREENMAN_2_7_12_PRINT_RESTORE_PROOF.txt"
           python - <<'PY'
           from pathlib import Path
-          import json, os, re
-          td=Path(os.environ['RUNNER_TEMP'])
-          p=td/'GREENMAN_27_EXPECTED.html'
-          s=p.read_text(encoding='utf-8')
+          import json,os,re
+          s=(Path(os.environ['RUNNER_TEMP'])/'GREENMAN_27_EXPECTED.html').read_text(encoding='utf-8')
           st=s.index('const PAGES = ')+len('const PAGES = ')
           pages,_=json.JSONDecoder().raw_decode(s[st:])
-          bos=pages['bos']; grim=pages['grimoire']
-          assert 'gm-grimoire-single-page-v2' in bos
-          assert 'gm-grimoire-one' in bos
-          assert 'gm-grimoire-split-1' not in bos and 'gm-grimoire-split-2' not in bos
-          builder=bos[bos.index('function buildGrimoirePages(e){'):bos.index('\n\nfunction fitTextInsideBox',bos.index('function buildGrimoirePages(e){'))]
-          assert "'1 of 1'" in builder
-          assert "'1 of 2'" not in builder and "'2 of 2'" not in builder
-          mi=grim.index('const ITEMS =')+len('const ITEMS =')
-          items,_=json.JSONDecoder().raw_decode(grim[mi:].lstrip())
-          acorn=next(x for x in items if str(x.get('_name') or x.get('Name') or '').upper()=='ACORN')
-          fields=[acorn.get('Magical Uses',''),acorn.get('Powers',''),acorn.get('Greenman Energy',''),acorn.get('Description',''),acorn.get('Folk Lore',''),acorn.get('Geology',''),acorn.get('Warning','')]
-          weight=len(' '.join(map(str,fields)))
-          alert_pages=[]
-          native_confirms=[]
-          for name,html in pages.items():
-              if re.search(r'\balert\s*\(',html):
-                  alert_pages.append(name)
-                  assert '__GM_GREENMAN_DIALOG_SHIM__' in html, 'alert page lacks shim: '+name
-              if re.search(r'\bconfirm\s*\(',html):
-                  native_confirms.append(name)
-          assert not native_confirms, 'native confirm remains in '+','.join(native_confirms)
-          assert 'gm-greenman-dialog-style' in s[:st]
-          assert '__GM_GREENMAN_DIALOG_OWNER__' in s
-          proof=td/'GREENMAN_2_7_11_ONE_PAGE_DIALOG_PROOF.txt'
-          proof.write_text(
-              '2.7.11 ONE PAGE + GREENMAN DIALOG PROOF\n'
-              f'Packaged HTML bytes: {len(s.encode("utf-8"))}.\n'
-              f'ACORN long-entry text weight: {weight} characters; builder remains 1 of 1.\n'
-              'Grimoire split markers: 0.\n'
-              f'Pages containing alert calls routed through Greenman shim: {len(alert_pages)} ({", ".join(alert_pages)}).\n'
-              'Native confirm() call sites: 0.\n'
-              'One outer parchment-and-gold dialog owner serves the app.\n',encoding='utf-8')
-          print(proof.read_text(encoding='utf-8'))
+          j=pages['journal']; b=pages['bos']; g=pages['grimoire']
+          assert 'gm-grimoire-single-page-v2' in b and 'gm-grimoire-one' in b
+          assert 'gm-grimoire-split-1' not in b and 'gm-grimoire-split-2' not in b
+          assert 'renderBosSnapshotInto(area,e,null);setTimeout(()=>window.print(),180)' in j
+          assert 'appendBosSnapshotInto(area,e,null)' in j
+          assert 'renderBosSnapshotInto(area,e,null);setTimeout(()=>window.print(),180)' in b
+          assert 'appendBosSnapshotInto(area,e,null)' in b
+          print('Direct supplied Journal/BoS print calls present. Grimoire owner retained.')
           PY
 
           APK_FILE="${APK_FILE:?APK_FILE missing}"
-          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --print-certs "$APK_FILE" > "$RUNNER_TEMP/GREENMAN_2_7_11_APK_CERT.txt"
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --print-certs "$APK_FILE" > "$RUNNER_TEMP/GREENMAN_2_7_12_APK_CERT.txt"
           python - <<'PY'
           from pathlib import Path
           import os,re
           td=Path(os.environ['RUNNER_TEMP'])
           kt=(td/'GREENMAN_STABLE_KEY.txt').read_text(encoding='utf-8',errors='ignore')
-          at=(td/'GREENMAN_2_7_11_APK_CERT.txt').read_text(encoding='utf-8',errors='ignore')
+          at=(td/'GREENMAN_2_7_12_APK_CERT.txt').read_text(encoding='utf-8',errors='ignore')
           km=re.search(r'SHA256\s*:\s*([0-9A-Fa-f:]+)',kt,re.I)
           am=re.search(r'certificate\s+SHA-256\s+digest\s*:\s*([0-9A-Fa-f:]+)',at,re.I)
-          if not km or not am:
-              raise SystemExit('Could not parse signing fingerprints')
+          if not km or not am: raise SystemExit('Could not parse signing fingerprints')
           norm=lambda x:re.sub(r'[^0-9A-F]','',x.upper())
-          key_fp=norm(km.group(1)); apk_fp=norm(am.group(1))
-          print('Stable key SHA256:',key_fp)
-          print('APK signer SHA256:',apk_fp)
-          if key_fp!=apk_fp:
-              raise SystemExit('APK signer does not match stable Greenman key')
-          (td/'GREENMAN_2_7_11_SIGNING_PROOF.txt').write_text('Stable APK signer verified: '+apk_fp+'\n',encoding='utf-8')
+          if norm(km.group(1))!=norm(am.group(1)): raise SystemExit('APK signer mismatch')
+          print('Stable signer verified.')
           PY
 
-      - name: Upload 2.7.11 APK
+      - name: Upload 2.7.12 APK
         uses: actions/upload-artifact@v4
         with:
-          name: GREENMAN-HEDGEWITCHERY-2-7-11-GRIMOIRE-ONE-PAGE-GREENMAN-DIALOGS-APK
+          name: GREENMAN-HEDGEWITCHERY-2-7-12-BOS-JOURNAL-PRINT-RESTORE-APK
           path: ${{ env.APK_FILE }}
           if-no-files-found: error
           retention-days: 30
 
-      - name: Upload 2.7.11 audit
+      - name: Upload 2.7.12 audit
         uses: actions/upload-artifact@v4
         with:
-          name: GREENMAN-HEDGEWITCHERY-2-7-11-GRIMOIRE-ONE-PAGE-GREENMAN-DIALOGS-AUDIT
+          name: GREENMAN-HEDGEWITCHERY-2-7-12-BOS-JOURNAL-PRINT-RESTORE-AUDIT
           path: |
             ${{ runner.temp }}/GREENMAN_27_APK_SHA256.txt
             ${{ runner.temp }}/GREENMAN_27_BADGING.txt
             ${{ runner.temp }}/GREENMAN_27_EXPECTED.html
             ${{ runner.temp }}/GREENMAN_NATIVE_PRINT_BRIDGE.js
-            ${{ runner.temp }}/GREENMAN_2_7_11_ONE_PAGE_DIALOG_PROOF.txt
-            ${{ runner.temp }}/GREENMAN_2_7_11_APK_CERT.txt
-            ${{ runner.temp }}/GREENMAN_2_7_11_SIGNING_PROOF.txt
-            ${{ runner.temp }}/GREENMAN_2_7_11_JAVA_SHA256.txt
-            clean_shell_v2/force_stable_debug_signing.py
-            clean_shell_v2/install_single_grimoire_dialogs_2711.py
-            clean_shell_v2/install_final_tightening.py
-            clean_shell_v2/install_print_layout_277.py
-            clean_shell_v2/install_bos_snapshot_recovery_278.py
-            clean_shell_v2/install_print_font_assets.py
-            clean_shell_v2/install_pdf_hardened_names.py
+            ${{ runner.temp }}/GREENMAN_2_7_12_PRINT_RESTORE_PROOF.txt
+            ${{ runner.temp }}/GREENMAN_2_7_12_APK_CERT.txt
+            ${{ runner.temp }}/GREENMAN_2_7_12_JAVA_SHA256.txt
             clean_shell_v2/build_2_7_final_candidate_ci.sh
           if-no-files-found: error
           retention-days: 30
