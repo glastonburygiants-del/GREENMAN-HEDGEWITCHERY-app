@@ -51,6 +51,15 @@ grep -q "Per-box text shrinking runs first" "$INDEX_FILE"
 python "$GITHUB_WORKSPACE/clean_shell_v2/repair_pack_scale_floor.py" "$INDEX_FILE" "$INDEX_FILE"
 grep -q "Math.max(.05,sc)" "$INDEX_FILE"
 ! grep -q "Math.max(.38,sc)" "$INDEX_FILE"
+# The Summary "Item List" table has exactly 4 hardcoded row templates in the
+# static HTML, and fillPrintStack() only ever populated the first 4 items
+# (all.slice(0,4)) - real data loss, not a scale/fit issue: anything past
+# the 4th item (candle + up to 4 elemental herbs + any extra spell herbs +
+# crystal + rune + goddess + god + oil can easily exceed 4) was never
+# written into the DOM at all.
+python "$GITHUB_WORKSPACE/clean_shell_v2/repair_summary_item_list_cap.py" "$INDEX_FILE" "$INDEX_FILE"
+grep -q "summary-item-4" "$INDEX_FILE"
+! grep -qF "all.slice(0,4).forEach(([l,it],i)=>{const n=i?i+1:''; setIn(root,'itemName'" "$INDEX_FILE"
 cp "$INDEX_FILE" "$RUNNER_TEMP/GREENMAN_27_EXPECTED.html"
 sha256sum "$INDEX_FILE" | tee "$RUNNER_TEMP/GREENMAN_27_INDEX_SHA256.txt"
 
