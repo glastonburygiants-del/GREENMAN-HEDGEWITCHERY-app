@@ -162,8 +162,6 @@ def patch_html(src,dst):
     pages['spellBuilder']=patch_spellbuilder(pages['spellBuilder'])
     pages['journal']=patch_journal(pages['journal'],'journal')
     pages['bos']=patch_journal(pages['bos'],'bos')
-    for key in pages:
-        pages[key]=re.sub(r'<\\/script',r'</script',pages[key],flags=re.I)
     enc=json.dumps(pages,ensure_ascii=False,separators=(',',':'))
     enc=re.sub(r'</script',r'<\/script',enc,flags=re.I)
     tail=text[end:]
