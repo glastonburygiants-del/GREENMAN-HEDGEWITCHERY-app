@@ -72,6 +72,10 @@ APPEND_NEW="""function appendFlatSnapshot(container,e,activeOnly){
   css+=gmScopeCss(String(snap.css||''),'.'+common);
   pages.forEach(function(pg,i){
     if(activeOnly!=null&&i!==activeOnly)return;
+    if(i===3||i===4){
+      container.appendChild(makeBosSnapshotPage(e,pg,false));
+      return;
+    }
     var cls='gm-flat-'+(++GM_FLAT_SEQ);
     css+=gmScopeCss(String(pg.css||''),'.'+cls);
     var sec=document.createElement('section');
