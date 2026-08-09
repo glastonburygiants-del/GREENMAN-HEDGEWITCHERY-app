@@ -44,6 +44,13 @@ python "$GITHUB_WORKSPACE/clean_shell_v2/repair_print_fit_regressions.py" "$INDE
 grep -q "Binary search for the LARGEST scale that still fits" "$INDEX_FILE"
 grep -q "Per-box text shrinking runs first" "$INDEX_FILE"
 ! grep -q "scale=Math.max(.82,scale\*.995)" "$INDEX_FILE"
+# The Spell Builder "A4 Pack" button (physicalPrint) computes the correct
+# per-sheet fit scale but then throws it away with a hard 0.38 floor, the
+# same bleed-causing pattern as fitFlatPages/fitGrimoirePages above, just in
+# a different function entirely - the BoS/Journal fix above never touched it.
+python "$GITHUB_WORKSPACE/clean_shell_v2/repair_pack_scale_floor.py" "$INDEX_FILE" "$INDEX_FILE"
+grep -q "Math.max(.05,sc)" "$INDEX_FILE"
+! grep -q "Math.max(.38,sc)" "$INDEX_FILE"
 cp "$INDEX_FILE" "$RUNNER_TEMP/GREENMAN_27_EXPECTED.html"
 sha256sum "$INDEX_FILE" | tee "$RUNNER_TEMP/GREENMAN_27_INDEX_SHA256.txt"
 
