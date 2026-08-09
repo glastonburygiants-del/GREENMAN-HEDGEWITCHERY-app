@@ -60,6 +60,8 @@ function gmRecoverBosSnapshotPage(root){
     page.style.setProperty('display','block','important');
     page.style.setProperty('visibility','visible','important');
     page.style.setProperty('opacity','1','important');
+    /* Initial marker only. The 2.7.7 fitter replaces this with the measured scale. */
+    page.setAttribute('data-gm-print-fit','1.0000');
   }
   return root;
 }
@@ -167,7 +169,7 @@ obj['journal']=journal;obj['spellBuilder']=spell
 new_json=json.dumps(obj,ensure_ascii=False,separators=(',',':'))
 s=s[:st]+new_json+s[st+end:]
 
-for term in ('gmRecoverBosSnapshotPage','gm-bos-native','gmCleanBosSnapshotClone','--summary-fit-scale'):
+for term in ('gmRecoverBosSnapshotPage','gm-bos-native','gmCleanBosSnapshotClone','--summary-fit-scale',"data-gm-print-fit','1.0000"):
     if term not in s: raise SystemExit('missing BoS recovery guard '+term)
 out.write_text(s,encoding='utf-8')
 print('Installed safe BoS snapshot recovery: remove only runtime fit residue, preserve authored layout, keep 2.7.7 A4 containment')
