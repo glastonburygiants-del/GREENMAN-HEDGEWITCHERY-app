@@ -68,7 +68,6 @@ jobs:
               if old not in s:
                   raise SystemExit('2.7.10 build anchor missing: '+old)
               s=s.replace(old,new)
-          # Extra audit markers for this one repair.
           needle='grep -q "gmCleanBosSnapshotClone" "$INDEX_FILE"\n'
           extra=needle+'grep -q "gm-grimoire-pagination-v1" "$INDEX_FILE"\ngrep -q "gm-grimoire-split-2" "$INDEX_FILE"\n'
           if s.count(needle)!=1:
@@ -115,11 +114,26 @@ jobs:
           PY
           APK_FILE="${APK_FILE:?APK_FILE missing}"
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --print-certs "$APK_FILE" > "$RUNNER_TEMP/GREENMAN_2_7_10_APK_CERT.txt"
-          KEY_FP="$(grep -m1 'SHA256:' "$RUNNER_TEMP/GREENMAN_STABLE_KEY.txt" | sed 's/.*SHA256: *//;s/://g' | tr '[:lower:]' '[:upper:]')"
-          APK_FP="$(grep -m1 'Signer #1 certificate SHA-256 digest:' "$RUNNER_TEMP/GREENMAN_2_7_10_APK_CERT.txt" | sed 's/.*: *//' | tr '[:lower:]' '[:upper:]')"
-          test -n "$KEY_FP" && test -n "$APK_FP"
-          test "$KEY_FP" = "$APK_FP"
-          echo "Stable APK signer verified: $APK_FP" | tee "$RUNNER_TEMP/GREENMAN_2_7_10_SIGNING_PROOF.txt"
+          python - <<'PY'
+          from pathlib import Path
+          import os,re
+          td=Path(os.environ['RUNNER_TEMP'])
+          kt=(td/'GREENMAN_STABLE_KEY.txt').read_text(encoding='utf-8',errors='ignore')
+          at=(td/'GREENMAN_2_7_10_APK_CERT.txt').read_text(encoding='utf-8',errors='ignore')
+          km=re.search(r'SHA256\s*:\s*([0-9A-Fa-f:]+)',kt,re.I)
+          am=re.search(r'certificate\s+SHA-256\s+digest\s*:\s*([0-9A-Fa-f:]+)',at,re.I)
+          if not km or not am:
+              print('Keytool fingerprint lines:',[x for x in kt.splitlines() if 'SHA' in x.upper()])
+              print('APK certificate lines:',[x for x in at.splitlines() if 'CERTIFICATE' in x.upper() or 'SHA' in x.upper()])
+              raise SystemExit('Could not parse signing fingerprints')
+          norm=lambda x:re.sub(r'[^0-9A-F]','',x.upper())
+          key_fp=norm(km.group(1)); apk_fp=norm(am.group(1))
+          print('Stable key SHA256:',key_fp)
+          print('APK signer SHA256:',apk_fp)
+          if key_fp!=apk_fp:
+              raise SystemExit('APK signer does not match stable Greenman key')
+          (td/'GREENMAN_2_7_10_SIGNING_PROOF.txt').write_text('Stable APK signer verified: '+apk_fp+'\n',encoding='utf-8')
+          PY
 
       - name: Upload 2.7.10 APK
         uses: actions/upload-artifact@v4
