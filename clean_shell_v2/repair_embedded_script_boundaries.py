@@ -13,10 +13,9 @@ start = s.index(marker) + len(marker)
 obj, end = json.JSONDecoder().raw_decode(s[start:])
 raw = s[start:start+end]
 
-# BOS PRINT ALL OWNER
-# The individual BoS Print Entry route proved the saved A4 pages at the right
-# size. Print All must compose those same per-entry renderers, not use a second
-# whole-book fit route.
+# BoS Print All must use the same saved-snapshot renderer as Print Entry.
+# The important difference is that the completed book is NOT sent through a
+# second whole-book fit pass after the entries have been assembled.
 def replace_function(text, name, new_code):
     m = re.search(r'function\s+' + re.escape(name) + r'\s*\(', text)
     if not m:
@@ -69,6 +68,7 @@ def replace_function(text, name, new_code):
 bos_before = obj.get('bos')
 if not isinstance(bos_before, str):
     raise SystemExit('missing PAGES.bos')
+
 bos_after = replace_function(
     bos_before,
     'printAll',
@@ -78,12 +78,12 @@ bos_after = replace_function(
   area.innerHTML='';
   if(!list.length){
     area.innerHTML='<section class="a4-page active"><div class="a4-content">No Book of Shadows entries saved.</div></section>';
-    gmFlatPrint(area);
+    setTimeout(()=>window.print(),180);
     return;
   }
   list.forEach(function(e){
     if(hasBosSnapshot(e)){
-      appendFlatSnapshot(area,e,null);
+      appendBosSnapshotInto(area,e,null);
       return;
     }
     const tmp=document.createElement('div');
@@ -92,18 +92,22 @@ bos_after = replace_function(
     fitGrimoirePages(tmp);
     while(tmp.firstChild)area.appendChild(tmp.firstChild);
   });
-  gmFlatPrint(area);
+  setTimeout(()=>window.print(),180);
 }'''
 )
+
 if bos_after == bos_before:
     raise SystemExit('BoS Print All owner was not changed')
-for required in ('appendFlatSnapshot(area,e,null)', 'gmFlatPrint(area)', 'fitSummaryPages(tmp)', 'fitGrimoirePages(tmp)'):
+for required in ('appendBosSnapshotInto(area,e,null)', 'fitSummaryPages(tmp)', 'fitGrimoirePages(tmp)', 'setTimeout(()=>window.print(),180)'):
     if required not in bos_after:
         raise SystemExit('BoS Print All owner missing: ' + required)
+for forbidden in ('fitSummaryPages(area)', 'fitGrimoirePages(area)', 'gmFlatPrint(area)', 'appendFlatSnapshot(area,e,null)'):
+    if forbidden in bos_after[bos_after.find('function printAll'):]:
+        raise SystemExit('whole-book print pass survived: ' + forbidden)
 obj['bos'] = bos_after
 
-# Replace just the serialized BoS string inside the original compact PAGES JSON.
-# This preserves every other embedded page byte-for-byte.
+# Replace only the serialized BoS page inside the compact PAGES JSON. Every
+# other embedded page remains byte-for-byte unchanged.
 old_bos_json = json.dumps(bos_before, ensure_ascii=False, separators=(',', ':'))
 new_bos_json = json.dumps(bos_after, ensure_ascii=False, separators=(',', ':'))
 if raw.count(old_bos_json) != 1:
@@ -114,15 +118,13 @@ unsafe = raw.lower().count('</script>')
 if unsafe == 0:
     raise SystemExit('boundary repair expected unsafe inner </script> tags but found 0')
 
-# Protect the outer HTML parser by escaping the slash in inner closing script
-# tags inside PAGES. No other page content is rewritten here.
+# Preserve the decoded embedded pages exactly apart from the intentional BoS
+# Print All owner change. Protect only the outer parser boundary here.
 fixed = raw.replace('</script>', '<\\/script>').replace('</SCRIPT>', '<\\/SCRIPT>')
 
 if fixed.lower().count('</script>') != 0:
     raise SystemExit('unsafe inner </script> remains after repair')
 
-# Decoding the protected JSON must produce exactly the intended object:
-# one BoS Print All owner change plus no other page changes.
 obj2, end2 = json.JSONDecoder().raw_decode(fixed)
 if obj2 != obj or end2 != len(fixed):
     raise SystemExit('decoded embedded pages changed during boundary repair')
@@ -132,6 +134,7 @@ for key in obj:
 
 s2 = s[:start] + fixed + s[start+end:]
 out.write_text(s2, encoding='utf-8')
-print('Unified BoS Print All with the proven Print Entry render path')
+print('BoS Print All now composes the same saved-entry renderer as Print Entry')
+print('No second whole-book fit pass is applied after composition')
 print(f'Repaired embedded script boundaries: {unsafe} unsafe closers -> 0')
 print(f'Protected inner closers now present: {fixed.lower().count("<\\/script>")}')
