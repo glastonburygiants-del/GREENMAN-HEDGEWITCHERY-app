@@ -73,6 +73,11 @@ jobs:
           if s.count(needle)!=1:
               raise SystemExit('2.7.10 audit insertion anchor changed')
           s=s.replace(needle,extra,1)
+          sign_anchor='cd "$PROJECT_DIR"\n'
+          sign_block='python "$GITHUB_WORKSPACE/clean_shell_v2/force_stable_debug_signing.py" "$PROJECT_DIR/app/build.gradle"\ngrep -q "GREENMAN_STABLE_DEBUG_SIGNING_V1" "$PROJECT_DIR/app/build.gradle"\n\n'+sign_anchor
+          if s.count(sign_anchor)!=1:
+              raise SystemExit('2.7.10 signing insertion anchor changed')
+          s=s.replace(sign_anchor,sign_block,1)
           p.write_text(s,encoding='utf-8')
           PY
 
@@ -155,6 +160,7 @@ jobs:
             ${{ runner.temp }}/GREENMAN_2_7_10_GRIMOIRE_PAGINATION_PROOF.txt
             ${{ runner.temp }}/GREENMAN_2_7_10_APK_CERT.txt
             ${{ runner.temp }}/GREENMAN_2_7_10_SIGNING_PROOF.txt
+            clean_shell_v2/force_stable_debug_signing.py
             clean_shell_v2/install_grimoire_pagination_2710.py
             clean_shell_v2/install_final_tightening.py
             clean_shell_v2/install_print_layout_277.py
