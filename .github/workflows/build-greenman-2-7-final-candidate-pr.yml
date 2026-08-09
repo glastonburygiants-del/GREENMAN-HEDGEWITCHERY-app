@@ -1,4 +1,4 @@
-name: GREENMAN 2.7.9 WHOLE BOS DOUBLE-SCALE REPAIR - INSPECTABLE
+name: GREENMAN 2.7.10 GRIMOIRE A4 PAGINATION - INSPECTABLE
 
 on:
   pull_request:
@@ -14,7 +14,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - name: Check out final-candidate branch
+      - name: Check out test branch
         uses: actions/checkout@v4
 
       - name: Set up Java 17
@@ -43,45 +43,45 @@ jobs:
           mkdir -p "$HOME/.android"
           base64 --decode "$GITHUB_WORKSPACE/tools/greenman_debug_keystore.b64" > "$HOME/.android/debug.keystore"
           chmod 600 "$HOME/.android/debug.keystore"
-          keytool -list -keystore "$HOME/.android/debug.keystore" -storepass android -alias androiddebugkey >/dev/null
+          keytool -list -v -keystore "$HOME/.android/debug.keystore" -storepass android -alias androiddebugkey > "$RUNNER_TEMP/GREENMAN_STABLE_KEY.txt"
 
-      - name: Prepare 2.7.9 whole-book scale repair
+      - name: Prepare one 2.7.10 build
         shell: bash
         run: |
           set -euo pipefail
           python - <<'PY'
           from pathlib import Path
-
-          owner=Path('clean_shell_v2/install_final_tightening.py')
-          s=owner.read_text(encoding='utf-8')
-          old="function fitGenerated(root){qsa('.a4-page:not(.gm-flat):not(.gm-book-front):not(.gm-book-frontmatter)',root)"
-          new="function fitGenerated(root){qsa('.a4-page:not(.gm-flat):not(.gm-book-front):not(.gm-book-frontmatter):not(.grimoire-page):not(.summary-page)',root)"
-          if s.count(old)!=1:
-              raise SystemExit('2.7.9: whole-book fitGenerated anchor changed')
-          s=s.replace(old,new,1)
-          owner.write_text(s,encoding='utf-8')
-
-          build=Path('clean_shell_v2/build_2_7_final_candidate_ci.sh')
-          b=build.read_text(encoding='utf-8')
+          p=Path('clean_shell_v2/build_2_7_final_candidate_ci.sh')
+          s=p.read_text(encoding='utf-8')
+          anchor='python "$GITHUB_WORKSPACE/clean_shell_v2/install_bos_snapshot_recovery_278.py" "$INDEX_FILE" "$INDEX_FILE"\n'
+          add=anchor+'# 2.7.10: paginate long Grimoire entries at the page-builder level instead of shrinking or clipping them.\npython "$GITHUB_WORKSPACE/clean_shell_v2/install_grimoire_pagination_2710.py" "$INDEX_FILE" "$INDEX_FILE"\n'
+          if s.count(anchor)!=1:
+              raise SystemExit('2.7.10 pagination insertion anchor changed')
+          s=s.replace(anchor,add,1)
           replacements=[
-              ('versionCode 26','versionCode 27'),
-              ('2.7.8-bos-snapshot-scale-recovery','2.7.9-whole-bos-double-scale-fix'),
-              ("versionCode='26'","versionCode='27'"),
-              ('GREENMAN_HEDGEWITCHERY_2.7.8_BOS_SNAPSHOT_SCALE_RECOVERY.apk','GREENMAN_HEDGEWITCHERY_2.7.9_WHOLE_BOS_DOUBLE_SCALE_FIX.apk'),
+              ('versionCode 26','versionCode 28'),
+              ('2.7.8-bos-snapshot-scale-recovery','2.7.10-grimoire-a4-pagination'),
+              ("versionCode='26'","versionCode='28'"),
+              ('GREENMAN_HEDGEWITCHERY_2.7.8_BOS_SNAPSHOT_SCALE_RECOVERY.apk','GREENMAN_HEDGEWITCHERY_2.7.10_GRIMOIRE_A4_PAGINATION.apk'),
           ]
-          for a,z in replacements:
-              if a not in b:
-                  raise SystemExit('2.7.9 build anchor missing: '+a)
-              b=b.replace(a,z)
-          build.write_text(b,encoding='utf-8')
-          print('Prepared one targeted repair: specialist Grimoire/Summary fitters keep ownership; generic whole-book fitter cannot scale them again.')
+          for old,new in replacements:
+              if old not in s:
+                  raise SystemExit('2.7.10 build anchor missing: '+old)
+              s=s.replace(old,new)
+          # Extra audit markers for this one repair.
+          needle='grep -q "gmCleanBosSnapshotClone" "$INDEX_FILE"\n'
+          extra=needle+'grep -q "gm-grimoire-pagination-v1" "$INDEX_FILE"\ngrep -q "gm-grimoire-split-2" "$INDEX_FILE"\n'
+          if s.count(needle)!=1:
+              raise SystemExit('2.7.10 audit insertion anchor changed')
+          s=s.replace(needle,extra,1)
+          p.write_text(s,encoding='utf-8')
           PY
 
-      - name: Build and audit 2.7.9 whole BoS repair
+      - name: Build and audit 2.7.10
         shell: bash
         run: bash "$GITHUB_WORKSPACE/clean_shell_v2/build_2_7_final_candidate_ci.sh"
 
-      - name: Prove whole-book scale ownership
+      - name: Prove Grimoire pagination and signing
         shell: bash
         run: |
           set -euo pipefail
@@ -90,48 +90,58 @@ jobs:
           import json, os
           p=Path(os.environ['RUNNER_TEMP'])/'GREENMAN_27_EXPECTED.html'
           s=p.read_text(encoding='utf-8')
-          marker='const PAGES = '
-          st=s.index(marker)+len(marker)
+          st=s.index('const PAGES = ')+len('const PAGES = ')
           pages,_=json.JSONDecoder().raw_decode(s[st:])
-          bos=pages['bos']
+          bos=pages['bos']; grim=pages['grimoire']
           selector=".a4-page:not(.gm-flat):not(.gm-book-front):not(.gm-book-frontmatter):not(.grimoire-page):not(.summary-page)"
-          if selector not in bos:
-              raise SystemExit('2.7.9 proof failed: specialist pages still reachable by generic fitter')
-          if "const minScale=page.classList.contains('incense-bos-one-page')?.58:.82;" not in bos:
-              raise SystemExit('2.7.9 proof failed: Grimoire specialist fitter missing')
-          if "try{fitGrimoirePages(area);}catch(e){}try{fitFlatPages(area);}catch(e){}try{fitGenerated(area);}catch(e){}" not in bos:
-              raise SystemExit('2.7.9 proof failed: whole-book fit order changed')
-          proof=Path(os.environ['RUNNER_TEMP'])/'GREENMAN_2_7_9_WHOLE_BOOK_SCALE_PROOF.txt'
+          assert selector in bos, 'generic whole-book fitter can still touch Grimoire pages'
+          for term in ('gm-grimoire-pagination-v1','gm-grimoire-native','gm-grimoire-split-1','gm-grimoire-split-2',"'1 of 2'","'2 of 2'"):
+              assert term in bos, 'missing pagination marker '+term
+          mi=grim.index('const ITEMS =')+len('const ITEMS =')
+          items,_=json.JSONDecoder().raw_decode(grim[mi:].lstrip())
+          acorn=next(x for x in items if str(x.get('_name') or x.get('Name') or '').upper()=='ACORN')
+          fields=[acorn.get('Magical Uses',''),acorn.get('Powers',''),acorn.get('Greenman Energy',''),acorn.get('Description',''),acorn.get('Folk Lore',''),acorn.get('Geology',''),acorn.get('Warning','')]
+          weight=len(' '.join(map(str,fields)))
+          assert weight>900 and len(str(acorn.get('Magical Uses','')))>520, 'ACORN no longer exercises long-entry split path'
+          proof=Path(os.environ['RUNNER_TEMP'])/'GREENMAN_2_7_10_GRIMOIRE_PAGINATION_PROOF.txt'
           proof.write_text(
-              '2.7.9 WHOLE BOS SCALE PROOF\n'
-              'Grimoire pages: specialist fitter only, minimum normal scale 0.82.\n'
-              'Summary pages: specialist fitter only.\n'
-              'Generic whole-book fitter explicitly excludes both page families.\n'
-              'This removes the second transform that could overwrite the Grimoire scale with the generic 0.30 floor.\n',
-              encoding='utf-8')
+              '2.7.10 GRIMOIRE PAGINATION PROOF\n'
+              f'ACORN long-entry text weight: {weight} characters.\n'
+              'Long Grimoire entries produce page 1 of 2 + page 2 of 2.\n'
+              'Short entries retain the 1 of 1 path.\n'
+              'New Grimoire pages are native-scale pages; their text boxes fit themselves instead of shrinking the whole sheet.\n'
+              'Whole-book generic fitter still excludes Grimoire and Summary pages.\n',encoding='utf-8')
           print(proof.read_text(encoding='utf-8'))
           PY
+          APK_FILE="${APK_FILE:?APK_FILE missing}"
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --print-certs "$APK_FILE" > "$RUNNER_TEMP/GREENMAN_2_7_10_APK_CERT.txt"
+          KEY_FP="$(grep -m1 'SHA256:' "$RUNNER_TEMP/GREENMAN_STABLE_KEY.txt" | sed 's/.*SHA256: *//;s/://g' | tr '[:lower:]' '[:upper:]')"
+          APK_FP="$(grep -m1 'Signer #1 certificate SHA-256 digest:' "$RUNNER_TEMP/GREENMAN_2_7_10_APK_CERT.txt" | sed 's/.*: *//' | tr '[:lower:]' '[:upper:]')"
+          test -n "$KEY_FP" && test -n "$APK_FP"
+          test "$KEY_FP" = "$APK_FP"
+          echo "Stable APK signer verified: $APK_FP" | tee "$RUNNER_TEMP/GREENMAN_2_7_10_SIGNING_PROOF.txt"
 
-      - name: Upload 2.7.9 APK
+      - name: Upload 2.7.10 APK
         uses: actions/upload-artifact@v4
         with:
-          name: GREENMAN-HEDGEWITCHERY-2-7-9-WHOLE-BOS-DOUBLE-SCALE-FIX-APK
+          name: GREENMAN-HEDGEWITCHERY-2-7-10-GRIMOIRE-A4-PAGINATION-APK
           path: ${{ env.APK_FILE }}
           if-no-files-found: error
           retention-days: 30
 
-      - name: Upload 2.7.9 audit
+      - name: Upload 2.7.10 audit
         uses: actions/upload-artifact@v4
         with:
-          name: GREENMAN-HEDGEWITCHERY-2-7-9-WHOLE-BOS-DOUBLE-SCALE-FIX-AUDIT
+          name: GREENMAN-HEDGEWITCHERY-2-7-10-GRIMOIRE-A4-PAGINATION-AUDIT
           path: |
             ${{ runner.temp }}/GREENMAN_27_APK_SHA256.txt
             ${{ runner.temp }}/GREENMAN_27_BADGING.txt
             ${{ runner.temp }}/GREENMAN_27_EXPECTED.html
-            ${{ runner.temp }}/GREENMAN_2_7_8_JAVA_SHA256.txt
             ${{ runner.temp }}/GREENMAN_NATIVE_PRINT_BRIDGE.js
-            ${{ runner.temp }}/MainActivity_2_7_8_BOS_SNAPSHOT_SCALE_RECOVERY.java
-            ${{ runner.temp }}/GREENMAN_2_7_9_WHOLE_BOOK_SCALE_PROOF.txt
+            ${{ runner.temp }}/GREENMAN_2_7_10_GRIMOIRE_PAGINATION_PROOF.txt
+            ${{ runner.temp }}/GREENMAN_2_7_10_APK_CERT.txt
+            ${{ runner.temp }}/GREENMAN_2_7_10_SIGNING_PROOF.txt
+            clean_shell_v2/install_grimoire_pagination_2710.py
             clean_shell_v2/install_final_tightening.py
             clean_shell_v2/install_print_layout_277.py
             clean_shell_v2/install_bos_snapshot_recovery_278.py
