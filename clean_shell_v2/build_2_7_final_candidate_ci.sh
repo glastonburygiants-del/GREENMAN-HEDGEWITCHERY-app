@@ -32,6 +32,18 @@ python "$GITHUB_WORKSPACE/clean_shell_v2/install_bos_snapshot_recovery_278.py" "
 # 2.7.11: keep every Grimoire record on one A4 sheet and replace browser-native grey dialogs with Greenman-styled cards.
 python "$GITHUB_WORKSPACE/clean_shell_v2/install_single_grimoire_dialogs_2711.py" "$INDEX_FILE" "$INDEX_FILE"
 python "$GITHUB_WORKSPACE/clean_shell_v2/repair_embedded_script_boundaries.py" "$INDEX_FILE" "$INDEX_FILE"
+# 2.7.13: fitGrimoirePages (BoS) had its whole-page scale calculation deleted
+# by 2.7.11, relying only on per-box text shrinking with no fallback, so long
+# entries bleed off the page. fitFlatPages (BoS + Journal) had its adaptive
+# best-fit search replaced by 2.7.8 with a single measurement clamped to a
+# hard-coded 0.82 minimum scale, which fixed over-shrinking but now bleeds
+# any saved page that genuinely needs to shrink further. Both are restored to
+# real adaptive measurement while keeping the later patches' genuinely good
+# parts (stale-snapshot cleanup, per-box text shrinking).
+python "$GITHUB_WORKSPACE/clean_shell_v2/repair_print_fit_regressions.py" "$INDEX_FILE" "$INDEX_FILE"
+grep -q "Binary search for the LARGEST scale that still fits" "$INDEX_FILE"
+grep -q "Per-box text shrinking runs first" "$INDEX_FILE"
+! grep -q "scale=Math.max(.82,scale\*.995)" "$INDEX_FILE"
 cp "$INDEX_FILE" "$RUNNER_TEMP/GREENMAN_27_EXPECTED.html"
 sha256sum "$INDEX_FILE" | tee "$RUNNER_TEMP/GREENMAN_27_INDEX_SHA256.txt"
 
@@ -173,8 +185,8 @@ test "$(grep -c 'private void printWebViewDocument' "$JAVA_FILE")" -eq 1
 ! grep -q "gmNativePrintHtml" "$JAVA_FILE"
 ! grep -q "function slimPrintClone" "$JAVA_FILE"
 
-sed -i -E 's/versionCode[[:space:]]+[0-9]+/versionCode 29/' "$PROJECT_DIR/app/build.gradle"
-sed -i -E 's/versionName[[:space:]]+"[^"]+"/versionName "2.7.11-grimoire-single-greenman-dialogs"/' "$PROJECT_DIR/app/build.gradle"
+sed -i -E 's/versionCode[[:space:]]+[0-9]+/versionCode 30/' "$PROJECT_DIR/app/build.gradle"
+sed -i -E 's/versionName[[:space:]]+"[^"]+"/versionName "2.7.13-print-fit-restore"/' "$PROJECT_DIR/app/build.gradle"
 
 python "$GITHUB_WORKSPACE/clean_shell_v2/force_stable_debug_signing.py" "$PROJECT_DIR/app/build.gradle"
 grep -q "GREENMAN_STABLE_DEBUG_SIGNING_V1" "$PROJECT_DIR/app/build.gradle"
@@ -191,7 +203,7 @@ unzip -l "$APK_FILE" | grep -q 'assets/fonts/Cinzel.ttf'
 unzip -l "$APK_FILE" | grep -q 'assets/fonts/IMFellEnglish-Regular.ttf'
 unzip -l "$APK_FILE" | grep -q 'assets/fonts/CrimsonText-Regular.ttf'
 "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK_FILE" > "$RUNNER_TEMP/GREENMAN_27_BADGING.txt"
-grep -q "package: name='com.greenman.hedgewitchery' versionCode='29'" "$RUNNER_TEMP/GREENMAN_27_BADGING.txt"
+grep -q "package: name='com.greenman.hedgewitchery' versionCode='30'" "$RUNNER_TEMP/GREENMAN_27_BADGING.txt"
 grep -q "application-label:'Greenman HedgeWitchery'" "$RUNNER_TEMP/GREENMAN_27_BADGING.txt"
 sha256sum "$APK_FILE" > "$RUNNER_TEMP/GREENMAN_27_APK_SHA256.txt"
 
