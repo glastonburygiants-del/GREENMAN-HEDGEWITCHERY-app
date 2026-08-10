@@ -112,6 +112,9 @@ def patch_spellbuilder(p):
    try{f.contentWindow.focus();f.contentWindow.print();}finally{setTimeout(function(){f.remove();},1800);}
   }"""
     p=replace_once(p,old_lite,new_lite,'lite summary handoff')
+    p=replace_once(p,"  closeKb();\n  render();\n  jumpTo('timing');\n}","  closeKb();\n  render();\n}",'planet timing item no jump')
+    p=replace_once(p,"    closeKb();\n    render();\n    jumpTo('timing');\n    return;","    closeKb();\n    render();\n    return;",'planet first match no jump')
+    p=replace_once(p,"      showP(key, btn);\n      // Scroll to phase detail\n      document.getElementById('pd-icon').parentElement.scrollIntoView({behavior:'smooth', block:'start'});","      showP(key, btn);",'moon item no jump')
     return p
 
 
