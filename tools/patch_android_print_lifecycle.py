@@ -115,6 +115,8 @@ def patch_spellbuilder(p):
     p=replace_once(p,"  closeKb();\n  render();\n  jumpTo('timing');\n}","  closeKb();\n  render();\n}",'planet timing item no jump')
     p=replace_once(p,"    closeKb();\n    render();\n    jumpTo('timing');\n    return;","    closeKb();\n    render();\n    return;",'planet first match no jump')
     p=replace_once(p,"      showP(key, btn);\n      // Scroll to phase detail\n      document.getElementById('pd-icon').parentElement.scrollIntoView({behavior:'smooth', block:'start'});","      showP(key, btn);",'moon item no jump')
+    p=replace_once(p,"✦ CHOOSE YOUR SPELL HERBS ✦","✦ CHOOSE THE HERBS TO FIT YOUR MAGICAL NEEDS ✦",'extra herb guidance title')
+    p=replace_once(p,"Every spell has a depth. Choose how deep the roots go. This page chooses the extra spell herbs only; deity choices are made later inside the Deity page.","Every spell sends its roots to a different depth. Choose your path: Seedling, Hedgewitch, or Elder Magic. The deeper you venture, the more herbs the Greenman calls from the forest to strengthen and shape your spell.",'extra herb guidance text')
     return p
 
 
