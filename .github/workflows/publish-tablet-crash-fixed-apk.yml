@@ -1,0 +1,39 @@
+name: Publish Tablet Crash Fixed APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - apk-download-tablet-crash-fixed
+    paths:
+      - "releases/GREENMAN_HEDGEWITCHERY_TABLET_CRASH_FIXED.apk"
+      - ".github/workflows/publish-tablet-crash-fixed-apk.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Verify APK before publishing
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK="releases/GREENMAN_HEDGEWITCHERY_TABLET_CRASH_FIXED.apk"
+          test -s "$APK"
+          file "$APK"
+          unzip -t "$APK" >/dev/null
+          sha256sum "$APK"
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: GREENMAN-HEDGEWITCHERY-TABLET-CRASH-FIXED-APK
+          path: releases/GREENMAN_HEDGEWITCHERY_TABLET_CRASH_FIXED.apk
+          if-no-files-found: error
+          retention-days: 30
