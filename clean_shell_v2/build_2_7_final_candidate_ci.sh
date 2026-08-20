@@ -144,6 +144,14 @@ python "$GITHUB_WORKSPACE/clean_shell_v2/install_custom_app_icon.py" "$PROJECT_D
 ICON_FILE="$PROJECT_DIR/app/src/main/res/drawable-nodpi/greenman_launcher_art.webp"
 echo "0915a0ddfee14a7bbba4b998128b4da04d5aa139b0bcbcc81cba0253e8090dc1  $ICON_FILE" | sha256sum -c -
 
+# Android 13+ tablets (API 31+, values-v31/styles.xml) crash right after the
+# splash screen: windowSplashScreenAnimatedIcon pointed at a static bitmap
+# drawable, not an AnimatedVectorDrawable, which some OEM Android 12+ builds
+# reject. Drop it and its paired attributes; keep the plain background colour.
+python "$GITHUB_WORKSPACE/clean_shell_v2/repair_splash_screen_icon.py" "$PROJECT_DIR"
+! grep -q "windowSplashScreenAnimatedIcon" "$PROJECT_DIR/app/src/main/res/values-v31/styles.xml"
+grep -q "windowSplashScreenBackground" "$PROJECT_DIR/app/src/main/res/values-v31/styles.xml"
+
 # Install the intended Greenman print fonts as LOCAL APK assets. Nothing depends on internet at print time.
 python "$GITHUB_WORKSPACE/clean_shell_v2/install_print_font_assets.py" "$PROJECT_DIR"
 FONT_DIR="$PROJECT_DIR/app/src/main/assets/fonts"
