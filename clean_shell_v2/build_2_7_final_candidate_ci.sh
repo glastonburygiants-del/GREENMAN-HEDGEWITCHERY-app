@@ -164,6 +164,21 @@ cp "$GITHUB_WORKSPACE/clean_shell_v2/MainActivity.java" "$JAVA_FILE"
 python "$GITHUB_WORKSPACE/clean_shell_v2/install_fullscreen_bridge.py" "$JAVA_FILE" "$JAVA_FILE"
 echo "08f6e0919be07f805cdac350a2d16b549789037fde724d58760488fd8486cad3  $JAVA_FILE" | sha256sum -c -
 
+# Confirmed via real device logcat (Acer/Android 13 tablet): onCreate() called
+# enterImmersiveMode() - which calls getWindow().getInsetsController() - before
+# setContentView(). This OEM's PhoneWindow.getInsetsController() throws an NPE
+# internally when called before the window has a decor view attached; our own
+# null-check never runs because the crash happens inside Android's own getter.
+# Not a print or icon bug - this is why removing the icon didn't help.
+python "$GITHUB_WORKSPACE/clean_shell_v2/repair_immersive_mode_crash.py" "$JAVA_FILE" "$JAVA_FILE"
+python - "$JAVA_FILE" <<'PY'
+import sys
+text = open(sys.argv[1], encoding='utf-8').read()
+assert 'setContentView(root);\n        enterImmersiveMode();' in text, 'immersive-mode reorder missing'
+assert 'private void enterImmersiveMode() {\n        try {' in text, 'immersive-mode try/catch missing'
+print('immersive-mode crash guard verified')
+PY
+
 # Retain the repaired print bridge + hardening: harden the frozen print copy, use canonical Tumbler God/Goddess SVGs,
 # eliminate the known heavy fallback glyphs, load local fonts, and retain dynamic PDF names.
 python "$GITHUB_WORKSPACE/clean_shell_v2/install_pdf_hardened_names.py" "$JAVA_FILE" "$JAVA_FILE" "$INDEX_FILE"
