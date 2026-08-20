@@ -140,17 +140,11 @@ for n,js in enumerate(re.findall(r'<script(?:\s[^>]*)?>(.*?)</script>',after,re.
 print('Outer-shell scripts checked:',outer_count)
 PY
 
-python "$GITHUB_WORKSPACE/clean_shell_v2/install_custom_app_icon.py" "$PROJECT_DIR"
-ICON_FILE="$PROJECT_DIR/app/src/main/res/drawable-nodpi/greenman_launcher_art.webp"
-echo "0915a0ddfee14a7bbba4b998128b4da04d5aa139b0bcbcc81cba0253e8090dc1  $ICON_FILE" | sha256sum -c -
-
-# Android 13+ tablets (API 31+, values-v31/styles.xml) crash right after the
-# splash screen: windowSplashScreenAnimatedIcon pointed at a static bitmap
-# drawable, not an AnimatedVectorDrawable, which some OEM Android 12+ builds
-# reject. Drop it and its paired attributes; keep the plain background colour.
-python "$GITHUB_WORKSPACE/clean_shell_v2/repair_splash_screen_icon.py" "$PROJECT_DIR"
-! grep -q "windowSplashScreenAnimatedIcon" "$PROJECT_DIR/app/src/main/res/values-v31/styles.xml"
-grep -q "windowSplashScreenBackground" "$PROJECT_DIR/app/src/main/res/values-v31/styles.xml"
+# DIAGNOSTIC BISECTION BUILD: custom icon + splash-icon fix intentionally
+# SKIPPED here, on purpose, to isolate whether the icon or the print work is
+# the real cause of the crash-on-open on the Acer/Android 13 tablet. The app
+# keeps whatever stock icon resources ship in the baseline zip untouched.
+# This is not the real fix - see clean-original-app-new-shell for that.
 
 # Install the intended Greenman print fonts as LOCAL APK assets. Nothing depends on internet at print time.
 python "$GITHUB_WORKSPACE/clean_shell_v2/install_print_font_assets.py" "$PROJECT_DIR"
@@ -222,7 +216,7 @@ APK_FILE="$(find "$PROJECT_DIR/app/build/outputs/apk/debug" -type f -name 'app-d
 test -s "$APK_FILE"
 unzip -p "$APK_FILE" assets/index.html > "$RUNNER_TEMP/GREENMAN_27_APK_INDEX.html"
 cmp -s "$RUNNER_TEMP/GREENMAN_27_EXPECTED.html" "$RUNNER_TEMP/GREENMAN_27_APK_INDEX.html"
-unzip -l "$APK_FILE" | grep -q 'greenman_launcher_art.*webp'
+# Custom icon deliberately skipped for this diagnostic bisection build.
 unzip -l "$APK_FILE" | grep -q 'assets/fonts/Cinzel.ttf'
 unzip -l "$APK_FILE" | grep -q 'assets/fonts/IMFellEnglish-Regular.ttf'
 unzip -l "$APK_FILE" | grep -q 'assets/fonts/CrimsonText-Regular.ttf'
