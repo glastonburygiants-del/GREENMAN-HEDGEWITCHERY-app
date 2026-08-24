@@ -1,0 +1,113 @@
+name: Build Bower + Scribe Current APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - agent/bower-scribe-current-baseline
+    paths:
+      - "tools/patch_bower_scribe_current_apk.py"
+      - ".github/workflows/build-bower-scribe-current-apk.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android build tools
+        shell: bash
+        run: |
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager "build-tools;35.0.0"
+
+      - name: Install stable Greenman signing key
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$HOME/.android"
+          base64 --decode "$GITHUB_WORKSPACE/tools/greenman_debug_keystore.b64" > "$HOME/.android/debug.keystore"
+          chmod 600 "$HOME/.android/debug.keystore"
+
+      - name: Fetch exact supplied sources
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/greenman"
+          curl -L --fail --show-error --silent 'https://drive.usercontent.google.com/download?id=1ctqjkYGrAdb6UdAylOX9s6Ur413mNQJr&export=download&confirm=t' -o "$RUNNER_TEMP/greenman/baseline.apk"
+          curl -L --fail --show-error --silent 'https://drive.usercontent.google.com/download?id=1ZjkSioNEGCbOYZO4ZHnMR-U36b9Jp3nU&export=download&confirm=t' -o "$RUNNER_TEMP/greenman/bower.html"
+          curl -L --fail --show-error --silent 'https://drive.usercontent.google.com/download?id=1WLg0mLERs2bGMEuwDZHTD1z9d1XrJFJX&export=download&confirm=t' -o "$RUNNER_TEMP/greenman/scribe.html"
+          test "$(stat -c%s "$RUNNER_TEMP/greenman/baseline.apk")" -eq 3661340
+          grep -q 'Greenman Practical Woodcraft Bower' "$RUNNER_TEMP/greenman/bower.html"
+          grep -q 'BOOK OF SHADOWS' "$RUNNER_TEMP/greenman/scribe.html"
+
+      - name: Patch exact current APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP/greenman"
+          mkdir unpacked
+          unzip -q baseline.apk -d unpacked
+          cp unpacked/assets/index.html baseline-index.html
+          rm -rf unpacked/META-INF
+          cp bower.html unpacked/assets/bower.html
+          cp scribe.html unpacked/assets/scribe.html
+          python "$GITHUB_WORKSPACE/tools/patch_bower_scribe_current_apk.py" unpacked/assets/index.html --report patch-report.json
+          grep -q 'bowerRoomView' unpacked/assets/index.html
+          grep -q 'scribeRoomView' unpacked/assets/index.html
+          cmp -s bower.html unpacked/assets/bower.html
+          cmp -s scribe.html unpacked/assets/scribe.html
+
+      - name: Repack and sign APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP/greenman/unpacked"
+          zip -qr "$RUNNER_TEMP/greenman/unsigned.apk" .
+          "$ANDROID_HOME/build-tools/35.0.0/zipalign" -p -f 4 "$RUNNER_TEMP/greenman/unsigned.apk" "$RUNNER_TEMP/greenman/aligned.apk"
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" sign \
+            --ks "$HOME/.android/debug.keystore" \
+            --ks-key-alias androiddebugkey \
+            --ks-pass pass:android \
+            --key-pass pass:android \
+            --out "$RUNNER_TEMP/greenman/GREENMAN_HEDGEWITCHERY_BOWER_SCRIBE.apk" \
+            "$RUNNER_TEMP/greenman/aligned.apk"
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs "$RUNNER_TEMP/greenman/GREENMAN_HEDGEWITCHERY_BOWER_SCRIBE.apk"
+
+      - name: Verify package and embedded rooms
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK="$RUNNER_TEMP/greenman/GREENMAN_HEDGEWITCHERY_BOWER_SCRIBE.apk"
+          unzip -p "$APK" assets/index.html | grep -q 'greenman-bower-scribe-cupboard-v1'
+          unzip -p "$APK" assets/bower.html | grep -q 'Greenman Practical Woodcraft Bower'
+          unzip -p "$APK" assets/scribe.html | grep -q 'BOOK OF SHADOWS'
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | tee "$RUNNER_TEMP/greenman/apk-badging.txt"
+          sha256sum "$APK" | tee "$RUNNER_TEMP/greenman/apk-sha256.txt"
+
+      - name: Upload Bower + Scribe APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: GREENMAN-HEDGEWITCHERY-BOWER-SCRIBE-APK
+          path: ${{ runner.temp }}/greenman/GREENMAN_HEDGEWITCHERY_BOWER_SCRIBE.apk
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload audit report
+        uses: actions/upload-artifact@v4
+        with:
+          name: GREENMAN-HEDGEWITCHERY-BOWER-SCRIBE-AUDIT
+          path: |
+            ${{ runner.temp }}/greenman/patch-report.json
+            ${{ runner.temp }}/greenman/apk-badging.txt
+            ${{ runner.temp }}/greenman/apk-sha256.txt
+          if-no-files-found: error
+          retention-days: 30
