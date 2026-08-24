@@ -1,0 +1,122 @@
+name: Build Bower + Scribe AUTO_FILTER2 APK
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "tools/patch_bower_scribe.py"
+      - ".github/workflows/build-bower-scribe-auto-filter2.yml"
+      - "BOWER_SCRIBE_AUTO_FILTER2_AUDIT.md"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android build tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager "build-tools;35.0.0"
+
+      - name: Fetch exact audited patched APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          URL='https://drive.usercontent.google.com/download?id=1KHTx_BIfKbb3a2BQhBVZZXvuU-NRGAoh&export=download&confirm=t'
+          curl -L --fail --show-error --silent "$URL" -o "$RUNNER_TEMP/greenman-bower-scribe-unsigned.apk"
+          test -s "$RUNNER_TEMP/greenman-bower-scribe-unsigned.apk"
+          echo '434cc8727921d9cc2f356f44d40ef41b228357de508a437d44c267f655c2a17d  '"$RUNNER_TEMP/greenman-bower-scribe-unsigned.apk" | sha256sum -c -
+
+      - name: Verify exact embedded Bower and Scribe sources
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/apkcheck"
+          cd "$RUNNER_TEMP/apkcheck"
+          unzip -q "$RUNNER_TEMP/greenman-bower-scribe-unsigned.apk" assets/greenman_bower.html assets/greenman_scribe.html assets/index.html
+          echo '1b05165d959a7528bc821e77fd6db045aa7a8553f05db2a3d63a160dcc2e9f69  assets/greenman_bower.html' | sha256sum -c -
+          echo '9e1940d60c87781092ba4109e54a111aa0ce593331fa8d5596e9c0993b2b1deb  assets/greenman_scribe.html' | sha256sum -c -
+          grep -q 'greenman-bower-scribe-cupboard-v1' assets/index.html
+          grep -q 'file:///android_asset/greenman_bower.html' assets/index.html
+          grep -q 'file:///android_asset/greenman_scribe.html' assets/index.html
+          grep -q 'appendBowerScribeFronts' assets/index.html
+          grep -q 'greenman:prepareTreehouse' assets/index.html
+          grep -q 'greenman:goTreehouse' assets/index.html
+
+      - name: Install stable Greenman signing key
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$HOME/.android"
+          base64 --decode "$GITHUB_WORKSPACE/tools/greenman_debug_keystore.b64" > "$HOME/.android/debug.keystore"
+          chmod 600 "$HOME/.android/debug.keystore"
+          keytool -list -v -keystore "$HOME/.android/debug.keystore" -storepass android -alias androiddebugkey > "$RUNNER_TEMP/key.txt"
+          grep -Fq 'SHA256: FC:8D:A0:F2:EE:B9:C1:46:01:11:D6:86:4B:A9:AC:C4:19:C0:3E:84:BB:33:C2:40:5F:CA:3F:E2:8E:C2:69:B8' "$RUNNER_TEMP/key.txt"
+
+      - name: Align and sign APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          BT="$ANDROID_HOME/build-tools/35.0.0"
+          "$BT/zipalign" -f -p 4 "$RUNNER_TEMP/greenman-bower-scribe-unsigned.apk" "$RUNNER_TEMP/greenman-bower-scribe-aligned.apk"
+          "$BT/apksigner" sign \
+            --ks "$HOME/.android/debug.keystore" \
+            --ks-key-alias androiddebugkey \
+            --ks-pass pass:android \
+            --key-pass pass:android \
+            --out "$RUNNER_TEMP/GREENMAN_HEDGEWITCHERY_BOWER_SCRIBE_AUTO_FILTER2.apk" \
+            "$RUNNER_TEMP/greenman-bower-scribe-aligned.apk"
+          "$BT/apksigner" verify --verbose --print-certs "$RUNNER_TEMP/GREENMAN_HEDGEWITCHERY_BOWER_SCRIBE_AUTO_FILTER2.apk" | tee "$RUNNER_TEMP/APKSIGNER_VERIFY.txt"
+          grep -Fq 'Signer #1 certificate SHA-256 digest: fc8da0f2eeb9c1460111d6864ba9acc419c03e84bb33c2405fca3fe28ec269b8' "$RUNNER_TEMP/APKSIGNER_VERIFY.txt"
+          "$BT/zipalign" -c -v 4 "$RUNNER_TEMP/GREENMAN_HEDGEWITCHERY_BOWER_SCRIBE_AUTO_FILTER2.apk" >/dev/null
+          sha256sum "$RUNNER_TEMP/GREENMAN_HEDGEWITCHERY_BOWER_SCRIBE_AUTO_FILTER2.apk" | tee "$RUNNER_TEMP/FINAL_SHA256.txt"
+
+      - name: Verify app identity and room assets after signing
+        shell: bash
+        run: |
+          set -euo pipefail
+          BT="$ANDROID_HOME/build-tools/35.0.0"
+          "$BT/aapt" dump badging "$RUNNER_TEMP/GREENMAN_HEDGEWITCHERY_BOWER_SCRIBE_AUTO_FILTER2.apk" | tee "$RUNNER_TEMP/APK_BADGING.txt"
+          grep -q "package: name='com.greenman.hedgewitchery'" "$RUNNER_TEMP/APK_BADGING.txt"
+          grep -q "application-label:'Greenman HedgeWitchery'" "$RUNNER_TEMP/APK_BADGING.txt"
+          unzip -p "$RUNNER_TEMP/GREENMAN_HEDGEWITCHERY_BOWER_SCRIBE_AUTO_FILTER2.apk" assets/greenman_bower.html | sha256sum | grep -q '^1b05165d959a7528bc821e77fd6db045aa7a8553f05db2a3d63a160dcc2e9f69'
+          unzip -p "$RUNNER_TEMP/GREENMAN_HEDGEWITCHERY_BOWER_SCRIBE_AUTO_FILTER2.apk" assets/greenman_scribe.html | sha256sum | grep -q '^9e1940d60c87781092ba4109e54a111aa0ce593331fa8d5596e9c0993b2b1deb'
+
+      - name: Upload finished APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: GREENMAN-HEDGEWITCHERY-BOWER-SCRIBE-AUTO-FILTER2-APK
+          path: ${{ runner.temp }}/GREENMAN_HEDGEWITCHERY_BOWER_SCRIBE_AUTO_FILTER2.apk
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload audit reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: GREENMAN-HEDGEWITCHERY-BOWER-SCRIBE-AUDIT
+          path: |
+            ${{ runner.temp }}/APKSIGNER_VERIFY.txt
+            ${{ runner.temp }}/APK_BADGING.txt
+            ${{ runner.temp }}/FINAL_SHA256.txt
+          if-no-files-found: error
+          retention-days: 30
