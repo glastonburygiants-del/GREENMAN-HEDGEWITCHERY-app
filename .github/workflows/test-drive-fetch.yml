@@ -1,0 +1,21 @@
+name: Test Drive Fetch
+on:
+  push:
+    paths:
+      - '.github/workflows/test-drive-fetch.yml'
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fetch Bower from Drive
+        shell: bash
+        run: |
+          set -euxo pipefail
+          URL='https://drive.usercontent.google.com/download?id=1ZjkSioNEGCbOYZO4ZHnMR-U36b9Jp3nU&export=download&confirm=t'
+          curl -L --fail --show-error --silent "$URL" -o /tmp/bower.html
+          wc -c /tmp/bower.html
+          head -c 120 /tmp/bower.html | tr '\n' ' '
+          grep -q 'Greenman Practical Woodcraft Bower' /tmp/bower.html
+          echo 'DRIVE_FETCH_OK'
