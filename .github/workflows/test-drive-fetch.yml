@@ -1,8 +1,6 @@
 name: Test Drive Fetch
 on:
-  push:
-    paths:
-      - '.github/workflows/test-drive-fetch.yml'
+  pull_request:
   workflow_dispatch:
 
 jobs:
