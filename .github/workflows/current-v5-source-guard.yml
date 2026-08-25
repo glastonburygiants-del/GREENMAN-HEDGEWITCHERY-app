@@ -1,0 +1,58 @@
+name: Current V5 Source Guard
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - current/v5-exact-baseline
+    paths:
+      - "CURRENT_V5_SOURCE_OF_TRUTH.md"
+      - "current-v5/manifest.json"
+      - "tools/verify_current_v5.py"
+      - ".github/workflows/current-v5-source-guard.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  source-guard:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out canonical branch
+        uses: actions/checkout@v4
+
+      - name: Enforce exact V5 base contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          m = json.loads(Path('current-v5/manifest.json').read_text(encoding='utf-8'))
+          assert m['status'] == 'CURRENT_SOURCE_OF_TRUTH'
+          assert m['canonical_branch'] == 'current/v5-exact-baseline'
+          assert m['base']['filename'] == 'GREENMAN_HEDGEWITCHERY_PHONE_BASELINE_AUTO_FILTER(2).apk'
+          assert m['base']['size_bytes'] == 3661340
+          assert m['base']['sha256'] == '40aa1e3542ba7ac935f65a210a0b1442c4c921c031492f4c75fb1fa15d69f711'
+          assert m['current_apk']['filename'] == 'GREENMAN_HEDGEWITCHERY_V5_FULL_STANDALONE.apk'
+          assert m['current_apk']['sha256'] == 'b65f9e5d0ca2a886f5646bc263a0939733ca990f4e73e549a273b85ccb9d93de'
+          assert 'GREENMAN_HEDGEWITCHERY_ANDROID_PROJECT_GATHER_FIXED (1).zip' in m['forbidden_bases']
+          assert Path('CURRENT_V5_SOURCE_OF_TRUTH.md').is_file()
+          assert Path('tools/verify_current_v5.py').is_file()
+          assert not Path('.github/workflows/build-bower-scribe-current-apk.yml').exists(), 'broken private-Drive workflow must stay removed on this branch'
+          print('SOURCE GUARD OK')
+          print('base_sha256=' + m['base']['sha256'])
+          print('current_v5_sha256=' + m['current_apk']['sha256'])
+          PY
+
+      - name: Publish coordination manifest
+        uses: actions/upload-artifact@v4
+        with:
+          name: GREENMAN-CURRENT-V5-SOURCE-MANIFEST
+          path: |
+            CURRENT_V5_SOURCE_OF_TRUTH.md
+            current-v5/manifest.json
+            tools/verify_current_v5.py
+          if-no-files-found: error
+          retention-days: 90

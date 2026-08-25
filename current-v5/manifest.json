@@ -1,0 +1,50 @@
+{
+  "schema": 1,
+  "status": "CURRENT_SOURCE_OF_TRUTH",
+  "canonical_branch": "current/v5-exact-baseline",
+  "base": {
+    "filename": "GREENMAN_HEDGEWITCHERY_PHONE_BASELINE_AUTO_FILTER(2).apk",
+    "size_bytes": 3661340,
+    "sha256": "40aa1e3542ba7ac935f65a210a0b1442c4c921c031492f4c75fb1fa15d69f711",
+    "drive_file_id": "1qXbdPgBX2jneMyvtqFAC5oBU1bwuZCN7"
+  },
+  "current_apk": {
+    "filename": "GREENMAN_HEDGEWITCHERY_V5_FULL_STANDALONE.apk",
+    "size_bytes": 6691113,
+    "sha256": "b65f9e5d0ca2a886f5646bc263a0939733ca990f4e73e549a273b85ccb9d93de",
+    "drive_file_id": "15_JqUeDv7VV_qQ_xTsgbjEkCjR0w-KMx"
+  },
+  "assets": {
+    "assets/greenman_bower.html": {
+      "source_filename": "Greenman_Bower_Treehouse_V14_APP_DIRECT_UPPER.html",
+      "size_bytes": 1605303,
+      "sha256": "df152b24f0a2b89acf0ebf0150821e43efdc9fc6352cbbba1c38ad7d5f942742",
+      "drive_file_id": "1rARVzPRAvFHJ053h5RfM5Ii0_eRMIeQc"
+    },
+    "assets/greenman_treehouse.html": {
+      "source_filename": "greenman_treehouse.html",
+      "size_bytes": 750420,
+      "sha256": "1d96a09eebed509557f769aa933fa8addc60128da7ca66d9817111882bad768f",
+      "drive_file_id": "1W7CmE-XdMz_9Z6b5BmZvaG8dWjHPwCle"
+    },
+    "assets/greenman_scribe.html": {
+      "source_filename": "greenman_scribe_v5.html",
+      "size_bytes": 8215600,
+      "sha256": "e086fd31c5f30ab6b9e95432b9964247a41774c619f35d2b23650ebecf06aac3",
+      "drive_file_id": "1hsc6NdDAlH3YPI7ehSej19i5KAZc68KC"
+    },
+    "assets/index.html": {
+      "size_bytes": 16246417,
+      "sha256": "d0eb2b87bfa1b8b937c242548cbfdac1de671f562dfbf921049fc2b93fe2c278"
+    }
+  },
+  "forbidden_bases": [
+    "GREENMAN_HEDGEWITCHERY_ANDROID_PROJECT_GATHER_FIXED (1).zip"
+  ],
+  "notes": [
+    "V5 is a complete standalone APK, not an incremental installer.",
+    "Do not use unauthenticated Google Drive curl in GitHub Actions.",
+    "Authoritative cupboard page is the later PAGES.cupboard assignment.",
+    "Protect inner closing script tags when serialising embedded pages."
+  ]
+}
