@@ -1,0 +1,44 @@
+{
+  "schema": 1,
+  "status": "CURRENT_SOURCE_OF_TRUTH",
+  "lineage": {
+    "canonical_base_filename": "GREENMAN_HEDGEWITCHERY_PHONE_BASELINE_AUTO_FILTER(2).apk",
+    "canonical_base_size_bytes": 3661340,
+    "canonical_base_sha256": "40aa1e3542ba7ac935f65a210a0b1442c4c921c031492f4c75fb1fa15d69f711",
+    "v5_parent_filename": "GREENMAN_HEDGEWITCHERY_V5_FULL_STANDALONE.apk",
+    "v5_parent_size_bytes": 6691113,
+    "v5_parent_sha256": "b65f9e5d0ca2a886f5646bc263a0939733ca990f4e73e549a273b85ccb9d93de"
+  },
+  "current_apk": {
+    "filename": "GREENMAN_HEDGEWITCHERY_V6_DEITY_FIX.apk",
+    "size_bytes": 6691449,
+    "sha256": "2c46957751b31a1d15114c05ff15ff72572d6c06b1f1effe2a6bdeeaa4ecf61c",
+    "drive_file_id": "1wkiPRsIaTGOVq5JMyVWisW5Kqx-Keq8h"
+  },
+  "assets_index": {
+    "size_bytes": 16247334,
+    "sha256": "45e33069e7db21c1641128f396512f9fdb9bde4ac6852b0399d0c51d72304a9a"
+  },
+  "repair": {
+    "script": "tools/patch_v6_deity_gender.py",
+    "scope": "Spell Builder deity stage only",
+    "rule": "Polarity and Energy are authoritative for Goddess/God/Dual eligibility when present; legacy Deity Gender is fallback only.",
+    "legacy_field_conflicts_detected": 41,
+    "conflict_breakdown": {
+      "Deity Gender God but Polarity/Energy Goddess": 19,
+      "Deity Gender Goddess but Polarity/Energy God": 17,
+      "Deity Gender Goddess but Polarity/Energy Both": 3,
+      "Deity Gender Both but Polarity/Energy Goddess": 2
+    },
+    "stored_state_repair": "Any previously saved masculine Goddess choice or otherwise invalid deity slot is cleared when the deity stage opens."
+  },
+  "integrity": {
+    "non_index_payload_changed_from_v5": false,
+    "nested_script_literal_close_tags_in_encoded_spellbuilder": 0,
+    "decoded_spellbuilder_script_syntax_failures": 0,
+    "signer_certificate_sha256": "BD22A5C3FF7335237A0E725032816EB563D2E350789E6E555369B0FE32E0C19E"
+  },
+  "forbidden_bases": [
+    "GREENMAN_HEDGEWITCHERY_ANDROID_PROJECT_GATHER_FIXED (1).zip"
+  ]
+}
