@@ -4,6 +4,7 @@ on:
   workflow_dispatch:
   push:
     branches:
+      - main
       - current/v5.1-deity-gender-fix
     paths:
       - "CURRENT_V5_SOURCE_OF_TRUTH.md"
@@ -20,7 +21,7 @@ jobs:
   source-guard:
     runs-on: ubuntu-latest
     steps:
-      - name: Check out canonical branch
+      - name: Check out canonical source
         uses: actions/checkout@v4
 
       - name: Enforce exact V5.1 ancestry and deity contract
@@ -37,7 +38,7 @@ jobs:
           doc = Path('CURRENT_V5_SOURCE_OF_TRUTH.md').read_text(encoding='utf-8')
 
           assert m['status'] == 'CURRENT_SOURCE_OF_TRUTH'
-          assert m['canonical_branch'] == 'current/v5.1-deity-gender-fix'
+          assert m['canonical_branch'] == 'main'
           assert m['base']['filename'] == 'GREENMAN_HEDGEWITCHERY_PHONE_BASELINE_AUTO_FILTER(2).apk'
           assert m['base']['size_bytes'] == 3661340
           assert m['base']['sha256'] == '40aa1e3542ba7ac935f65a210a0b1442c4c921c031492f4c75fb1fa15d69f711'
@@ -60,7 +61,7 @@ jobs:
           assert a['legacy_v55_filter_retired'] is True
           assert a['legacy_v67_filter_retired'] is True
           assert 'GREENMAN_HEDGEWITCHERY_ANDROID_PROJECT_GATHER_FIXED (1).zip' in m['forbidden_bases']
-          assert 'Google Drive' in doc and 'not Google Drive' in doc
+          assert 'not Google Drive' in doc
           assert 'drive_file_id' not in json.dumps(m)
           assert 'drive.google.com' not in doc
           print('V5.1 SOURCE GUARD OK')
