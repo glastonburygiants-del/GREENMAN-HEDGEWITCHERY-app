@@ -1,14 +1,16 @@
-name: Current V5 Source Guard
+name: Current V5.1 Source Guard
 
 on:
   workflow_dispatch:
   push:
     branches:
-      - current/v5-exact-baseline
+      - current/v5.1-deity-gender-fix
     paths:
       - "CURRENT_V5_SOURCE_OF_TRUTH.md"
       - "current-v5/manifest.json"
-      - "tools/verify_current_v5.py"
+      - "current-v5/deity_gender_audit_v51.json"
+      - "tools/fix_deity_gender_v51.py"
+      - "tools/build_v51_deity_fix.py"
       - ".github/workflows/current-v5-source-guard.yml"
 
 permissions:
@@ -21,38 +23,62 @@ jobs:
       - name: Check out canonical branch
         uses: actions/checkout@v4
 
-      - name: Enforce exact V5 base contract
+      - name: Enforce exact V5.1 ancestry and deity contract
         shell: bash
         run: |
           set -euo pipefail
+          python -m py_compile tools/fix_deity_gender_v51.py tools/build_v51_deity_fix.py
           python - <<'PY'
           import json
           from pathlib import Path
 
           m = json.loads(Path('current-v5/manifest.json').read_text(encoding='utf-8'))
+          a = json.loads(Path('current-v5/deity_gender_audit_v51.json').read_text(encoding='utf-8'))
+          doc = Path('CURRENT_V5_SOURCE_OF_TRUTH.md').read_text(encoding='utf-8')
+
           assert m['status'] == 'CURRENT_SOURCE_OF_TRUTH'
-          assert m['canonical_branch'] == 'current/v5-exact-baseline'
+          assert m['canonical_branch'] == 'current/v5.1-deity-gender-fix'
           assert m['base']['filename'] == 'GREENMAN_HEDGEWITCHERY_PHONE_BASELINE_AUTO_FILTER(2).apk'
           assert m['base']['size_bytes'] == 3661340
           assert m['base']['sha256'] == '40aa1e3542ba7ac935f65a210a0b1442c4c921c031492f4c75fb1fa15d69f711'
-          assert m['current_apk']['filename'] == 'GREENMAN_HEDGEWITCHERY_V5_FULL_STANDALONE.apk'
-          assert m['current_apk']['sha256'] == 'b65f9e5d0ca2a886f5646bc263a0939733ca990f4e73e549a273b85ccb9d93de'
+          assert m['parent_v5_apk']['filename'] == 'GREENMAN_HEDGEWITCHERY_V5_FULL_STANDALONE.apk'
+          assert m['parent_v5_apk']['sha256'] == 'b65f9e5d0ca2a886f5646bc263a0939733ca990f4e73e549a273b85ccb9d93de'
+          assert m['current_apk']['filename'] == 'GREENMAN_HEDGEWITCHERY_V5_1_DEITY_FIX.apk'
+          assert m['current_apk']['size_bytes'] == 6690801
+          assert m['current_apk']['sha256'] == 'a3e5f03bbd5560b7420626ec02b0c89ff0252a35200a650b9e8ea950bb2e2cdd'
+          assert m['changed_from_parent_v5']['apk_entries_changed_excluding_signature'] == ['assets/index.html']
+          assert m['changed_from_parent_v5']['embedded_pages_changed'] == ['spellBuilder']
+          assert m['changed_from_parent_v5']['index_outside_const_pages_unchanged'] is True
+          assert m['deity_gender_fix']['records_audited'] == 110
+          assert m['deity_gender_fix']['records_corrected'] == 41
+          assert m['deity_gender_fix']['gender_source'] == 'Polarity/Energy'
+          assert m['deity_gender_fix']['goddess_page'] == 'Feminine + Dual'
+          assert m['deity_gender_fix']['god_page_after_goddess_selection'] == 'Masculine only'
+          assert a['deity_gender_records_corrected'] == 41
+          assert len(a['changes']) == 41
+          assert a['authoritative_owner'] == 'gm-v75-final-deity-seven-card-owner'
+          assert a['legacy_v55_filter_retired'] is True
+          assert a['legacy_v67_filter_retired'] is True
           assert 'GREENMAN_HEDGEWITCHERY_ANDROID_PROJECT_GATHER_FIXED (1).zip' in m['forbidden_bases']
-          assert Path('CURRENT_V5_SOURCE_OF_TRUTH.md').is_file()
-          assert Path('tools/verify_current_v5.py').is_file()
-          assert not Path('.github/workflows/build-bower-scribe-current-apk.yml').exists(), 'broken private-Drive workflow must stay removed on this branch'
-          print('SOURCE GUARD OK')
+          assert 'Google Drive' in doc and 'not Google Drive' in doc
+          assert 'drive_file_id' not in json.dumps(m)
+          assert 'drive.google.com' not in doc
+          print('V5.1 SOURCE GUARD OK')
           print('base_sha256=' + m['base']['sha256'])
-          print('current_v5_sha256=' + m['current_apk']['sha256'])
+          print('parent_v5_sha256=' + m['parent_v5_apk']['sha256'])
+          print('current_v51_sha256=' + m['current_apk']['sha256'])
+          print('deity_gender_records_corrected=41')
           PY
 
-      - name: Publish coordination manifest
+      - name: Publish V5.1 coordination audit
         uses: actions/upload-artifact@v4
         with:
-          name: GREENMAN-CURRENT-V5-SOURCE-MANIFEST
+          name: GREENMAN-CURRENT-V5-1-SOURCE-AUDIT
           path: |
             CURRENT_V5_SOURCE_OF_TRUTH.md
             current-v5/manifest.json
-            tools/verify_current_v5.py
+            current-v5/deity_gender_audit_v51.json
+            tools/fix_deity_gender_v51.py
+            tools/build_v51_deity_fix.py
           if-no-files-found: error
           retention-days: 90
