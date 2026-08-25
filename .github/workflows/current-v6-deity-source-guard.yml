@@ -1,0 +1,77 @@
+name: Current V6 Deity Source Guard
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - "CURRENT_V6_SOURCE_OF_TRUTH.md"
+      - "current-v6/manifest.json"
+      - "tools/patch_v6_deity_gender.py"
+      - ".github/workflows/current-v6-deity-source-guard.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  guard:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Verify V6 source contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m py_compile tools/patch_v6_deity_gender.py
+          python - <<'PY'
+          import json, re
+          from pathlib import Path
+
+          m=json.loads(Path('current-v6/manifest.json').read_text())
+          assert m['status']=='CURRENT_SOURCE_OF_TRUTH'
+          assert m['lineage']['canonical_base_filename']=='GREENMAN_HEDGEWITCHERY_PHONE_BASELINE_AUTO_FILTER(2).apk'
+          assert m['lineage']['canonical_base_size_bytes']==3661340
+          assert m['lineage']['canonical_base_sha256']=='40aa1e3542ba7ac935f65a210a0b1442c4c921c031492f4c75fb1fa15d69f711'
+          assert m['lineage']['v5_parent_sha256']=='b65f9e5d0ca2a886f5646bc263a0939733ca990f4e73e549a273b85ccb9d93de'
+          assert m['current_apk']['sha256']=='2c46957751b31a1d15114c05ff15ff72572d6c06b1f1effe2a6bdeeaa4ecf61c'
+          assert m['repair']['legacy_field_conflicts_detected']==41
+          assert 'GREENMAN_HEDGEWITCHERY_ANDROID_PROJECT_GATHER_FIXED (1).zip' in m['forbidden_bases']
+          assert m['integrity']['non_index_payload_changed_from_v5'] is False
+          assert m['integrity']['nested_script_literal_close_tags_in_encoded_spellbuilder']==0
+          assert m['integrity']['decoded_spellbuilder_script_syntax_failures']==0
+
+          def norm(v):
+              return re.sub(r'\s+',' ',re.sub(r'[^a-z0-9]+',' ',str(v or '').lower())).strip()
+          def role(r):
+              p=norm((r.get('Polarity') or '')+' '+(r.get('Energy') or ''))
+              if not p:
+                  p=norm((r.get('Deity Gender') or '')+' '+(r.get('Gender') or '')+' '+(r.get('Deity') or ''))
+              if re.search(r'\bdual\b|\bboth\b|\ball\b|balance|god and goddess',p): return 'dual'
+              if re.search(r'feminine|female',p) and not re.search(r'masculine|male',p): return 'goddess'
+              if re.search(r'masculine|male',p) and not re.search(r'feminine|female',p): return 'god'
+              if 'goddess' in p and not re.search(r'\bgod\b',p.replace('goddess','')): return 'goddess'
+              if re.search(r'\bgod\b',p) and 'goddess' not in p: return 'god'
+              return ''
+
+          fixtures={
+              'THOR':({'Deity Gender':'Goddess','Polarity':'Masculine','Energy':'Masculine'},'god'),
+              'ODIN':({'Deity Gender':'Goddess','Polarity':'Masculine','Energy':'Masculine'},'god'),
+              'PAN':({'Deity Gender':'Goddess','Polarity':'Masculine','Energy':'Masculine'},'god'),
+              'BRIGID':({'Deity Gender':'God','Polarity':'Feminine','Energy':'Feminine'},'goddess'),
+              'FREYJA':({'Deity Gender':'God','Polarity':'Feminine','Energy':'Feminine'},'goddess'),
+              'GAIA':({'Deity Gender':'Both','Polarity':'Feminine','Energy':'Feminine'},'goddess'),
+              'BALDUR & HATHOR':({'Deity Gender':'Goddess','Polarity':'Both','Energy':'Both'},'dual')
+          }
+          for name,(row,want) in fixtures.items():
+              got=role(row)
+              assert got==want, f'{name}: {got} != {want}'
+
+          src=Path('tools/patch_v6_deity_gender.py').read_text()
+          for required in ['row.Polarity,row.Energy', "deityRole(item)", 'delete repaired.goddess', "replace('</script>', '<\\\\/script>')"]:
+              assert required in src, required
+          print('V6 deity source guard passed')
+          PY
