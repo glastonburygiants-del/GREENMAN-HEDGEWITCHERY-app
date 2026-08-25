@@ -1,7 +1,7 @@
 {
   "schema": 2,
   "status": "CURRENT_SOURCE_OF_TRUTH",
-  "canonical_branch": "current/v5.1-deity-gender-fix",
+  "canonical_branch": "main",
   "base": {
     "filename": "GREENMAN_HEDGEWITCHERY_PHONE_BASELINE_AUTO_FILTER(2).apk",
     "size_bytes": 3661340,
