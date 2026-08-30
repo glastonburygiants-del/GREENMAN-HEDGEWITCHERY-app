@@ -110,21 +110,36 @@ jobs:
           cd "$PROJECT_DIR"
           gradle :app:assembleDebug --no-daemon --stacktrace
 
-      - name: Verify finished phone APK
+      - name: Re-sign normal Gradle APK with Greenman update key
         shell: bash
         run: |
           set -euo pipefail
           APK_FILE="$(find "$PROJECT_DIR/app/build/outputs/apk/debug" -type f -name 'app-debug.apk' -print -quit)"
           test -n "$APK_FILE"
           BT="$ANDROID_HOME/build-tools/35.0.0"
-          "$BT/apksigner" verify --verbose --print-certs "$APK_FILE" | tee "$RUNNER_TEMP/greenman-phone/apksigner.txt"
+          "$BT/zipalign" -p -f 4 "$APK_FILE" "$RUNNER_TEMP/greenman-phone/aligned.apk"
+          "$BT/apksigner" sign \
+            --ks "$HOME/.android/debug.keystore" \
+            --ks-key-alias androiddebugkey \
+            --ks-pass pass:android \
+            --key-pass pass:android \
+            --out "$RUNNER_TEMP/GREENMAN_HEDGEWITCHERY_PHONE_SCRIBE_BOS_V31.apk" \
+            "$RUNNER_TEMP/greenman-phone/aligned.apk"
+
+      - name: Verify finished phone APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK="$RUNNER_TEMP/GREENMAN_HEDGEWITCHERY_PHONE_SCRIBE_BOS_V31.apk"
+          BT="$ANDROID_HOME/build-tools/35.0.0"
+          "$BT/apksigner" verify --verbose --print-certs "$APK" | tee "$RUNNER_TEMP/greenman-phone/apksigner.txt"
           grep -Fq "Signer #1 certificate SHA-256 digest: bd22a5c3ff7335237a0e725032816eb563d2e350789e6e555369b0fe32e0c19e" "$RUNNER_TEMP/greenman-phone/apksigner.txt"
-          "$BT/aapt" dump badging "$APK_FILE" | tee "$RUNNER_TEMP/greenman-phone/final-badging.txt"
+          "$BT/zipalign" -c -v 4 "$APK" >/dev/null
+          "$BT/aapt" dump badging "$APK" | tee "$RUNNER_TEMP/greenman-phone/final-badging.txt"
           grep -q "package: name='com.greenman.hedgewitchery' versionCode='31'" "$RUNNER_TEMP/greenman-phone/final-badging.txt"
-          unzip -p "$APK_FILE" assets/index.html > "$RUNNER_TEMP/greenman-phone/apk-index.html"
+          unzip -p "$APK" assets/index.html > "$RUNNER_TEMP/greenman-phone/apk-index.html"
           echo "d828d1097fba4a014a83dfe681ba67f790d4d7abe679837ff67290953bf22adb  $RUNNER_TEMP/greenman-phone/apk-index.html" | sha256sum -c -
-          cp "$APK_FILE" "$RUNNER_TEMP/GREENMAN_HEDGEWITCHERY_PHONE_SCRIBE_BOS_V31.apk"
-          sha256sum "$RUNNER_TEMP/GREENMAN_HEDGEWITCHERY_PHONE_SCRIBE_BOS_V31.apk" | tee "$RUNNER_TEMP/greenman-phone/final-apk-sha256.txt"
+          sha256sum "$APK" | tee "$RUNNER_TEMP/greenman-phone/final-apk-sha256.txt"
 
       - name: Upload finished phone APK
         uses: actions/upload-artifact@v4
