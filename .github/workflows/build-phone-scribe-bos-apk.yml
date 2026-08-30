@@ -1,0 +1,124 @@
+name: Build Phone Scribe BoS APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - build/phone-scribe-bos-20260830
+    paths:
+      - "build-input/current-html/**"
+      - ".github/workflows/build-phone-scribe-bos-apk.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  build-phone-apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Check out phone build branch
+        uses: actions/checkout@v4
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android build tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager "build-tools;35.0.0"
+
+      - name: Reconstruct exact current HTML
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/greenman-phone"
+          cat build-input/current-html/part_*.txt | base64 --decode > "$RUNNER_TEMP/greenman-phone/current.html.xz"
+          echo "0552f2bedd947291bd850e4d76aea454f60fa5986b056334e68ce7d97f1cfe79  $RUNNER_TEMP/greenman-phone/current.html.xz" | sha256sum -c -
+          xz -dc "$RUNNER_TEMP/greenman-phone/current.html.xz" > "$RUNNER_TEMP/greenman-phone/current.html"
+          echo "d828d1097fba4a014a83dfe681ba67f790d4d7abe679837ff67290953bf22adb  $RUNNER_TEMP/greenman-phone/current.html" | sha256sum -c -
+          test "$(stat -c%s "$RUNNER_TEMP/greenman-phone/current.html")" -eq 30497798
+          grep -q "GM TEST20" "$RUNNER_TEMP/greenman-phone/current.html"
+          grep -q "gmBosFreeze" "$RUNNER_TEMP/greenman-phone/current.html"
+          grep -q "BOOK OF SHADOWS" "$RUNNER_TEMP/greenman-phone/current.html"
+
+      - name: Verify phone APK baseline from GitHub
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE="releases/GREENMAN_HEDGEWITCHERY_TABLET_CRASH_FIXED.apk"
+          test -s "$BASE"
+          unzip -t "$BASE" >/dev/null
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$BASE" | tee "$RUNNER_TEMP/greenman-phone/baseline-badging.txt"
+          grep -q "package: name='com.greenman.hedgewitchery'" "$RUNNER_TEMP/greenman-phone/baseline-badging.txt"
+          echo "The historical filename says TABLET, but this build treats it only as the confirmed phone APK baseline."
+
+      - name: Verify Greenman signing key matches phone baseline
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$HOME/.android"
+          base64 --decode tools/greenman_debug_keystore.b64 > "$HOME/.android/debug.keystore"
+          chmod 600 "$HOME/.android/debug.keystore"
+          keytool -list -v -keystore "$HOME/.android/debug.keystore" -storepass android -alias androiddebugkey | tee "$RUNNER_TEMP/greenman-phone/key.txt"
+          grep -Fq "SHA256: BD:22:A5:C3:FF:73:35:23:7A:0E:72:50:32:81:6E:B5:63:D2:E3:50:78:9E:6E:55:53:69:B0:FE:32:E0:C1:9E" "$RUNNER_TEMP/greenman-phone/key.txt"
+
+      - name: Replace only assets index HTML
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE="releases/GREENMAN_HEDGEWITCHERY_TABLET_CRASH_FIXED.apk"
+          mkdir -p "$RUNNER_TEMP/greenman-phone/unpacked"
+          unzip -q "$BASE" -d "$RUNNER_TEMP/greenman-phone/unpacked"
+          rm -rf "$RUNNER_TEMP/greenman-phone/unpacked/META-INF"
+          cp "$RUNNER_TEMP/greenman-phone/current.html" "$RUNNER_TEMP/greenman-phone/unpacked/assets/index.html"
+          sha256sum "$RUNNER_TEMP/greenman-phone/unpacked/assets/index.html"
+          echo "d828d1097fba4a014a83dfe681ba67f790d4d7abe679837ff67290953bf22adb  $RUNNER_TEMP/greenman-phone/unpacked/assets/index.html" | sha256sum -c -
+
+      - name: Repack align and sign phone APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP/greenman-phone/unpacked"
+          zip -qr "$RUNNER_TEMP/greenman-phone/unsigned.apk" .
+          BT="$ANDROID_HOME/build-tools/35.0.0"
+          "$BT/zipalign" -p -f 4 "$RUNNER_TEMP/greenman-phone/unsigned.apk" "$RUNNER_TEMP/greenman-phone/aligned.apk"
+          "$BT/apksigner" sign             --ks "$HOME/.android/debug.keystore"             --ks-key-alias androiddebugkey             --ks-pass pass:android             --key-pass pass:android             --out "$RUNNER_TEMP/GREENMAN_HEDGEWITCHERY_PHONE_SCRIBE_BOS_TEST.apk"             "$RUNNER_TEMP/greenman-phone/aligned.apk"
+
+      - name: Verify final APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK="$RUNNER_TEMP/GREENMAN_HEDGEWITCHERY_PHONE_SCRIBE_BOS_TEST.apk"
+          BT="$ANDROID_HOME/build-tools/35.0.0"
+          "$BT/apksigner" verify --verbose --print-certs "$APK" | tee "$RUNNER_TEMP/greenman-phone/apksigner.txt"
+          grep -Fq "Signer #1 certificate SHA-256 digest: bd22a5c3ff7335237a0e725032816eb563d2e350789e6e555369b0fe32e0c19e" "$RUNNER_TEMP/greenman-phone/apksigner.txt"
+          "$BT/zipalign" -c -v 4 "$APK" >/dev/null
+          "$BT/aapt" dump badging "$APK" | tee "$RUNNER_TEMP/greenman-phone/final-badging.txt"
+          grep -q "package: name='com.greenman.hedgewitchery'" "$RUNNER_TEMP/greenman-phone/final-badging.txt"
+          unzip -p "$APK" assets/index.html > "$RUNNER_TEMP/greenman-phone/apk-index.html"
+          echo "d828d1097fba4a014a83dfe681ba67f790d4d7abe679837ff67290953bf22adb  $RUNNER_TEMP/greenman-phone/apk-index.html" | sha256sum -c -
+          sha256sum "$APK" | tee "$RUNNER_TEMP/greenman-phone/final-apk-sha256.txt"
+
+      - name: Upload phone APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: GREENMAN-HEDGEWITCHERY-PHONE-SCRIBE-BOS-APK
+          path: ${{ runner.temp }}/GREENMAN_HEDGEWITCHERY_PHONE_SCRIBE_BOS_TEST.apk
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload build audit
+        uses: actions/upload-artifact@v4
+        with:
+          name: GREENMAN-HEDGEWITCHERY-PHONE-SCRIBE-BOS-AUDIT
+          path: |
+            ${{ runner.temp }}/greenman-phone/baseline-badging.txt
+            ${{ runner.temp }}/greenman-phone/final-badging.txt
+            ${{ runner.temp }}/greenman-phone/apksigner.txt
+            ${{ runner.temp }}/greenman-phone/final-apk-sha256.txt
+          if-no-files-found: error
+          retention-days: 30
