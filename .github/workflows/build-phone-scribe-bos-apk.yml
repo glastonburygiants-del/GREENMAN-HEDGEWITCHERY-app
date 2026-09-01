@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
   push:
     branches:
-      - build/phone-scribe-bos-20260830
+      - hotfix/bos-save-path-20260901
     paths:
       - "build-input/current-html/**"
       - ".github/workflows/build-phone-scribe-bos-apk.yml"
@@ -42,6 +42,13 @@ jobs:
           xz -dc "$RUNNER_TEMP/greenman-phone/current.html.xz" > "$RUNNER_TEMP/greenman-phone/current.html"
           echo "d828d1097fba4a014a83dfe681ba67f790d4d7abe679837ff67290953bf22adb  $RUNNER_TEMP/greenman-phone/current.html" | sha256sum -c -
           test "$(stat -c%s "$RUNNER_TEMP/greenman-phone/current.html")" -eq 30497798
+
+      - name: Repair Journal and Scribe BoS path
+        shell: bash
+        run: |
+          set -euo pipefail
+          python tools/bos_save_hotfix_20260901.py "$RUNNER_TEMP/greenman-phone/current.html"
+          echo "88da9b27208b055b2c94c5d615722d9cb4352d958140bc46ec497e9c2a6be808  $RUNNER_TEMP/greenman-phone/current.html" | sha256sum -c -
 
       - name: Download exact last successful phone APK baseline
         env:
@@ -90,7 +97,7 @@ jobs:
           unzip -q "$RUNNER_TEMP/greenman-phone/baseline.apk" -d "$RUNNER_TEMP/greenman-phone/unpacked"
           rm -rf "$RUNNER_TEMP/greenman-phone/unpacked/META-INF"
           cp "$RUNNER_TEMP/greenman-phone/current.html" "$RUNNER_TEMP/greenman-phone/unpacked/assets/index.html"
-          echo "d828d1097fba4a014a83dfe681ba67f790d4d7abe679837ff67290953bf22adb  $RUNNER_TEMP/greenman-phone/unpacked/assets/index.html" | sha256sum -c -
+          echo "88da9b27208b055b2c94c5d615722d9cb4352d958140bc46ec497e9c2a6be808  $RUNNER_TEMP/greenman-phone/unpacked/assets/index.html" | sha256sum -c -
 
       - name: Repack align and sign
         shell: bash
@@ -105,14 +112,14 @@ jobs:
             --ks-key-alias androiddebugkey \
             --ks-pass pass:android \
             --key-pass pass:android \
-            --out "$RUNNER_TEMP/GREENMAN_HEDGEWITCHERY_PHONE_SCRIBE_BOS_CURRENT.apk" \
+            --out "$RUNNER_TEMP/GREENMAN_HEDGEWITCHERY_PHONE_BOS_SAVE_HOTFIX.apk" \
             "$RUNNER_TEMP/greenman-phone/aligned.apk"
 
       - name: Verify finished APK
         shell: bash
         run: |
           set -euo pipefail
-          APK="$RUNNER_TEMP/GREENMAN_HEDGEWITCHERY_PHONE_SCRIBE_BOS_CURRENT.apk"
+          APK="$RUNNER_TEMP/GREENMAN_HEDGEWITCHERY_PHONE_BOS_SAVE_HOTFIX.apk"
           BT="$ANDROID_HOME/build-tools/35.0.0"
           "$BT/apksigner" verify --verbose --print-certs "$APK" | tee "$RUNNER_TEMP/greenman-phone/final-apksigner.txt"
           grep -Fq "Signer #1 certificate SHA-256 digest: bd22a5c3ff7335237a0e725032816eb563d2e350789e6e555369b0fe32e0c19e" "$RUNNER_TEMP/greenman-phone/final-apksigner.txt"
@@ -120,21 +127,21 @@ jobs:
           "$BT/aapt" dump badging "$APK" | tee "$RUNNER_TEMP/greenman-phone/final-badging.txt"
           grep -q "package: name='com.greenman.hedgewitchery'" "$RUNNER_TEMP/greenman-phone/final-badging.txt"
           unzip -p "$APK" assets/index.html > "$RUNNER_TEMP/greenman-phone/apk-index.html"
-          echo "d828d1097fba4a014a83dfe681ba67f790d4d7abe679837ff67290953bf22adb  $RUNNER_TEMP/greenman-phone/apk-index.html" | sha256sum -c -
+          echo "88da9b27208b055b2c94c5d615722d9cb4352d958140bc46ec497e9c2a6be808  $RUNNER_TEMP/greenman-phone/apk-index.html" | sha256sum -c -
           sha256sum "$APK" | tee "$RUNNER_TEMP/greenman-phone/final-apk-sha256.txt"
 
       - name: Upload finished APK
         uses: actions/upload-artifact@v4
         with:
-          name: GREENMAN-HEDGEWITCHERY-PHONE-SCRIBE-BOS-CURRENT-APK
-          path: ${{ runner.temp }}/GREENMAN_HEDGEWITCHERY_PHONE_SCRIBE_BOS_CURRENT.apk
+          name: GREENMAN-HEDGEWITCHERY-PHONE-BOS-SAVE-HOTFIX-APK
+          path: ${{ runner.temp }}/GREENMAN_HEDGEWITCHERY_PHONE_BOS_SAVE_HOTFIX.apk
           if-no-files-found: error
           retention-days: 30
 
       - name: Upload audit
         uses: actions/upload-artifact@v4
         with:
-          name: GREENMAN-HEDGEWITCHERY-PHONE-SCRIBE-BOS-CURRENT-AUDIT
+          name: GREENMAN-HEDGEWITCHERY-PHONE-BOS-SAVE-HOTFIX-AUDIT
           path: |
             ${{ runner.temp }}/greenman-phone/baseline-badging.txt
             ${{ runner.temp }}/greenman-phone/baseline-apksigner.txt
