@@ -1,0 +1,129 @@
+name: Build Greenman V23 Energy APK
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/build-greenman-v23-energy-apk.yml"
+      - "GREENMAN_V23_ENERGY_HEADING_V19_MINIMAL_SAFE.html.xz (1).html"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Check out main
+        uses: actions/checkout@v4
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android build tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager "build-tools;35.0.0"
+
+      - name: Download exact Action 4 APK shell
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/gm-v23"
+          curl -L --fail --show-error --silent \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/glastonburygiants-del/GREENMAN-HEDGEWITCHERY-app/actions/artifacts/9741657899/zip" \
+            -o "$RUNNER_TEMP/gm-v23/action4.zip"
+          unzip -q "$RUNNER_TEMP/gm-v23/action4.zip" -d "$RUNNER_TEMP/gm-v23/action4"
+          BASE="$(find "$RUNNER_TEMP/gm-v23/action4" -type f -name '*.apk' -print -quit)"
+          test -n "$BASE"
+          cp "$BASE" "$RUNNER_TEMP/gm-v23/base.apk"
+
+      - name: Unpack and verify exact V23 HTML
+        shell: bash
+        run: |
+          set -euo pipefail
+          PACKED='GREENMAN_V23_ENERGY_HEADING_V19_MINIMAL_SAFE.html.xz (1).html'
+          SRC="$RUNNER_TEMP/gm-v23/GREENMAN_V23_ENERGY_HEADING_V19_MINIMAL_SAFE.html"
+          test "$(stat -c%s "$PACKED")" -eq 6710820
+          xz --test "$PACKED"
+          xz --decompress --stdout "$PACKED" > "$SRC"
+          test "$(stat -c%s "$SRC")" -eq 30992156
+          echo "b02e6e2cc69f9239bdf5a4490cd1159b7b6edcdecfc98461a5a49ed034074d59  $SRC" | sha256sum -c -
+          grep -Fq "Greenman Energy ·" "$SRC"
+
+      - name: Replace only app HTML asset
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/gm-v23/unpacked"
+          unzip -q "$RUNNER_TEMP/gm-v23/base.apk" -d "$RUNNER_TEMP/gm-v23/unpacked"
+          rm -rf "$RUNNER_TEMP/gm-v23/unpacked/META-INF"
+          cp "$RUNNER_TEMP/gm-v23/GREENMAN_V23_ENERGY_HEADING_V19_MINIMAL_SAFE.html" "$RUNNER_TEMP/gm-v23/unpacked/assets/index.html"
+          echo "b02e6e2cc69f9239bdf5a4490cd1159b7b6edcdecfc98461a5a49ed034074d59  $RUNNER_TEMP/gm-v23/unpacked/assets/index.html" | sha256sum -c -
+
+      - name: Install Greenman signing key
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$HOME/.android"
+          base64 --decode tools/greenman_debug_keystore.b64 > "$HOME/.android/debug.keystore"
+          chmod 600 "$HOME/.android/debug.keystore"
+
+      - name: Repack align and sign
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP/gm-v23/unpacked"
+          zip -qr "$RUNNER_TEMP/gm-v23/unsigned.apk" .
+          BT="$ANDROID_HOME/build-tools/35.0.0"
+          "$BT/zipalign" -p -f 4 "$RUNNER_TEMP/gm-v23/unsigned.apk" "$RUNNER_TEMP/gm-v23/aligned.apk"
+          "$BT/apksigner" sign \
+            --ks "$HOME/.android/debug.keystore" \
+            --ks-key-alias androiddebugkey \
+            --ks-pass pass:android \
+            --key-pass pass:android \
+            --out "$RUNNER_TEMP/GREENMAN_HEDGEWITCHERY_V23_ENERGY_HEADING.apk" \
+            "$RUNNER_TEMP/gm-v23/aligned.apk"
+
+      - name: Verify finished APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK="$RUNNER_TEMP/GREENMAN_HEDGEWITCHERY_V23_ENERGY_HEADING.apk"
+          BT="$ANDROID_HOME/build-tools/35.0.0"
+          "$BT/apksigner" verify --verbose --print-certs "$APK" | tee "$RUNNER_TEMP/gm-v23/apksigner.txt"
+          "$BT/zipalign" -c -v 4 "$APK" >/dev/null
+          "$BT/aapt" dump badging "$APK" | tee "$RUNNER_TEMP/gm-v23/badging.txt"
+          grep -q "package: name='com.greenman.hedgewitchery'" "$RUNNER_TEMP/gm-v23/badging.txt"
+          unzip -p "$APK" assets/index.html > "$RUNNER_TEMP/gm-v23/final-index.html"
+          cmp "$RUNNER_TEMP/gm-v23/final-index.html" "$RUNNER_TEMP/gm-v23/GREENMAN_V23_ENERGY_HEADING_V19_MINIMAL_SAFE.html"
+          sha256sum "$APK" | tee "$RUNNER_TEMP/gm-v23/final-apk-sha256.txt"
+
+      - name: Upload V23 APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: GREENMAN-V23-ENERGY-HEADING-APK
+          path: ${{ runner.temp }}/GREENMAN_HEDGEWITCHERY_V23_ENERGY_HEADING.apk
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload V23 audit
+        uses: actions/upload-artifact@v4
+        with:
+          name: GREENMAN-V23-ENERGY-HEADING-AUDIT
+          path: |
+            ${{ runner.temp }}/gm-v23/apksigner.txt
+            ${{ runner.temp }}/gm-v23/badging.txt
+            ${{ runner.temp }}/gm-v23/final-apk-sha256.txt
+          if-no-files-found: error
+          retention-days: 30
