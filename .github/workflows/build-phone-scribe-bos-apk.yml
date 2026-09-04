@@ -52,7 +52,7 @@ jobs:
         run: |
           set -euo pipefail
           SRC="$RUNNER_TEMP/gm-v19/GREENMAN_V19_ENERGY_LABEL_ONLY.html"
-          URL='https://drive.usercontent.google.com/download?id=1UMACq8co5Loi-vApddC92FvSODXi4ODr&export=download&confirm=t'
+          URL='https://drive.usercontent.google.com/download?id=1a0z78Iuv4NXzkQSbFOkOEzO6VqD6oook&export=download&confirm=t'
           curl -L --fail --show-error --silent "$URL" -o "$SRC"
           test "$(stat -c%s "$SRC")" -eq 30989269
           echo "8cfbbc71ff1584056b34ec3b6686a3ce7fb39b57cbb80607aaebcca02b484519  $SRC" | sha256sum -c -
