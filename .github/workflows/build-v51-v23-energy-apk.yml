@@ -1,0 +1,142 @@
+name: Build V5.1 APK with V23 Energy HTML
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/build-v51-v23-energy-apk.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Check out canonical repository
+        uses: actions/checkout@v4
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android build tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager "build-tools;35.0.0"
+
+      - name: Verify exact uploaded V5.1 APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE="$GITHUB_WORKSPACE/GREENMAN_HEDGEWITCHERY.apk"
+          test "$(stat -c%s "$BASE")" -eq 6690801
+          echo "a3e5f03bbd5560b7420626ec02b0c89ff0252a35200a650b9e8ea950bb2e2cdd  $BASE" | sha256sum -c -
+          mkdir -p "$RUNNER_TEMP/gm-v51-v23/base"
+          unzip -q "$BASE" -d "$RUNNER_TEMP/gm-v51-v23/base"
+          echo "de2c377e7fe9ca11f120cdea5b3a6da3a2ef95a7c097448b792bb58073bec293  $RUNNER_TEMP/gm-v51-v23/base/assets/index.html" | sha256sum -c -
+          echo "df152b24f0a2b89acf0ebf0150821e43efdc9fc6352cbbba1c38ad7d5f942742  $RUNNER_TEMP/gm-v51-v23/base/assets/greenman_bower.html" | sha256sum -c -
+          echo "1d96a09eebed509557f769aa933fa8addc60128da7ca66d9817111882bad768f  $RUNNER_TEMP/gm-v51-v23/base/assets/greenman_treehouse.html" | sha256sum -c -
+          echo "e086fd31c5f30ab6b9e95432b9964247a41774c619f35d2b23650ebecf06aac3  $RUNNER_TEMP/gm-v51-v23/base/assets/greenman_scribe.html" | sha256sum -c -
+
+      - name: Unpack and verify exact V23 HTML
+        shell: bash
+        run: |
+          set -euo pipefail
+          PACKED="$GITHUB_WORKSPACE/GREENMAN_V23_ENERGY_HEADING_V19_MINIMAL_SAFE.html.xz (1).html"
+          SRC="$RUNNER_TEMP/gm-v51-v23/GREENMAN_V23_ENERGY_HEADING_V19_MINIMAL_SAFE.html"
+          test "$(stat -c%s "$PACKED")" -eq 6710820
+          xz --test "$PACKED"
+          xz --decompress --stdout "$PACKED" > "$SRC"
+          test "$(stat -c%s "$SRC")" -eq 30992156
+          echo "b02e6e2cc69f9239bdf5a4490cd1159b7b6edcdecfc98461a5a49ed034074d59  $SRC" | sha256sum -c -
+          grep -Fq "Greenman Energy ·" "$SRC"
+
+      - name: Replace only assets index
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp -a "$RUNNER_TEMP/gm-v51-v23/base" "$RUNNER_TEMP/gm-v51-v23/unpacked"
+          rm -rf "$RUNNER_TEMP/gm-v51-v23/unpacked/META-INF"
+          cp "$RUNNER_TEMP/gm-v51-v23/GREENMAN_V23_ENERGY_HEADING_V19_MINIMAL_SAFE.html" "$RUNNER_TEMP/gm-v51-v23/unpacked/assets/index.html"
+          echo "b02e6e2cc69f9239bdf5a4490cd1159b7b6edcdecfc98461a5a49ed034074d59  $RUNNER_TEMP/gm-v51-v23/unpacked/assets/index.html" | sha256sum -c -
+          cmp "$RUNNER_TEMP/gm-v51-v23/base/assets/greenman_bower.html" "$RUNNER_TEMP/gm-v51-v23/unpacked/assets/greenman_bower.html"
+          cmp "$RUNNER_TEMP/gm-v51-v23/base/assets/greenman_treehouse.html" "$RUNNER_TEMP/gm-v51-v23/unpacked/assets/greenman_treehouse.html"
+          cmp "$RUNNER_TEMP/gm-v51-v23/base/assets/greenman_scribe.html" "$RUNNER_TEMP/gm-v51-v23/unpacked/assets/greenman_scribe.html"
+
+      - name: Install Greenman signing key
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$HOME/.android"
+          base64 --decode "$GITHUB_WORKSPACE/tools/greenman_debug_keystore.b64" > "$HOME/.android/debug.keystore"
+          chmod 600 "$HOME/.android/debug.keystore"
+
+      - name: Repack align and sign
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP/gm-v51-v23/unpacked"
+          zip -qr "$RUNNER_TEMP/gm-v51-v23/unsigned.apk" .
+          BT="$ANDROID_HOME/build-tools/35.0.0"
+          "$BT/zipalign" -p -f 4 "$RUNNER_TEMP/gm-v51-v23/unsigned.apk" "$RUNNER_TEMP/gm-v51-v23/aligned.apk"
+          "$BT/apksigner" sign \
+            --ks "$HOME/.android/debug.keystore" \
+            --ks-key-alias androiddebugkey \
+            --ks-pass pass:android \
+            --key-pass pass:android \
+            --out "$RUNNER_TEMP/GREENMAN_HEDGEWITCHERY_V5_1_V23_ENERGY.apk" \
+            "$RUNNER_TEMP/gm-v51-v23/aligned.apk"
+
+      - name: Verify final APK and untouched payload
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK="$RUNNER_TEMP/GREENMAN_HEDGEWITCHERY_V5_1_V23_ENERGY.apk"
+          BASE="$GITHUB_WORKSPACE/GREENMAN_HEDGEWITCHERY.apk"
+          BT="$ANDROID_HOME/build-tools/35.0.0"
+          "$BT/apksigner" verify --verbose --print-certs "$APK" | tee "$RUNNER_TEMP/gm-v51-v23/apksigner.txt"
+          grep -Fq "Signer #1 certificate SHA-256 digest: bd22a5c3ff7335237a0e725032816eb563d2e350789e6e555369b0fe32e0c19e" "$RUNNER_TEMP/gm-v51-v23/apksigner.txt"
+          "$BT/zipalign" -c -v 4 "$APK" >/dev/null
+          "$BT/aapt" dump badging "$APK" | tee "$RUNNER_TEMP/gm-v51-v23/badging.txt"
+          grep -q "package: name='com.greenman.hedgewitchery'" "$RUNNER_TEMP/gm-v51-v23/badging.txt"
+          unzip -p "$APK" assets/index.html > "$RUNNER_TEMP/gm-v51-v23/final-index.html"
+          echo "b02e6e2cc69f9239bdf5a4490cd1159b7b6edcdecfc98461a5a49ed034074d59  $RUNNER_TEMP/gm-v51-v23/final-index.html" | sha256sum -c -
+          python - "$BASE" "$APK" <<'PY'
+          import hashlib, sys, zipfile
+          base, final = sys.argv[1], sys.argv[2]
+          def h(b): return hashlib.sha256(b).hexdigest()
+          with zipfile.ZipFile(base) as a, zipfile.ZipFile(final) as b:
+              aa={n:a.read(n) for n in a.namelist() if not n.endswith('/') and not n.upper().startswith('META-INF/') and n!='assets/index.html'}
+              bb={n:b.read(n) for n in b.namelist() if not n.endswith('/') and not n.upper().startswith('META-INF/') and n!='assets/index.html'}
+          if set(aa)!=set(bb):
+              raise SystemExit('STOP: non-index APK file set changed')
+          changed=[n for n in aa if h(aa[n])!=h(bb[n])]
+          if changed:
+              raise SystemExit('STOP: unexpected non-index payload changes: '+', '.join(changed))
+          print('Untouched APK payload verified byte-for-byte:', len(aa), 'files')
+          PY
+          sha256sum "$APK" | tee "$RUNNER_TEMP/gm-v51-v23/final-apk-sha256.txt"
+
+      - name: Upload updated V5.1 APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: GREENMAN-V5-1-V23-ENERGY-APK
+          path: ${{ runner.temp }}/GREENMAN_HEDGEWITCHERY_V5_1_V23_ENERGY.apk
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload audit
+        uses: actions/upload-artifact@v4
+        with:
+          name: GREENMAN-V5-1-V23-ENERGY-AUDIT
+          path: |
+            ${{ runner.temp }}/gm-v51-v23/apksigner.txt
+            ${{ runner.temp }}/gm-v51-v23/badging.txt
+            ${{ runner.temp }}/gm-v51-v23/final-apk-sha256.txt
+          if-no-files-found: error
+          retention-days: 30
