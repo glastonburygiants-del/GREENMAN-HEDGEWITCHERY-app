@@ -15,7 +15,7 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
     steps:
       - name: Check out hotfix branch
         uses: actions/checkout@v4
@@ -30,124 +30,43 @@ jobs:
           yes | sdkmanager --licenses >/dev/null || true
           sdkmanager "build-tools;35.0.0"
 
-      - name: Download exact Action 4 APK
+      - name: Download exact Action 4 APK shell
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p "$RUNNER_TEMP/gm-hotfix"
+          mkdir -p "$RUNNER_TEMP/gm-v19"
           curl -L --fail --show-error --silent \
             -H "Authorization: Bearer $GH_TOKEN" \
             -H "Accept: application/vnd.github+json" \
             "https://api.github.com/repos/glastonburygiants-del/GREENMAN-HEDGEWITCHERY-app/actions/artifacts/9741657899/zip" \
-            -o "$RUNNER_TEMP/gm-hotfix/action4.zip"
-          unzip -q "$RUNNER_TEMP/gm-hotfix/action4.zip" -d "$RUNNER_TEMP/gm-hotfix/action4"
-          BASE="$(find "$RUNNER_TEMP/gm-hotfix/action4" -type f -name '*.apk' -print -quit)"
+            -o "$RUNNER_TEMP/gm-v19/action4.zip"
+          unzip -q "$RUNNER_TEMP/gm-v19/action4.zip" -d "$RUNNER_TEMP/gm-v19/action4"
+          BASE="$(find "$RUNNER_TEMP/gm-v19/action4" -type f -name '*.apk' -print -quit)"
           test -n "$BASE"
-          cp "$BASE" "$RUNNER_TEMP/gm-hotfix/base.apk"
-          unzip -p "$BASE" assets/index.html > "$RUNNER_TEMP/gm-hotfix/original-index.html"
-          echo "d828d1097fba4a014a83dfe681ba67f790d4d7abe679837ff67290953bf22adb  $RUNNER_TEMP/gm-hotfix/original-index.html" | sha256sum -c -
+          cp "$BASE" "$RUNNER_TEMP/gm-v19/base.apk"
 
-      - name: Patch only BoS multi-save and Scribe source
+      - name: Fetch exact V19 HTML
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p "$RUNNER_TEMP/gm-hotfix/unpacked"
-          unzip -q "$RUNNER_TEMP/gm-hotfix/base.apk" -d "$RUNNER_TEMP/gm-hotfix/unpacked"
-          rm -rf "$RUNNER_TEMP/gm-hotfix/unpacked/META-INF"
-          python - "$RUNNER_TEMP/gm-hotfix/unpacked/assets/index.html" <<'PY'
-          from pathlib import Path
-          import re, sys
+          SRC="$RUNNER_TEMP/gm-v19/GREENMAN_V19_ENERGY_LABEL_ONLY.html"
+          URL='https://drive.usercontent.google.com/download?id=1UMACq8co5Loi-vApddC92FvSODXi4ODr&export=download&confirm=t'
+          curl -L --fail --show-error --silent "$URL" -o "$SRC"
+          test "$(stat -c%s "$SRC")" -eq 30989269
+          echo "8cfbbc71ff1584056b34ec3b6686a3ce7fb39b57cbb80607aaebcca02b484519  $SRC" | sha256sum -c -
+          grep -Fq "Greenman Energy ·" "$SRC"
 
-          p=Path(sys.argv[1])
-          s=p.read_text(encoding='utf-8')
-
-          save_re = re.compile(r"function saveQuickToBos\(force\)\{.*?\n\}\nfunction adminLog", re.S)
-          save_new = r'''function saveQuickToBos(force){
-            if(isLite()){toast('Book of Shadows saving is disabled in Lite mode');return;}
-            const list=readLS(LS_QUICK,[]); if(!list.length){toast('No spells to save');return;}
-            if(list.length>1&&!force){openSaveChoice(list.length);return;}
-
-            const entries=readLS(LS_ENTRIES,[]);
-            const admin=readLS(LS_ADMIN,[]);
-            const quickBefore=localStorage.getItem(LS_QUICK);
-            const entriesBefore=localStorage.getItem(LS_ENTRIES);
-            const adminBefore=localStorage.getItem(LS_ADMIN);
-            const nextEntries=JSON.parse(JSON.stringify(entries));
-            const nextAdmin=JSON.parse(JSON.stringify(admin));
-            const leanQuick=JSON.parse(JSON.stringify(list));
-            let savedCount=0;
-
-            const sourceId=x=>String((x&&(x.id||x.sourceId||x.gatherId))||'');
-            const permanentFor=q=>{
-              const sid=sourceId(q);
-              const savedId=String((q&&q.savedEntryId)||'');
-              return nextEntries.find(e=>(sid&&sourceId(e)===sid)||(savedId&&String(e&&e.entryId||'')===savedId))||null;
-            };
-
-            list.forEach((q,ix)=>{
-              let e=permanentFor(q);
-              if(!e){
-                e=JSON.parse(JSON.stringify(q));
-                const sid=sourceId(q)||String(q&&q.entryId||'');
-                if(sid)e.sourceId=sid;
-                e.entryId=uid('bos');
-                e.savedAt=new Date().toISOString();
-                e.saved=true;
-                nextEntries.push(e);
-                nextAdmin.push(adminLog(e));
-                savedCount++;
-              }
-              leanQuick[ix].saved=true;
-              leanQuick[ix].savedEntryId=e.entryId||e.id||'';
-              delete leanQuick[ix].bosSnapshot;
-            });
-
-            const restore=(key,raw)=>{try{if(raw===null)localStorage.removeItem(key);else localStorage.setItem(key,raw);}catch(_e){}};
-            try{
-              localStorage.setItem(LS_QUICK,JSON.stringify(leanQuick));
-              localStorage.setItem(LS_ENTRIES,JSON.stringify(nextEntries));
-              localStorage.setItem(LS_ADMIN,JSON.stringify(nextAdmin));
-            }catch(err){
-              restore(LS_ENTRIES,entriesBefore);
-              restore(LS_ADMIN,adminBefore);
-              restore(LS_QUICK,quickBefore);
-              console.error('Book of Shadows save failed',err);
-              toast('Book of Shadows save failed - storage was left unchanged');
-              return;
-            }
-
-            renderQuick(); renderBosFront();
-            toast(savedCount?savedCount+' spell saved to Book of Shadows':'Already saved');
-          }
-          function adminLog'''
-
-          s,n1=save_re.subn(save_new,s,count=1)
-          if n1!=1:
-              raise SystemExit(f'Journal save patch count={n1}')
-
-          read_re = re.compile(r"function readEntries\(\)\{.*?\n\}\nfunction isSpell", re.S)
-          read_new = r'''function readEntries(){
-           const entries=store('gm_journal_entries',[]);
-           return (Array.isArray(entries)?entries:[]).filter(e=>e&&e.entryType!=='scribeTranslation');
-          }
-          function isSpell'''
-          s,n2=read_re.subn(read_new,s,count=1)
-          if n2!=1:
-              raise SystemExit(f'Scribe source patch count={n2}')
-
-          p.write_text(s,encoding='utf-8')
-          print('Journal save patch:',n1)
-          print('Scribe source patch:',n2)
-          PY
-          grep -Fq "const permanentFor=q=>" "$RUNNER_TEMP/gm-hotfix/unpacked/assets/index.html"
-          grep -Fq "const entries=store('gm_journal_entries',[]);" "$RUNNER_TEMP/gm-hotfix/unpacked/assets/index.html"
-          if grep -A8 -F "function readEntries(){" "$RUNNER_TEMP/gm-hotfix/unpacked/assets/index.html" | grep -Fq "gm_journal_quick_list"; then
-            echo "Scribe bypass still present"
-            exit 1
-          fi
-          sha256sum "$RUNNER_TEMP/gm-hotfix/unpacked/assets/index.html" | tee "$RUNNER_TEMP/gm-hotfix/patched-index-sha256.txt"
+      - name: Replace only app HTML asset
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/gm-v19/unpacked"
+          unzip -q "$RUNNER_TEMP/gm-v19/base.apk" -d "$RUNNER_TEMP/gm-v19/unpacked"
+          rm -rf "$RUNNER_TEMP/gm-v19/unpacked/META-INF"
+          cp "$RUNNER_TEMP/gm-v19/GREENMAN_V19_ENERGY_LABEL_ONLY.html" "$RUNNER_TEMP/gm-v19/unpacked/assets/index.html"
+          echo "8cfbbc71ff1584056b34ec3b6686a3ce7fb39b57cbb80607aaebcca02b484519  $RUNNER_TEMP/gm-v19/unpacked/assets/index.html" | sha256sum -c -
 
       - name: Install Greenman signing key
         shell: bash
@@ -161,49 +80,49 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          cd "$RUNNER_TEMP/gm-hotfix/unpacked"
-          zip -qr "$RUNNER_TEMP/gm-hotfix/unsigned.apk" .
+          cd "$RUNNER_TEMP/gm-v19/unpacked"
+          zip -qr "$RUNNER_TEMP/gm-v19/unsigned.apk" .
           BT="$ANDROID_HOME/build-tools/35.0.0"
-          "$BT/zipalign" -p -f 4 "$RUNNER_TEMP/gm-hotfix/unsigned.apk" "$RUNNER_TEMP/gm-hotfix/aligned.apk"
+          "$BT/zipalign" -p -f 4 "$RUNNER_TEMP/gm-v19/unsigned.apk" "$RUNNER_TEMP/gm-v19/aligned.apk"
           "$BT/apksigner" sign \
             --ks "$HOME/.android/debug.keystore" \
             --ks-key-alias androiddebugkey \
             --ks-pass pass:android \
             --key-pass pass:android \
-            --out "$RUNNER_TEMP/GREENMAN_HEDGEWITCHERY_ACTION4_BOS_MULTISAVE_HOTFIX.apk" \
-            "$RUNNER_TEMP/gm-hotfix/aligned.apk"
+            --out "$RUNNER_TEMP/GREENMAN_HEDGEWITCHERY_V19_ENERGY_LABEL.apk" \
+            "$RUNNER_TEMP/gm-v19/aligned.apk"
 
       - name: Verify finished APK
         shell: bash
         run: |
           set -euo pipefail
-          APK="$RUNNER_TEMP/GREENMAN_HEDGEWITCHERY_ACTION4_BOS_MULTISAVE_HOTFIX.apk"
+          APK="$RUNNER_TEMP/GREENMAN_HEDGEWITCHERY_V19_ENERGY_LABEL.apk"
           BT="$ANDROID_HOME/build-tools/35.0.0"
-          "$BT/apksigner" verify --verbose --print-certs "$APK" | tee "$RUNNER_TEMP/gm-hotfix/apksigner.txt"
-          grep -Fq "Signer #1 certificate SHA-256 digest: bd22a5c3ff7335237a0e725032816eb563d2e350789e6e555369b0fe32e0c19e" "$RUNNER_TEMP/gm-hotfix/apksigner.txt"
+          "$BT/apksigner" verify --verbose --print-certs "$APK" | tee "$RUNNER_TEMP/gm-v19/apksigner.txt"
+          grep -Fq "Signer #1 certificate SHA-256 digest: bd22a5c3ff7335237a0e725032816eb563d2e350789e6e555369b0fe32e0c19e" "$RUNNER_TEMP/gm-v19/apksigner.txt"
           "$BT/zipalign" -c -v 4 "$APK" >/dev/null
-          "$BT/aapt" dump badging "$APK" | tee "$RUNNER_TEMP/gm-hotfix/badging.txt"
-          grep -q "package: name='com.greenman.hedgewitchery'" "$RUNNER_TEMP/gm-hotfix/badging.txt"
-          unzip -p "$APK" assets/index.html > "$RUNNER_TEMP/gm-hotfix/final-index.html"
-          cmp "$RUNNER_TEMP/gm-hotfix/final-index.html" "$RUNNER_TEMP/gm-hotfix/unpacked/assets/index.html"
-          sha256sum "$APK" | tee "$RUNNER_TEMP/gm-hotfix/final-apk-sha256.txt"
+          "$BT/aapt" dump badging "$APK" | tee "$RUNNER_TEMP/gm-v19/badging.txt"
+          grep -q "package: name='com.greenman.hedgewitchery'" "$RUNNER_TEMP/gm-v19/badging.txt"
+          unzip -p "$APK" assets/index.html > "$RUNNER_TEMP/gm-v19/final-index.html"
+          cmp "$RUNNER_TEMP/gm-v19/final-index.html" "$RUNNER_TEMP/gm-v19/GREENMAN_V19_ENERGY_LABEL_ONLY.html"
+          sha256sum "$APK" | tee "$RUNNER_TEMP/gm-v19/final-apk-sha256.txt"
 
-      - name: Upload hotfix APK
+      - name: Upload V19 APK
         uses: actions/upload-artifact@v4
         with:
-          name: GREENMAN-ACTION4-BOS-MULTISAVE-HOTFIX-APK
-          path: ${{ runner.temp }}/GREENMAN_HEDGEWITCHERY_ACTION4_BOS_MULTISAVE_HOTFIX.apk
+          name: GREENMAN-V19-ENERGY-LABEL-APK
+          path: ${{ runner.temp }}/GREENMAN_HEDGEWITCHERY_V19_ENERGY_LABEL.apk
           if-no-files-found: error
           retention-days: 30
 
-      - name: Upload audit
+      - name: Upload exact V19 source and audit
         uses: actions/upload-artifact@v4
         with:
-          name: GREENMAN-ACTION4-BOS-MULTISAVE-HOTFIX-AUDIT
+          name: GREENMAN-V19-ENERGY-LABEL-SOURCE-AUDIT
           path: |
-            ${{ runner.temp }}/gm-hotfix/patched-index-sha256.txt
-            ${{ runner.temp }}/gm-hotfix/apksigner.txt
-            ${{ runner.temp }}/gm-hotfix/badging.txt
-            ${{ runner.temp }}/gm-hotfix/final-apk-sha256.txt
+            ${{ runner.temp }}/gm-v19/GREENMAN_V19_ENERGY_LABEL_ONLY.html
+            ${{ runner.temp }}/gm-v19/apksigner.txt
+            ${{ runner.temp }}/gm-v19/badging.txt
+            ${{ runner.temp }}/gm-v19/final-apk-sha256.txt
           if-no-files-found: error
           retention-days: 30
