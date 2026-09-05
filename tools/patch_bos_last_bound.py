@@ -78,19 +78,22 @@ INLINE_BLOB_IMAGES = r'''async function gmBosInlineBlobImages(root){
 }'''
 
 
-CAPTURE = r'''async function gmBosFlatBlobFromSheet(sheet,index,total,binding){
+CAPTURE = r'''async function gmBosFlatBlobFromSheet(sheet,index,total,binding,options){
  const captureStarted=Date.now();
+ gmBosThrowIfCancelled(options);
  if(binding&&binding.registry&&binding.registry.defs&&binding.registry.defs.parentNode)sheet.prepend(binding.registry.defs.parentNode.cloneNode(true));
  if(typeof window.html2canvas!=='function')throw new Error('The mobile page-capture engine did not load');
- const host=document.createElement('div');host.setAttribute('aria-hidden','true');host.style.cssText='position:fixed;left:0;top:0;width:794px;height:1123px;margin:0;padding:0;overflow:hidden;pointer-events:none;z-index:-2147483648;background:#f4ecd8;display:block';host.append(sheet);document.body.append(host);
+ const frame=document.createElement('iframe');frame.setAttribute('aria-hidden','true');frame.style.cssText='position:fixed;left:-14000px;top:0;width:794px;height:1123px;border:0;margin:0;padding:0;overflow:hidden;pointer-events:none;opacity:.01;z-index:-1';document.body.append(frame);
  try{
-  let phase=Date.now();await gmBosInlineBlobImages(sheet);const inlineMs=Date.now()-phase;
-  phase=Date.now();await Promise.all(qa('img',sheet).map(gmBosWaitImage));const imageReadyMs=Date.now()-phase;
-  phase=Date.now();try{if(document.fonts&&document.fonts.ready)await Promise.race([document.fonts.ready,new Promise(resolve=>setTimeout(resolve,2500))])}catch(_e){}const fontReadyMs=Date.now()-phase;
-  phase=Date.now();await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));const settleMs=Date.now()-phase;
+  const fd=frame.contentDocument;if(!fd)throw new Error('The isolated A4 page could not be opened');fd.open();fd.write('<!doctype html><html><head><meta charset="utf-8"></head><body></body></html>');fd.close();const st=fd.createElement('style');st.textContent=gmBosRasterStyles();fd.head.append(st);sheet=fd.adoptNode(sheet);fd.body.style.cssText='margin:0;padding:0;width:794px;height:1123px;overflow:hidden;background:#f4ecd8';fd.body.append(sheet);
+  let phase=Date.now();await gmBosInlineBlobImages(sheet);const inlineMs=Date.now()-phase;gmBosThrowIfCancelled(options);
+  phase=Date.now();await Promise.all(qa('img',sheet).map(gmBosWaitImage));const imageReadyMs=Date.now()-phase;gmBosThrowIfCancelled(options);
+  phase=Date.now();try{if(fd.fonts&&fd.fonts.ready)await Promise.race([fd.fonts.ready,new Promise(resolve=>setTimeout(resolve,2500))])}catch(_e){}const fontReadyMs=Date.now()-phase;gmBosThrowIfCancelled(options);
+  phase=Date.now();const raf=fd.defaultView&&fd.defaultView.requestAnimationFrame?fd.defaultView.requestAnimationFrame.bind(fd.defaultView):requestAnimationFrame;await new Promise(r=>raf(()=>raf(r)));const settleMs=Date.now()-phase;gmBosThrowIfCancelled(options);
   const scale=1.5,minimumWidth=Math.floor(794*scale)-2,minimumHeight=Math.floor(1123*scale)-2;phase=Date.now();const canvas=await window.html2canvas(sheet,{backgroundColor:'#f4ecd8',width:794,height:1123,scale:scale,useCORS:true,allowTaint:false,logging:false,removeContainer:true,imageTimeout:20000,scrollX:0,scrollY:0,windowWidth:794,windowHeight:1123}),canvasMs=Date.now()-phase;if(!canvas||canvas.width<minimumWidth||canvas.height<minimumHeight)throw new Error('A4 page '+(index+1)+' returned an incomplete image'+(canvas?' ('+canvas.width+' × '+canvas.height+')':''));
+  if(gmBosIsCancelled(options)){canvas.width=1;canvas.height=1;gmBosThrowIfCancelled(options)}
   const width=canvas.width,height=canvas.height,quality=total>300?.72:total>120?.74:.77;phase=Date.now();const blob=await new Promise(resolve=>canvas.toBlob(resolve,'image/jpeg',quality)),jpegMs=Date.now()-phase;canvas.width=1;canvas.height=1;if(!blob)throw new Error('A4 page '+(index+1)+' could not be compressed');gmBosDiag('BIND CAPTURE','A4 image completed',{page:index+1,total:total,width:width,height:height,jpegBytes:blob.size,inlineMs:inlineMs,imageReadyMs:imageReadyMs,fontReadyMs:fontReadyMs,settleMs:settleMs,canvasMs:canvasMs,jpegMs:jpegMs,durationMs:Date.now()-captureStarted});return {blob:blob,width:width,height:height}
- }finally{host.remove()}
+ }finally{frame.remove()}
 }'''
 
 
@@ -100,6 +103,8 @@ NATIVE_HELPERS = r'''function gmBosNativeFiles(){
 function gmBosStoredBookAvailable(){
  const api=gmBosNativeFiles();try{return !!(api&&typeof api.hasLastBoundPdf==='function'&&api.hasLastBoundPdf())}catch(_e){return false}
 }
+function gmBosIsCancelled(options){return !!(options&&options.cancelToken&&options.cancelToken.cancelled)}
+function gmBosThrowIfCancelled(options){if(!gmBosIsCancelled(options))return;const err=new Error('Binding cancelled');err.gmBosCancelled=true;throw err}
 async function gmBosStoreLastBoundPdf(blob,options){
  const api=gmBosNativeFiles();if(!api||typeof api.beginLastBoundPdf!=='function'||typeof api.appendLastBoundPdfChunk!=='function')return false;
  if(!api.beginLastBoundPdf(blob.size))throw new Error('Android could not open the Last Bound Book file');
@@ -126,7 +131,23 @@ FLATTEN_BOUND = r'''async function flattenBound(options){
   const flats=await gmBosFlattenNodes(chosen,'original',options,map);flats.forEach((flat,i)=>boundPlan.rows[i].flat=flat);boundPlan.flatReady=flats.length===chosen.length;if(!boundPlan.flatReady)return null;
   const native=gmBosNativeFiles();if(native){if(btn)btn.textContent='Saving Last Bound Book…';if(typeof options.onSaving==='function')options.onSaving();const pdf=await gmBosBuildFlatPdf(flats);boundPlan.nativeSaved=await gmBosStoreLastBoundPdf(pdf,options);boundPlan.nativePdfSize=pdf.size}else{boundPlan.nativeSaved=false}
   gmBosDiag('BIND COMPLETE','Selected BoS pages were bound',{pages:chosen.length,nativeSaved:!!boundPlan.nativeSaved,pdfBytes:Number(boundPlan.nativePdfSize||0),durationMs:Date.now()-bindStarted});return getBoundCatalog()
- }catch(err){gmBosDiag('BIND ERROR','Binding failed',{message:String(err&&err.message||err),durationMs:Date.now()-bindStarted},true);console.error('Greenman BoS binding failed',err);boundPlan=null;const detail=String(err&&err.message||err||'Page capture failed');alert('The selected pages could not be bound.\n\n'+detail);return null}finally{if(btn){btn.disabled=false;btn.textContent=old||'Bind Book'}}
+ }catch(err){if(err&&err.gmBosCancelled){gmBosDiag('BIND CANCELLED','Binding stopped safely',{durationMs:Date.now()-bindStarted});boundPlan=null;return {cancelled:true}}gmBosDiag('BIND ERROR','Binding failed',{message:String(err&&err.message||err),durationMs:Date.now()-bindStarted},true);console.error('Greenman BoS binding failed',err);boundPlan=null;const detail=String(err&&err.message||err||'Page capture failed');alert('The selected pages could not be bound.\n\n'+detail);return null}finally{if(btn){btn.disabled=false;btn.textContent=old||'Bind Book'}}
+}'''
+
+
+BIND_UI = r'''let gmBosActiveBindCancel=null;
+function gmBosCancelCurrentBind(){
+ const token=gmBosActiveBindCancel,modal=$('#gmBosBindModal'),title=$('#gmBosBindTitle'),summary=$('#gmBosBindSummary'),btn=$('#gmBosCancelBind');if(!token||token.cancelled)return;
+ token.cancelled=true;if(modal)modal.classList.add('cancelling');if(title)title.textContent='Cancelling Binding';if(summary)summary.innerHTML='<strong>Stopping after the current page</strong>The unfinished new book will be discarded. Your previously saved PDF will not be changed.';if(btn){btn.disabled=true;btn.textContent='Cancelling…'}gmBosDiag('BIND CANCEL','Cancel requested by user',{completedPages:Number(token.completedPages||0)})
+}
+async function gmBosBindCurrentSelection(){
+ const cat=GM_BOS.bindSelected(),modal=$('#gmBosBindModal'),title=$('#gmBosBindTitle'),summary=$('#gmBosBindSummary'),btn=$('#gmBosBindBookBtn'),cancelBtn=$('#gmBosCancelBind');if(!cat||!modal||!title||!summary||!btn)return;
+ const cancelToken={cancelled:false,completedPages:0};gmBosActiveBindCancel=cancelToken;if(cancelBtn){cancelBtn.disabled=false;cancelBtn.textContent='Cancel Binding'}
+ title.textContent='Binding Book of Shadows';summary.innerHTML='<strong>Flattening 0 of '+cat.pages.length+' A4 pages</strong>The Main Contents selection is becoming a fixed bound copy.';modal.classList.remove('cancelling');modal.classList.add('open','binding');
+ await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));
+ const result=await GM_BOS.flattenBound({button:btn,cancelToken:cancelToken,onProgress:(done,total)=>{cancelToken.completedPages=done;if(!cancelToken.cancelled)summary.innerHTML='<strong>Flattening '+done+' of '+total+' A4 pages</strong>The selected chapters are becoming a fixed bound copy.'},onSaving:()=>{summary.innerHTML='<strong>Saving Last Bound Book PDF</strong>The finished flat book is being placed in private app storage.'},onStorageProgress:(done,total)=>{summary.innerHTML='<strong>Saving Last Bound Book PDF · '+done+'/'+total+'</strong>The previous bound PDF will be replaced.'}});
+ gmBosActiveBindCancel=null;modal.classList.remove('binding','cancelling');if(result&&result.cancelled){title.textContent='Binding Cancelled';summary.innerHTML='<strong>No unfinished book was kept</strong>Your previously saved PDF was not changed.';return}if(!result){title.textContent='Binding could not be completed';summary.innerHTML='<strong>No bound copy was kept</strong>Return to Main Contents and try a smaller selection.';return}
+ title.textContent='Book of Shadows Bound';summary.innerHTML='<strong>'+result.pages.length+' A4 pages flattened and bound</strong>'+(result.nativeSaved?'The Last Bound Book PDF is stored safely in the app. A new binding will replace it.':'The bound copy is ready for the Ink Pot.')
 }'''
 
 
@@ -231,16 +252,23 @@ def patch_scribe(page: str) -> str:
     page = replace_once(page, old_api, new_api, "public native PDF storage interface")
 
     old_page_loop = "if(progress)progress(0,chosen.length,'flattening');for(let i=0;i<chosen.length;i++){if(btn)btn.textContent='Flattening '+(i+1)+'/'+chosen.length;const sheet=await gmBosPreparePrintPage(chosen[i],i,chosen.length,binding,printMap);out.push(await gmBosFlatBlobFromSheet(sheet,i,chosen.length,binding));gmBosRevokePrintObjectUrls();if(progress)progress(i+1,chosen.length,'flattening');await new Promise(r=>setTimeout(r,0))}return out"
-    new_page_loop = "if(progress)progress(0,chosen.length,'flattening');for(let i=0;i<chosen.length;i++){const pageStarted=Date.now();if(btn)btn.textContent='Flattening '+(i+1)+'/'+chosen.length;const sheet=await gmBosPreparePrintPage(chosen[i],i,chosen.length,binding,printMap),flat=await gmBosFlatBlobFromSheet(sheet,i,chosen.length,binding);out.push(flat);gmBosRevokePrintObjectUrls();gmBosDiag('BIND PAGE','A4 page fully prepared and captured',{page:i+1,total:chosen.length,jpegBytes:flat.blob.size,durationMs:Date.now()-pageStarted});if(progress)progress(i+1,chosen.length,'flattening');await new Promise(r=>setTimeout(r,0))}return out"
+    new_page_loop = "if(progress)progress(0,chosen.length,'flattening');for(let i=0;i<chosen.length;i++){gmBosThrowIfCancelled(options);const pageStarted=Date.now();if(btn)btn.textContent='Flattening '+(i+1)+'/'+chosen.length;const sheet=await gmBosPreparePrintPage(chosen[i],i,chosen.length,binding,printMap);gmBosThrowIfCancelled(options);const flat=await gmBosFlatBlobFromSheet(sheet,i,chosen.length,binding,options);gmBosThrowIfCancelled(options);out.push(flat);gmBosRevokePrintObjectUrls();gmBosDiag('BIND PAGE','A4 page fully prepared and captured',{page:i+1,total:chosen.length,jpegBytes:flat.blob.size,durationMs:Date.now()-pageStarted});if(progress)progress(i+1,chosen.length,'flattening');await new Promise(r=>setTimeout(r,0))}return out"
     page = replace_once(page, old_page_loop, new_page_loop, "per-page binding timing")
 
-    old_call = "const result=await GM_BOS.flattenBound({button:btn,onProgress:(done,total)=>{summary.innerHTML='<strong>Flattening '+done+' of '+total+' A4 pages</strong>The selected chapters are becoming a fixed bound copy.'}});"
-    new_call = "const result=await GM_BOS.flattenBound({button:btn,onProgress:(done,total)=>{summary.innerHTML='<strong>Flattening '+done+' of '+total+' A4 pages</strong>The selected chapters are becoming a fixed bound copy.'},onSaving:()=>{summary.innerHTML='<strong>Saving Last Bound Book PDF</strong>The finished flat book is being placed in private app storage.'},onStorageProgress:(done,total)=>{summary.innerHTML='<strong>Saving Last Bound Book PDF · '+done+'/'+total+'</strong>The previous bound PDF will be replaced.'}});"
-    page = replace_once(page, old_call, new_call, "binding storage progress")
+    old_bind_ui = extract_function(page, "async function gmBosBindCurrentSelection(")
+    page = replace_once(page, old_bind_ui, BIND_UI, "cancel-safe binding popup")
 
-    old_success = "title.textContent='Book of Shadows Bound';summary.innerHTML='<strong>'+result.pages.length+' A4 pages flattened and bound</strong>No printer has opened. Choose whether to stay in the live book or go to the Ink Pot.'"
-    new_success = "title.textContent='Book of Shadows Bound';summary.innerHTML='<strong>'+result.pages.length+' A4 pages flattened and bound</strong>'+(result.nativeSaved?'The Last Bound Book PDF is stored safely in the app. A new binding will replace it.':'The bound copy is ready for the Ink Pot.')"
-    page = replace_once(page, old_success, new_success, "binding success message")
+    old_bind_markup = '<div id="gmBosBindModal" class="modal"><div class="modalCard"><h2 id="gmBosBindTitle">Book of Shadows Bound</h2><div id="gmBosBindSummary" class="gmBosBindSummary"><strong>Selected chapters flattened</strong>The bound page count will appear here.</div><ul class="gmBosBindList">'
+    new_bind_markup = '<div id="gmBosBindModal" class="modal"><div class="modalCard"><h2 id="gmBosBindTitle">Book of Shadows Bound</h2><div id="gmBosBindSummary" class="gmBosBindSummary"><strong>Selected chapters flattened</strong>The bound page count will appear here.</div><button id="gmBosCancelBind" class="tagBtn gmBosCancelBind" type="button">Cancel Binding</button><ul class="gmBosBindList">'
+    page = replace_once(page, old_bind_markup, new_bind_markup, "binding cancel button")
+
+    old_bind_css = ".gmBosBindList{margin:8px 0;padding-left:19px;color:#c8af78;font-size:11px;line-height:1.5}#gmBosBindModal.binding .gmBosBindChoices{display:none}"
+    new_bind_css = ".gmBosBindList{margin:8px 0;padding-left:19px;color:#c8af78;font-size:11px;line-height:1.5}.gmBosCancelBind{display:none;width:100%;min-height:48px;margin:10px 0;border-color:#ba774f;color:#ffe0c7;background:linear-gradient(#713722,#36170f)}#gmBosBindModal.binding .gmBosCancelBind{display:block}#gmBosBindModal.binding .gmBosBindChoices{display:none}"
+    page = replace_once(page, old_bind_css, new_bind_css, "binding cancel button styles")
+
+    old_cancel_handler = "$('#gmBosStayEditing').onclick=()=>$('#gmBosBindModal').classList.remove('open');"
+    new_cancel_handler = "$('#gmBosCancelBind').onclick=gmBosCancelCurrentBind;$('#gmBosStayEditing').onclick=()=>$('#gmBosBindModal').classList.remove('open');"
+    page = replace_once(page, old_cancel_handler, new_cancel_handler, "binding cancel handler")
 
     required = [
         "GreenmanFiles",
@@ -251,15 +279,18 @@ def patch_scribe(page: str) -> str:
         "PDF link is ready for a separate tap",
         "Ink Pot controls rendered",
         "One Last Bound Book PDF is kept in private app storage.",
-        "const host=document.createElement('div')",
+        "const frame=document.createElement('iframe')",
         "timer=setTimeout(done,2500)",
         "imageReadyMs:imageReadyMs",
+        "id=\"gmBosCancelBind\"",
+        "BIND CANCELLED",
+        "gmBosThrowIfCancelled(options)",
     ]
     missing = [item for item in required if item not in page]
     if missing:
-        raise SystemExit("Missing V27 BoS requirements: " + ", ".join(missing))
-    if "const frame=document.createElement('iframe')" in extract_function(page, "async function gmBosFlatBlobFromSheet("):
-        raise SystemExit("Cross-document capture frame remains")
+        raise SystemExit("Missing V28 BoS requirements: " + ", ".join(missing))
+    if "const host=document.createElement('div')" in extract_function(page, "async function gmBosFlatBlobFromSheet("):
+        raise SystemExit("Whole-document capture host remains")
     return page
 
 
@@ -276,7 +307,7 @@ def main() -> None:
     encoded = re.sub(r"</script", r"<\\/script", encoded, flags=re.IGNORECASE)
     output = text[:start] + encoded + text[start + consumed:]
     destination.write_text(output, encoding="utf-8")
-    print("V27 fast bounded image readiness and phase diagnostics patch passed.")
+    print("V28 cancel-safe BoS binding patch passed.")
 
 
 if __name__ == "__main__":

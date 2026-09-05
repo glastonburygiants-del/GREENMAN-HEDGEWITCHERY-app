@@ -1,4 +1,4 @@
-name: Build V27 Fast BoS Bind APK
+name: Build V28 Isolated BoS Bind APK
 
 on:
   push:
@@ -59,17 +59,20 @@ jobs:
           set -euo pipefail
           python tools/patch_bos_last_bound.py \
             "$RUNNER_TEMP/gm-v24/v23.html" \
-            "$RUNNER_TEMP/gm-v24/v27.html"
-          test "$(stat -c%s "$RUNNER_TEMP/gm-v24/v27.html")" -eq 31000079
-          echo "c2080a786a60b37196fd7628322b24289486c534bf79ca1f638c028af2b494a6  $RUNNER_TEMP/gm-v24/v27.html" | sha256sum -c -
-          grep -Fq "One Last Bound Book PDF is kept in private app storage." "$RUNNER_TEMP/gm-v24/v27.html"
-          grep -Fq "beginLastBoundPdf" "$RUNNER_TEMP/gm-v24/v27.html"
-          grep -Fq "gmInkExportLastBoundBtn" "$RUNNER_TEMP/gm-v24/v27.html"
-          grep -Fq "minimumHeight=Math.floor(1123*scale)-2" "$RUNNER_TEMP/gm-v24/v27.html"
-          grep -Fq "hasStoredBook:gmBosStoredBookAvailable" "$RUNNER_TEMP/gm-v24/v27.html"
-          grep -Fq "PDF link is ready for a separate tap" "$RUNNER_TEMP/gm-v24/v27.html"
-          grep -Fq "timer=setTimeout(done,2500)" "$RUNNER_TEMP/gm-v24/v27.html"
-          grep -Fq "imageReadyMs:imageReadyMs" "$RUNNER_TEMP/gm-v24/v27.html"
+            "$RUNNER_TEMP/gm-v24/v28.html"
+          test "$(stat -c%s "$RUNNER_TEMP/gm-v24/v28.html")" -eq 31002982
+          echo "2c1bda653a5f76660d098104fe68d148e82cc47ba3731d4d9d4e386238a20f18  $RUNNER_TEMP/gm-v24/v28.html" | sha256sum -c -
+          grep -Fq "One Last Bound Book PDF is kept in private app storage." "$RUNNER_TEMP/gm-v24/v28.html"
+          grep -Fq "beginLastBoundPdf" "$RUNNER_TEMP/gm-v24/v28.html"
+          grep -Fq "gmInkExportLastBoundBtn" "$RUNNER_TEMP/gm-v24/v28.html"
+          grep -Fq "minimumHeight=Math.floor(1123*scale)-2" "$RUNNER_TEMP/gm-v24/v28.html"
+          grep -Fq "hasStoredBook:gmBosStoredBookAvailable" "$RUNNER_TEMP/gm-v24/v28.html"
+          grep -Fq "PDF link is ready for a separate tap" "$RUNNER_TEMP/gm-v24/v28.html"
+          grep -Fq "timer=setTimeout(done,2500)" "$RUNNER_TEMP/gm-v24/v28.html"
+          grep -Fq "imageReadyMs:imageReadyMs" "$RUNNER_TEMP/gm-v24/v28.html"
+          grep -Fq 'id=\"gmBosCancelBind\"' "$RUNNER_TEMP/gm-v24/v28.html"
+          grep -Fq "fd.adoptNode(sheet)" "$RUNNER_TEMP/gm-v24/v28.html"
+          grep -Fq "BIND CANCELLED" "$RUNNER_TEMP/gm-v24/v28.html"
 
       - name: Compile the isolated native bound-book store
         shell: bash
@@ -97,10 +100,10 @@ jobs:
             -o "$RUNNER_TEMP/gm-v24/decoded"
           python tools/patch_register_bound_store.py \
             "$RUNNER_TEMP/gm-v24/decoded/smali_classes2/com/greenman/hedgewitchery/MainActivity.smali"
-          cp "$RUNNER_TEMP/gm-v24/v27.html" "$RUNNER_TEMP/gm-v24/decoded/assets/index.html"
-          sed -i 's/versionCode: 30/versionCode: 34/' "$RUNNER_TEMP/gm-v24/decoded/apktool.yml"
-          sed -i 's/versionName: .*/versionName: 2.7.16-fast-image-ready/' "$RUNNER_TEMP/gm-v24/decoded/apktool.yml"
-          grep -Fq 'versionCode: 34' "$RUNNER_TEMP/gm-v24/decoded/apktool.yml"
+          cp "$RUNNER_TEMP/gm-v24/v28.html" "$RUNNER_TEMP/gm-v24/decoded/assets/index.html"
+          sed -i 's/versionCode: 30/versionCode: 35/' "$RUNNER_TEMP/gm-v24/decoded/apktool.yml"
+          sed -i 's/versionName: .*/versionName: 2.7.17-isolated-bind-cancel/' "$RUNNER_TEMP/gm-v24/decoded/apktool.yml"
+          grep -Fq 'versionCode: 35' "$RUNNER_TEMP/gm-v24/decoded/apktool.yml"
 
       - name: Convert helper DEX to one added Smali class
         shell: bash
@@ -141,14 +144,14 @@ jobs:
             --ks-key-alias androiddebugkey \
             --ks-pass pass:android \
             --key-pass pass:android \
-            --out "$RUNNER_TEMP/GREENMAN_HEDGEWITCHERY_V27_FAST_BIND.apk" \
+            --out "$RUNNER_TEMP/GREENMAN_HEDGEWITCHERY_V28_ISOLATED_BIND.apk" \
             "$RUNNER_TEMP/gm-v24/aligned.apk"
 
       - name: Verify final APK and protected payload
         shell: bash
         run: |
           set -euo pipefail
-          APK="$RUNNER_TEMP/GREENMAN_HEDGEWITCHERY_V27_FAST_BIND.apk"
+          APK="$RUNNER_TEMP/GREENMAN_HEDGEWITCHERY_V28_ISOLATED_BIND.apk"
           BT="$ANDROID_HOME/build-tools/35.0.0"
           "$BT/apksigner" verify --verbose --print-certs "$APK" \
             | tee "$RUNNER_TEMP/gm-v24/apksigner.txt"
@@ -156,9 +159,9 @@ jobs:
             "$RUNNER_TEMP/gm-v24/apksigner.txt"
           "$BT/zipalign" -c -v 4 "$APK" >/dev/null
           "$BT/aapt" dump badging "$APK" | tee "$RUNNER_TEMP/gm-v24/badging.txt"
-          grep -q "package: name='com.greenman.hedgewitchery' versionCode='34'" "$RUNNER_TEMP/gm-v24/badging.txt"
+          grep -q "package: name='com.greenman.hedgewitchery' versionCode='35'" "$RUNNER_TEMP/gm-v24/badging.txt"
           unzip -p "$APK" assets/index.html > "$RUNNER_TEMP/gm-v24/final-index.html"
-          cmp "$RUNNER_TEMP/gm-v24/final-index.html" "$RUNNER_TEMP/gm-v24/v27.html"
+          cmp "$RUNNER_TEMP/gm-v24/final-index.html" "$RUNNER_TEMP/gm-v24/v28.html"
           unzip -p "$APK" classes3.dex | strings | grep -Fq 'Greenman_Last_Bound_Book.pdf'
           unzip -p "$APK" classes2.dex | strings | grep -Fq 'GreenmanFiles'
           for asset in greenman_bower.html greenman_scribe.html greenman_treehouse.html; do
@@ -168,18 +171,18 @@ jobs:
           done
           sha256sum "$APK" | tee "$RUNNER_TEMP/gm-v24/final-apk-sha256.txt"
 
-      - name: Upload V27 APK
+      - name: Upload V28 APK
         uses: actions/upload-artifact@v4
         with:
-          name: GREENMAN-V27-FAST-BIND-APK
-          path: ${{ runner.temp }}/GREENMAN_HEDGEWITCHERY_V27_FAST_BIND.apk
+          name: GREENMAN-V28-ISOLATED-BIND-APK
+          path: ${{ runner.temp }}/GREENMAN_HEDGEWITCHERY_V28_ISOLATED_BIND.apk
           if-no-files-found: error
           retention-days: 30
 
-      - name: Upload V27 audit
+      - name: Upload V28 audit
         uses: actions/upload-artifact@v4
         with:
-          name: GREENMAN-V27-FAST-BIND-AUDIT
+          name: GREENMAN-V28-ISOLATED-BIND-AUDIT
           path: |
             ${{ runner.temp }}/gm-v24/apksigner.txt
             ${{ runner.temp }}/gm-v24/badging.txt
