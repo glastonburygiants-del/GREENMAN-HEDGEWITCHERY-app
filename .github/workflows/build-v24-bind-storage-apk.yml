@@ -203,17 +203,25 @@ jobs:
           profile: pixel_2
           disable-animations: true
           script: |
-            set -euo pipefail
-            mkdir -p "$RUNNER_TEMP/gm-v24/v28"
+            set -eu
+            mkdir -p "$RUNNER_TEMP/gm-v24/v27" "$RUNNER_TEMP/gm-v24/v28"
+            curl -L --fail --show-error --silent \
+              -H "Authorization: Bearer $GITHUB_TOKEN" \
+              -H "Accept: application/vnd.github+json" \
+              -o "$RUNNER_TEMP/gm-v24/v27.zip" \
+              "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/artifacts/9961034189/zip"
+            unzip -q "$RUNNER_TEMP/gm-v24/v27.zip" -d "$RUNNER_TEMP/gm-v24/v27"
             curl -L --fail --show-error --silent \
               -H "Authorization: Bearer $GITHUB_TOKEN" \
               -H "Accept: application/vnd.github+json" \
               -o "$RUNNER_TEMP/gm-v24/v28.zip" \
               "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/artifacts/9961867914/zip"
             unzip -q "$RUNNER_TEMP/gm-v24/v28.zip" -d "$RUNNER_TEMP/gm-v24/v28"
+            V27="$RUNNER_TEMP/gm-v24/v27/GREENMAN_HEDGEWITCHERY_V27_FAST_BIND.apk"
             V28="$RUNNER_TEMP/gm-v24/v28/GREENMAN_HEDGEWITCHERY_V28_ISOLATED_BIND.apk"
             V29="$RUNNER_TEMP/GREENMAN_HEDGEWITCHERY_V29_ANDROID10_UPDATE.apk"
-            adb install "$V28"
+            adb install "$V27"
+            adb install -r "$V28"
             adb install -r "$V29"
             adb shell dumpsys package com.greenman.hedgewitchery \
               | grep -F 'versionCode=2902'
