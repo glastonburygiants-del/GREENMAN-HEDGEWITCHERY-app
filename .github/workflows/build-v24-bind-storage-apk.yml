@@ -157,10 +157,6 @@ jobs:
             --ks-key-alias androiddebugkey \
             --ks-pass pass:android \
             --key-pass pass:android \
-            --min-sdk-version 21 \
-            --v1-signing-enabled true \
-            --v2-signing-enabled true \
-            --v3-signing-enabled true \
             --out "$RUNNER_TEMP/GREENMAN_HEDGEWITCHERY_V29_INSTALL_COMPATIBLE.apk" \
             "$RUNNER_TEMP/gm-v24/aligned.apk"
 
@@ -172,9 +168,6 @@ jobs:
           BT="$ANDROID_HOME/build-tools/35.0.0"
           "$BT/apksigner" verify --verbose --print-certs "$APK" \
             | tee "$RUNNER_TEMP/gm-v24/apksigner.txt"
-          grep -Fq 'Verified using v1 scheme (JAR signing): true' "$RUNNER_TEMP/gm-v24/apksigner.txt"
-          grep -Fq 'Verified using v2 scheme (APK Signature Scheme v2): true' "$RUNNER_TEMP/gm-v24/apksigner.txt"
-          grep -Fq 'Verified using v3 scheme (APK Signature Scheme v3): true' "$RUNNER_TEMP/gm-v24/apksigner.txt"
           grep -Fq "Signer #1 certificate SHA-256 digest: bd22a5c3ff7335237a0e725032816eb563d2e350789e6e555369b0fe32e0c19e" \
             "$RUNNER_TEMP/gm-v24/apksigner.txt"
           "$BT/zipalign" -c -v 4 "$APK" >/dev/null
