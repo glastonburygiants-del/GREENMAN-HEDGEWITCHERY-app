@@ -1,4 +1,4 @@
-name: Build V29 Background BoS and Scribe APK
+name: Build V29 Install-Compatible BoS and Scribe APK
 
 on:
   push:
@@ -110,9 +110,9 @@ jobs:
           python tools/patch_register_scribe_service.py \
             "$RUNNER_TEMP/gm-v24/decoded/AndroidManifest.xml"
           cp "$RUNNER_TEMP/gm-v24/v29.html" "$RUNNER_TEMP/gm-v24/decoded/assets/index.html"
-          sed -i 's/versionCode: 30/versionCode: 36/' "$RUNNER_TEMP/gm-v24/decoded/apktool.yml"
-          sed -i 's/versionName: .*/versionName: 2.7.18-background-bos-scribe/' "$RUNNER_TEMP/gm-v24/decoded/apktool.yml"
-          grep -Fq 'versionCode: 36' "$RUNNER_TEMP/gm-v24/decoded/apktool.yml"
+          sed -i 's/versionCode: 30/versionCode: 2901/' "$RUNNER_TEMP/gm-v24/decoded/apktool.yml"
+          sed -i 's/versionName: .*/versionName: 2.7.19-install-compatible/' "$RUNNER_TEMP/gm-v24/decoded/apktool.yml"
+          grep -Fq 'versionCode: 2901' "$RUNNER_TEMP/gm-v24/decoded/apktool.yml"
           grep -Fq 'com.greenman.hedgewitchery.ScribePdfService' "$RUNNER_TEMP/gm-v24/decoded/AndroidManifest.xml"
           grep -Fq 'android:process=":bosrender"' "$RUNNER_TEMP/gm-v24/decoded/AndroidManifest.xml"
 
@@ -157,22 +157,28 @@ jobs:
             --ks-key-alias androiddebugkey \
             --ks-pass pass:android \
             --key-pass pass:android \
-            --out "$RUNNER_TEMP/GREENMAN_HEDGEWITCHERY_V29_BOS_SCRIBE_BACKGROUND.apk" \
+            --v1-signing-enabled true \
+            --v2-signing-enabled true \
+            --v3-signing-enabled true \
+            --out "$RUNNER_TEMP/GREENMAN_HEDGEWITCHERY_V29_INSTALL_COMPATIBLE.apk" \
             "$RUNNER_TEMP/gm-v24/aligned.apk"
 
       - name: Verify final APK and protected payload
         shell: bash
         run: |
           set -euo pipefail
-          APK="$RUNNER_TEMP/GREENMAN_HEDGEWITCHERY_V29_BOS_SCRIBE_BACKGROUND.apk"
+          APK="$RUNNER_TEMP/GREENMAN_HEDGEWITCHERY_V29_INSTALL_COMPATIBLE.apk"
           BT="$ANDROID_HOME/build-tools/35.0.0"
           "$BT/apksigner" verify --verbose --print-certs "$APK" \
             | tee "$RUNNER_TEMP/gm-v24/apksigner.txt"
+          grep -Fq 'Verified using v1 scheme (JAR signing): true' "$RUNNER_TEMP/gm-v24/apksigner.txt"
+          grep -Fq 'Verified using v2 scheme (APK Signature Scheme v2): true' "$RUNNER_TEMP/gm-v24/apksigner.txt"
+          grep -Fq 'Verified using v3 scheme (APK Signature Scheme v3): true' "$RUNNER_TEMP/gm-v24/apksigner.txt"
           grep -Fq "Signer #1 certificate SHA-256 digest: bd22a5c3ff7335237a0e725032816eb563d2e350789e6e555369b0fe32e0c19e" \
             "$RUNNER_TEMP/gm-v24/apksigner.txt"
           "$BT/zipalign" -c -v 4 "$APK" >/dev/null
           "$BT/aapt" dump badging "$APK" | tee "$RUNNER_TEMP/gm-v24/badging.txt"
-          grep -q "package: name='com.greenman.hedgewitchery' versionCode='36'" "$RUNNER_TEMP/gm-v24/badging.txt"
+          grep -q "package: name='com.greenman.hedgewitchery' versionCode='2901'" "$RUNNER_TEMP/gm-v24/badging.txt"
           unzip -p "$APK" assets/index.html > "$RUNNER_TEMP/gm-v24/final-index.html"
           cmp "$RUNNER_TEMP/gm-v24/final-index.html" "$RUNNER_TEMP/gm-v24/v29.html"
           unzip -p "$APK" classes3.dex | strings | grep -Fq 'Greenman_Last_Bound_Book.pdf'
@@ -186,18 +192,18 @@ jobs:
           done
           sha256sum "$APK" | tee "$RUNNER_TEMP/gm-v24/final-apk-sha256.txt"
 
-      - name: Upload V29 APK
+      - name: Upload V29 install-compatible APK
         uses: actions/upload-artifact@v4
         with:
-          name: GREENMAN-V29-BOS-SCRIBE-BACKGROUND-APK
-          path: ${{ runner.temp }}/GREENMAN_HEDGEWITCHERY_V29_BOS_SCRIBE_BACKGROUND.apk
+          name: GREENMAN-V29-INSTALL-COMPATIBLE-APK
+          path: ${{ runner.temp }}/GREENMAN_HEDGEWITCHERY_V29_INSTALL_COMPATIBLE.apk
           if-no-files-found: error
           retention-days: 30
 
-      - name: Upload V29 audit
+      - name: Upload V29 install-compatible audit
         uses: actions/upload-artifact@v4
         with:
-          name: GREENMAN-V29-BOS-SCRIBE-BACKGROUND-AUDIT
+          name: GREENMAN-V29-INSTALL-COMPATIBLE-AUDIT
           path: |
             ${{ runner.temp }}/gm-v24/apksigner.txt
             ${{ runner.temp }}/gm-v24/badging.txt
