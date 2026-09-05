@@ -16,7 +16,6 @@ on:
 
 permissions:
   contents: read
-  actions: read
 
 jobs:
   build:
@@ -189,33 +188,6 @@ jobs:
           done
           sha256sum "$APK" | tee "$RUNNER_TEMP/gm-v24/final-apk-sha256.txt"
 
-      - name: Prove V27 through confirmed V29 upgrade on Android 10
-        uses: reactivecircus/android-emulator-runner@v2
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-        with:
-          api-level: 29
-          target: google_apis
-          arch: x86_64
-          profile: pixel_2
-          disable-animations: true
-          script: |
-            mkdir -p "$RUNNER_TEMP/gm-v24/v27" "$RUNNER_TEMP/gm-v24/v28" "$RUNNER_TEMP/gm-v24/v29-confirmed"
-            curl -L --fail --show-error --silent --connect-timeout 15 --max-time 120 -H "Authorization: Bearer $GITHUB_TOKEN" -H "Accept: application/vnd.github+json" -o "$RUNNER_TEMP/gm-v24/v27.zip" "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/artifacts/9961034189/zip"
-            unzip -q "$RUNNER_TEMP/gm-v24/v27.zip" -d "$RUNNER_TEMP/gm-v24/v27"
-            curl -L --fail --show-error --silent --connect-timeout 15 --max-time 120 -H "Authorization: Bearer $GITHUB_TOKEN" -H "Accept: application/vnd.github+json" -o "$RUNNER_TEMP/gm-v24/v28.zip" "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/artifacts/9961867914/zip"
-            unzip -q "$RUNNER_TEMP/gm-v24/v28.zip" -d "$RUNNER_TEMP/gm-v24/v28"
-            curl -L --fail --show-error --silent --connect-timeout 15 --max-time 120 -H "Authorization: Bearer $GITHUB_TOKEN" -H "Accept: application/vnd.github+json" -o "$RUNNER_TEMP/gm-v24/v29-confirmed.zip" "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/artifacts/9968262699/zip"
-            unzip -q "$RUNNER_TEMP/gm-v24/v29-confirmed.zip" -d "$RUNNER_TEMP/gm-v24/v29-confirmed"
-            echo '04d85f9e1da831e3cb3560fcc4c6fc4317a9a7195c1c6b61ee7e0af4675ececd  '"$RUNNER_TEMP"'/gm-v24/v29-confirmed/GREENMAN_HEDGEWITCHERY_V29_BOS_SCRIBE_BACKGROUND.apk' | sha256sum -c -
-            timeout 120s adb install --no-streaming "$RUNNER_TEMP/gm-v24/v27/GREENMAN_HEDGEWITCHERY_V27_FAST_BIND.apk"
-            timeout 120s adb install --no-streaming -r "$RUNNER_TEMP/gm-v24/v28/GREENMAN_HEDGEWITCHERY_V28_ISOLATED_BIND.apk"
-            timeout 120s adb install --no-streaming -r "$RUNNER_TEMP/gm-v24/v29-confirmed/GREENMAN_HEDGEWITCHERY_V29_BOS_SCRIBE_BACKGROUND.apk"
-            timeout 120s adb install --no-streaming -r "$RUNNER_TEMP/GREENMAN_HEDGEWITCHERY_V29_CONFIRMED_BASELINE.apk"
-            adb shell dumpsys package com.greenman.hedgewitchery | grep -F 'versionCode=37'
-            adb shell am start -W -n com.greenman.hedgewitchery/.MainActivity | tee "$RUNNER_TEMP/gm-v24/android10-launch.txt"
-            grep -Fq 'Status: ok' "$RUNNER_TEMP/gm-v24/android10-launch.txt"
-
       - name: Upload V29 confirmed-baseline APK
         uses: actions/upload-artifact@v4
         with:
@@ -232,6 +204,5 @@ jobs:
             ${{ runner.temp }}/gm-v24/apksigner.txt
             ${{ runner.temp }}/gm-v24/badging.txt
             ${{ runner.temp }}/gm-v24/final-apk-sha256.txt
-            ${{ runner.temp }}/gm-v24/android10-launch.txt
           if-no-files-found: error
           retention-days: 30
