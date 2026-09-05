@@ -92,7 +92,7 @@ jobs:
             tools/BoundBookStore.java \
             tools/ScribePdfService.java
           "$ANDROID_HOME/build-tools/35.0.0/d8" \
-            --min-api 24 \
+            --min-api 26 \
             --output "$RUNNER_TEMP/gm-v24/helper-dex" \
             $(find "$RUNNER_TEMP/gm-v24/helper-classes" -type f -name '*.class' -print)
 
@@ -111,10 +111,10 @@ jobs:
           python tools/patch_register_scribe_service.py \
             "$RUNNER_TEMP/gm-v24/decoded/AndroidManifest.xml"
           cp "$RUNNER_TEMP/gm-v24/v29.html" "$RUNNER_TEMP/gm-v24/decoded/assets/index.html"
-          sed -i 's/minSdkVersion: 29/minSdkVersion: 24/' "$RUNNER_TEMP/gm-v24/decoded/apktool.yml"
+          sed -i 's/minSdkVersion: 29/minSdkVersion: 26/' "$RUNNER_TEMP/gm-v24/decoded/apktool.yml"
           sed -i 's/versionCode: 30/versionCode: 2902/' "$RUNNER_TEMP/gm-v24/decoded/apktool.yml"
           sed -i 's/versionName: .*/versionName: 2.7.20-android10-update/' "$RUNNER_TEMP/gm-v24/decoded/apktool.yml"
-          grep -Fq 'minSdkVersion: 24' "$RUNNER_TEMP/gm-v24/decoded/apktool.yml"
+          grep -Fq 'minSdkVersion: 26' "$RUNNER_TEMP/gm-v24/decoded/apktool.yml"
           grep -Fq 'versionCode: 2902' "$RUNNER_TEMP/gm-v24/decoded/apktool.yml"
           grep -Fq 'com.greenman.hedgewitchery.ScribePdfService' "$RUNNER_TEMP/gm-v24/decoded/AndroidManifest.xml"
           grep -Fq 'android:process=":bosrender"' "$RUNNER_TEMP/gm-v24/decoded/AndroidManifest.xml"
@@ -178,7 +178,7 @@ jobs:
           "$BT/zipalign" -c -v 4 "$APK" >/dev/null
           "$BT/aapt" dump badging "$APK" | tee "$RUNNER_TEMP/gm-v24/badging.txt"
           grep -q "package: name='com.greenman.hedgewitchery' versionCode='2902'" "$RUNNER_TEMP/gm-v24/badging.txt"
-          grep -q "sdkVersion:'24'" "$RUNNER_TEMP/gm-v24/badging.txt"
+          grep -q "sdkVersion:'26'" "$RUNNER_TEMP/gm-v24/badging.txt"
           unzip -p "$APK" assets/index.html > "$RUNNER_TEMP/gm-v24/final-index.html"
           cmp "$RUNNER_TEMP/gm-v24/final-index.html" "$RUNNER_TEMP/gm-v24/v29.html"
           unzip -p "$APK" classes3.dex | strings | grep -Fq 'Greenman_Last_Bound_Book.pdf'
