@@ -192,7 +192,7 @@ jobs:
           done
           sha256sum "$APK" | tee "$RUNNER_TEMP/gm-v24/final-apk-sha256.txt"
 
-      - name: Prove V28 to V29 upgrade on Android 10
+      - name: Prove V27 through V29 upgrade on Android 10
         uses: reactivecircus/android-emulator-runner@v2
         env:
           GITHUB_TOKEN: ${{ github.token }}
@@ -203,31 +203,16 @@ jobs:
           profile: pixel_2
           disable-animations: true
           script: |
-            set -eu
             mkdir -p "$RUNNER_TEMP/gm-v24/v27" "$RUNNER_TEMP/gm-v24/v28"
-            curl -L --fail --show-error --silent \
-              -H "Authorization: Bearer $GITHUB_TOKEN" \
-              -H "Accept: application/vnd.github+json" \
-              -o "$RUNNER_TEMP/gm-v24/v27.zip" \
-              "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/artifacts/9961034189/zip"
+            curl -L --fail --show-error --silent -H "Authorization: Bearer $GITHUB_TOKEN" -H "Accept: application/vnd.github+json" -o "$RUNNER_TEMP/gm-v24/v27.zip" "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/artifacts/9961034189/zip"
             unzip -q "$RUNNER_TEMP/gm-v24/v27.zip" -d "$RUNNER_TEMP/gm-v24/v27"
-            curl -L --fail --show-error --silent \
-              -H "Authorization: Bearer $GITHUB_TOKEN" \
-              -H "Accept: application/vnd.github+json" \
-              -o "$RUNNER_TEMP/gm-v24/v28.zip" \
-              "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/artifacts/9961867914/zip"
+            curl -L --fail --show-error --silent -H "Authorization: Bearer $GITHUB_TOKEN" -H "Accept: application/vnd.github+json" -o "$RUNNER_TEMP/gm-v24/v28.zip" "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/artifacts/9961867914/zip"
             unzip -q "$RUNNER_TEMP/gm-v24/v28.zip" -d "$RUNNER_TEMP/gm-v24/v28"
-            V27="$RUNNER_TEMP/gm-v24/v27/GREENMAN_HEDGEWITCHERY_V27_FAST_BIND.apk"
-            V28="$RUNNER_TEMP/gm-v24/v28/GREENMAN_HEDGEWITCHERY_V28_ISOLATED_BIND.apk"
-            V29="$RUNNER_TEMP/GREENMAN_HEDGEWITCHERY_V29_ANDROID10_UPDATE.apk"
-            adb install "$V27"
-            adb install -r "$V28"
-            adb install -r "$V29"
-            adb shell dumpsys package com.greenman.hedgewitchery \
-              | grep -F 'versionCode=2902'
-            adb shell am start -W \
-              -n com.greenman.hedgewitchery/.MainActivity \
-              | tee "$RUNNER_TEMP/gm-v24/android10-launch.txt"
+            adb install "$RUNNER_TEMP/gm-v24/v27/GREENMAN_HEDGEWITCHERY_V27_FAST_BIND.apk"
+            adb install -r "$RUNNER_TEMP/gm-v24/v28/GREENMAN_HEDGEWITCHERY_V28_ISOLATED_BIND.apk"
+            adb install -r "$RUNNER_TEMP/GREENMAN_HEDGEWITCHERY_V29_ANDROID10_UPDATE.apk"
+            adb shell dumpsys package com.greenman.hedgewitchery | grep -F 'versionCode=2902'
+            adb shell am start -W -n com.greenman.hedgewitchery/.MainActivity | tee "$RUNNER_TEMP/gm-v24/android10-launch.txt"
             grep -Fq 'Status: ok' "$RUNNER_TEMP/gm-v24/android10-launch.txt"
 
       - name: Upload V29 Android 10 proven APK
