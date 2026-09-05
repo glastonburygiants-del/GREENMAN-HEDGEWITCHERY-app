@@ -1,4 +1,4 @@
-name: Build V25 BoS Canvas Fix APK
+name: Build V26 Ink Pot Controls APK
 
 on:
   push:
@@ -59,13 +59,15 @@ jobs:
           set -euo pipefail
           python tools/patch_bos_last_bound.py \
             "$RUNNER_TEMP/gm-v24/v23.html" \
-            "$RUNNER_TEMP/gm-v24/v25.html"
-          test "$(stat -c%s "$RUNNER_TEMP/gm-v24/v25.html")" -eq 30994813
-          echo "21714ad13f141664e19a420deb29bce4164336fab799763a69f5618eaac306bc  $RUNNER_TEMP/gm-v24/v25.html" | sha256sum -c -
-          grep -Fq "One Last Bound Book PDF is kept in private app storage." "$RUNNER_TEMP/gm-v24/v25.html"
-          grep -Fq "beginLastBoundPdf" "$RUNNER_TEMP/gm-v24/v25.html"
-          grep -Fq "gmInkExportLastBoundBtn" "$RUNNER_TEMP/gm-v24/v25.html"
-          grep -Fq "minimumHeight=Math.floor(1123*scale)-2" "$RUNNER_TEMP/gm-v24/v25.html"
+            "$RUNNER_TEMP/gm-v24/v26.html"
+          test "$(stat -c%s "$RUNNER_TEMP/gm-v24/v26.html")" -eq 30999338
+          echo "7de81747c522f4f1a60041167878e80f5795acba5fb98c0afb704438aaed123a  $RUNNER_TEMP/gm-v24/v26.html" | sha256sum -c -
+          grep -Fq "One Last Bound Book PDF is kept in private app storage." "$RUNNER_TEMP/gm-v24/v26.html"
+          grep -Fq "beginLastBoundPdf" "$RUNNER_TEMP/gm-v24/v26.html"
+          grep -Fq "gmInkExportLastBoundBtn" "$RUNNER_TEMP/gm-v24/v26.html"
+          grep -Fq "minimumHeight=Math.floor(1123*scale)-2" "$RUNNER_TEMP/gm-v24/v26.html"
+          grep -Fq "hasStoredBook:gmBosStoredBookAvailable" "$RUNNER_TEMP/gm-v24/v26.html"
+          grep -Fq "PDF link is ready for a separate tap" "$RUNNER_TEMP/gm-v24/v26.html"
 
       - name: Compile the isolated native bound-book store
         shell: bash
@@ -93,10 +95,10 @@ jobs:
             -o "$RUNNER_TEMP/gm-v24/decoded"
           python tools/patch_register_bound_store.py \
             "$RUNNER_TEMP/gm-v24/decoded/smali_classes2/com/greenman/hedgewitchery/MainActivity.smali"
-          cp "$RUNNER_TEMP/gm-v24/v25.html" "$RUNNER_TEMP/gm-v24/decoded/assets/index.html"
-          sed -i 's/versionCode: 30/versionCode: 32/' "$RUNNER_TEMP/gm-v24/decoded/apktool.yml"
-          sed -i 's/versionName: .*/versionName: 2.7.14-bos-canvas-fix/' "$RUNNER_TEMP/gm-v24/decoded/apktool.yml"
-          grep -Fq 'versionCode: 32' "$RUNNER_TEMP/gm-v24/decoded/apktool.yml"
+          cp "$RUNNER_TEMP/gm-v24/v26.html" "$RUNNER_TEMP/gm-v24/decoded/assets/index.html"
+          sed -i 's/versionCode: 30/versionCode: 33/' "$RUNNER_TEMP/gm-v24/decoded/apktool.yml"
+          sed -i 's/versionName: .*/versionName: 2.7.15-ink-pot-controls/' "$RUNNER_TEMP/gm-v24/decoded/apktool.yml"
+          grep -Fq 'versionCode: 33' "$RUNNER_TEMP/gm-v24/decoded/apktool.yml"
 
       - name: Convert helper DEX to one added Smali class
         shell: bash
@@ -137,14 +139,14 @@ jobs:
             --ks-key-alias androiddebugkey \
             --ks-pass pass:android \
             --key-pass pass:android \
-            --out "$RUNNER_TEMP/GREENMAN_HEDGEWITCHERY_V25_BIND_STORAGE.apk" \
+            --out "$RUNNER_TEMP/GREENMAN_HEDGEWITCHERY_V26_INK_POT.apk" \
             "$RUNNER_TEMP/gm-v24/aligned.apk"
 
       - name: Verify final APK and protected payload
         shell: bash
         run: |
           set -euo pipefail
-          APK="$RUNNER_TEMP/GREENMAN_HEDGEWITCHERY_V25_BIND_STORAGE.apk"
+          APK="$RUNNER_TEMP/GREENMAN_HEDGEWITCHERY_V26_INK_POT.apk"
           BT="$ANDROID_HOME/build-tools/35.0.0"
           "$BT/apksigner" verify --verbose --print-certs "$APK" \
             | tee "$RUNNER_TEMP/gm-v24/apksigner.txt"
@@ -152,9 +154,9 @@ jobs:
             "$RUNNER_TEMP/gm-v24/apksigner.txt"
           "$BT/zipalign" -c -v 4 "$APK" >/dev/null
           "$BT/aapt" dump badging "$APK" | tee "$RUNNER_TEMP/gm-v24/badging.txt"
-          grep -q "package: name='com.greenman.hedgewitchery' versionCode='32'" "$RUNNER_TEMP/gm-v24/badging.txt"
+          grep -q "package: name='com.greenman.hedgewitchery' versionCode='33'" "$RUNNER_TEMP/gm-v24/badging.txt"
           unzip -p "$APK" assets/index.html > "$RUNNER_TEMP/gm-v24/final-index.html"
-          cmp "$RUNNER_TEMP/gm-v24/final-index.html" "$RUNNER_TEMP/gm-v24/v25.html"
+          cmp "$RUNNER_TEMP/gm-v24/final-index.html" "$RUNNER_TEMP/gm-v24/v26.html"
           unzip -p "$APK" classes3.dex | strings | grep -Fq 'Greenman_Last_Bound_Book.pdf'
           unzip -p "$APK" classes2.dex | strings | grep -Fq 'GreenmanFiles'
           for asset in greenman_bower.html greenman_scribe.html greenman_treehouse.html; do
@@ -164,18 +166,18 @@ jobs:
           done
           sha256sum "$APK" | tee "$RUNNER_TEMP/gm-v24/final-apk-sha256.txt"
 
-      - name: Upload V25 APK
+      - name: Upload V26 APK
         uses: actions/upload-artifact@v4
         with:
-          name: GREENMAN-V25-BIND-STORAGE-APK
-          path: ${{ runner.temp }}/GREENMAN_HEDGEWITCHERY_V25_BIND_STORAGE.apk
+          name: GREENMAN-V26-INK-POT-APK
+          path: ${{ runner.temp }}/GREENMAN_HEDGEWITCHERY_V26_INK_POT.apk
           if-no-files-found: error
           retention-days: 30
 
-      - name: Upload V25 audit
+      - name: Upload V26 audit
         uses: actions/upload-artifact@v4
         with:
-          name: GREENMAN-V25-BIND-STORAGE-AUDIT
+          name: GREENMAN-V26-INK-POT-AUDIT
           path: |
             ${{ runner.temp }}/gm-v24/apksigner.txt
             ${{ runner.temp }}/gm-v24/badging.txt
