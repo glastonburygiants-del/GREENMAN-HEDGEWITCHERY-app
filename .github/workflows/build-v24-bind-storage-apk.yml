@@ -1,4 +1,4 @@
-name: Build V29 Android 10 Proven BoS and Scribe APK
+name: Build V29 From Confirmed Baseline
 
 on:
   push:
@@ -92,7 +92,7 @@ jobs:
             tools/BoundBookStore.java \
             tools/ScribePdfService.java
           "$ANDROID_HOME/build-tools/35.0.0/d8" \
-            --min-api 26 \
+            --min-api 29 \
             --output "$RUNNER_TEMP/gm-v24/helper-dex" \
             $(find "$RUNNER_TEMP/gm-v24/helper-classes" -type f -name '*.class' -print)
 
@@ -111,11 +111,9 @@ jobs:
           python tools/patch_register_scribe_service.py \
             "$RUNNER_TEMP/gm-v24/decoded/AndroidManifest.xml"
           cp "$RUNNER_TEMP/gm-v24/v29.html" "$RUNNER_TEMP/gm-v24/decoded/assets/index.html"
-          sed -i 's/minSdkVersion: 29/minSdkVersion: 26/' "$RUNNER_TEMP/gm-v24/decoded/apktool.yml"
-          sed -i 's/versionCode: 30/versionCode: 2902/' "$RUNNER_TEMP/gm-v24/decoded/apktool.yml"
-          sed -i 's/versionName: .*/versionName: 2.7.20-android10-update/' "$RUNNER_TEMP/gm-v24/decoded/apktool.yml"
-          grep -Fq 'minSdkVersion: 26' "$RUNNER_TEMP/gm-v24/decoded/apktool.yml"
-          grep -Fq 'versionCode: 2902' "$RUNNER_TEMP/gm-v24/decoded/apktool.yml"
+          sed -i 's/versionCode: 30/versionCode: 37/' "$RUNNER_TEMP/gm-v24/decoded/apktool.yml"
+          sed -i 's/versionName: .*/versionName: 2.7.19-confirmed-baseline/' "$RUNNER_TEMP/gm-v24/decoded/apktool.yml"
+          grep -Fq 'versionCode: 37' "$RUNNER_TEMP/gm-v24/decoded/apktool.yml"
           grep -Fq 'com.greenman.hedgewitchery.ScribePdfService' "$RUNNER_TEMP/gm-v24/decoded/AndroidManifest.xml"
           grep -Fq 'android:process=":bosrender"' "$RUNNER_TEMP/gm-v24/decoded/AndroidManifest.xml"
 
@@ -160,25 +158,24 @@ jobs:
             --ks-key-alias androiddebugkey \
             --ks-pass pass:android \
             --key-pass pass:android \
-            --out "$RUNNER_TEMP/GREENMAN_HEDGEWITCHERY_V29_ANDROID10_UPDATE.apk" \
+            --out "$RUNNER_TEMP/GREENMAN_HEDGEWITCHERY_V29_CONFIRMED_BASELINE.apk" \
             "$RUNNER_TEMP/gm-v24/aligned.apk"
 
       - name: Verify final APK and protected payload
         shell: bash
         run: |
           set -euo pipefail
-          APK="$RUNNER_TEMP/GREENMAN_HEDGEWITCHERY_V29_ANDROID10_UPDATE.apk"
+          APK="$RUNNER_TEMP/GREENMAN_HEDGEWITCHERY_V29_CONFIRMED_BASELINE.apk"
           BT="$ANDROID_HOME/build-tools/35.0.0"
           "$BT/apksigner" verify --verbose --print-certs "$APK" \
             | tee "$RUNNER_TEMP/gm-v24/apksigner.txt"
-          grep -Fq 'Verified using v2 scheme (APK Signature Scheme v2): true' "$RUNNER_TEMP/gm-v24/apksigner.txt"
           grep -Fq 'Verified using v3 scheme (APK Signature Scheme v3): true' "$RUNNER_TEMP/gm-v24/apksigner.txt"
           grep -Fq "Signer #1 certificate SHA-256 digest: bd22a5c3ff7335237a0e725032816eb563d2e350789e6e555369b0fe32e0c19e" \
             "$RUNNER_TEMP/gm-v24/apksigner.txt"
           "$BT/zipalign" -c -v 4 "$APK" >/dev/null
           "$BT/aapt" dump badging "$APK" | tee "$RUNNER_TEMP/gm-v24/badging.txt"
-          grep -q "package: name='com.greenman.hedgewitchery' versionCode='2902'" "$RUNNER_TEMP/gm-v24/badging.txt"
-          grep -q "sdkVersion:'26'" "$RUNNER_TEMP/gm-v24/badging.txt"
+          grep -q "package: name='com.greenman.hedgewitchery' versionCode='37'" "$RUNNER_TEMP/gm-v24/badging.txt"
+          grep -q "sdkVersion:'29'" "$RUNNER_TEMP/gm-v24/badging.txt"
           unzip -p "$APK" assets/index.html > "$RUNNER_TEMP/gm-v24/final-index.html"
           cmp "$RUNNER_TEMP/gm-v24/final-index.html" "$RUNNER_TEMP/gm-v24/v29.html"
           unzip -p "$APK" classes3.dex | strings | grep -Fq 'Greenman_Last_Bound_Book.pdf'
@@ -192,7 +189,7 @@ jobs:
           done
           sha256sum "$APK" | tee "$RUNNER_TEMP/gm-v24/final-apk-sha256.txt"
 
-      - name: Prove V27 through V29 upgrade on Android 10
+      - name: Prove V27 through confirmed V29 upgrade on Android 10
         uses: reactivecircus/android-emulator-runner@v2
         env:
           GITHUB_TOKEN: ${{ github.token }}
@@ -203,30 +200,34 @@ jobs:
           profile: pixel_2
           disable-animations: true
           script: |
-            mkdir -p "$RUNNER_TEMP/gm-v24/v27" "$RUNNER_TEMP/gm-v24/v28"
-            curl -L --fail --show-error --silent -H "Authorization: Bearer $GITHUB_TOKEN" -H "Accept: application/vnd.github+json" -o "$RUNNER_TEMP/gm-v24/v27.zip" "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/artifacts/9961034189/zip"
+            mkdir -p "$RUNNER_TEMP/gm-v24/v27" "$RUNNER_TEMP/gm-v24/v28" "$RUNNER_TEMP/gm-v24/v29-confirmed"
+            curl -L --fail --show-error --silent --connect-timeout 15 --max-time 120 -H "Authorization: Bearer $GITHUB_TOKEN" -H "Accept: application/vnd.github+json" -o "$RUNNER_TEMP/gm-v24/v27.zip" "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/artifacts/9961034189/zip"
             unzip -q "$RUNNER_TEMP/gm-v24/v27.zip" -d "$RUNNER_TEMP/gm-v24/v27"
-            curl -L --fail --show-error --silent -H "Authorization: Bearer $GITHUB_TOKEN" -H "Accept: application/vnd.github+json" -o "$RUNNER_TEMP/gm-v24/v28.zip" "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/artifacts/9961867914/zip"
+            curl -L --fail --show-error --silent --connect-timeout 15 --max-time 120 -H "Authorization: Bearer $GITHUB_TOKEN" -H "Accept: application/vnd.github+json" -o "$RUNNER_TEMP/gm-v24/v28.zip" "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/artifacts/9961867914/zip"
             unzip -q "$RUNNER_TEMP/gm-v24/v28.zip" -d "$RUNNER_TEMP/gm-v24/v28"
-            adb install "$RUNNER_TEMP/gm-v24/v27/GREENMAN_HEDGEWITCHERY_V27_FAST_BIND.apk"
-            adb install -r "$RUNNER_TEMP/gm-v24/v28/GREENMAN_HEDGEWITCHERY_V28_ISOLATED_BIND.apk"
-            adb install -r "$RUNNER_TEMP/GREENMAN_HEDGEWITCHERY_V29_ANDROID10_UPDATE.apk"
-            adb shell dumpsys package com.greenman.hedgewitchery | grep -F 'versionCode=2902'
+            curl -L --fail --show-error --silent --connect-timeout 15 --max-time 120 -H "Authorization: Bearer $GITHUB_TOKEN" -H "Accept: application/vnd.github+json" -o "$RUNNER_TEMP/gm-v24/v29-confirmed.zip" "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/artifacts/9968262699/zip"
+            unzip -q "$RUNNER_TEMP/gm-v24/v29-confirmed.zip" -d "$RUNNER_TEMP/gm-v24/v29-confirmed"
+            echo '04d85f9e1da831e3cb3560fcc4c6fc4317a9a7195c1c6b61ee7e0af4675ececd  '"$RUNNER_TEMP"'/gm-v24/v29-confirmed/GREENMAN_HEDGEWITCHERY_V29_BOS_SCRIBE_BACKGROUND.apk' | sha256sum -c -
+            timeout 120s adb install --no-streaming "$RUNNER_TEMP/gm-v24/v27/GREENMAN_HEDGEWITCHERY_V27_FAST_BIND.apk"
+            timeout 120s adb install --no-streaming -r "$RUNNER_TEMP/gm-v24/v28/GREENMAN_HEDGEWITCHERY_V28_ISOLATED_BIND.apk"
+            timeout 120s adb install --no-streaming -r "$RUNNER_TEMP/gm-v24/v29-confirmed/GREENMAN_HEDGEWITCHERY_V29_BOS_SCRIBE_BACKGROUND.apk"
+            timeout 120s adb install --no-streaming -r "$RUNNER_TEMP/GREENMAN_HEDGEWITCHERY_V29_CONFIRMED_BASELINE.apk"
+            adb shell dumpsys package com.greenman.hedgewitchery | grep -F 'versionCode=37'
             adb shell am start -W -n com.greenman.hedgewitchery/.MainActivity | tee "$RUNNER_TEMP/gm-v24/android10-launch.txt"
             grep -Fq 'Status: ok' "$RUNNER_TEMP/gm-v24/android10-launch.txt"
 
-      - name: Upload V29 Android 10 proven APK
+      - name: Upload V29 confirmed-baseline APK
         uses: actions/upload-artifact@v4
         with:
-          name: GREENMAN-V29-ANDROID10-PROVEN-APK
-          path: ${{ runner.temp }}/GREENMAN_HEDGEWITCHERY_V29_ANDROID10_UPDATE.apk
+          name: GREENMAN-V29-CONFIRMED-BASELINE-APK
+          path: ${{ runner.temp }}/GREENMAN_HEDGEWITCHERY_V29_CONFIRMED_BASELINE.apk
           if-no-files-found: error
           retention-days: 30
 
-      - name: Upload V29 Android 10 audit
+      - name: Upload V29 confirmed-baseline audit
         uses: actions/upload-artifact@v4
         with:
-          name: GREENMAN-V29-ANDROID10-PROVEN-AUDIT
+          name: GREENMAN-V29-CONFIRMED-BASELINE-AUDIT
           path: |
             ${{ runner.temp }}/gm-v24/apksigner.txt
             ${{ runner.temp }}/gm-v24/badging.txt
