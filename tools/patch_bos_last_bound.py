@@ -66,8 +66,8 @@ CAPTURE = r'''async function gmBosFlatBlobFromSheet(sheet,index,total,binding){
  const host=document.createElement('div');host.setAttribute('aria-hidden','true');host.style.cssText='position:fixed;left:0;top:0;width:794px;height:1123px;margin:0;padding:0;overflow:hidden;pointer-events:none;z-index:-2147483648;background:#f4ecd8;display:block';host.append(sheet);document.body.append(host);
  try{
   await Promise.all(qa('img',sheet).map(gmBosWaitImage));try{if(document.fonts&&document.fonts.ready)await document.fonts.ready}catch(_e){}await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));
-  const scale=1.5,width=Math.round(794*scale),height=Math.round(1123*scale),canvas=await window.html2canvas(sheet,{backgroundColor:'#f4ecd8',width:794,height:1123,scale:scale,useCORS:true,allowTaint:false,logging:false,removeContainer:true,imageTimeout:20000,scrollX:0,scrollY:0,windowWidth:794,windowHeight:1123});if(!canvas||canvas.width<width||canvas.height<height)throw new Error('A4 page '+(index+1)+' returned an incomplete image');
-  const quality=total>300?.72:total>120?.74:.77,blob=await new Promise(resolve=>canvas.toBlob(resolve,'image/jpeg',quality));canvas.width=1;canvas.height=1;if(!blob)throw new Error('A4 page '+(index+1)+' could not be compressed');return {blob:blob,width:width,height:height}
+  const scale=1.5,minimumWidth=Math.floor(794*scale)-2,minimumHeight=Math.floor(1123*scale)-2,canvas=await window.html2canvas(sheet,{backgroundColor:'#f4ecd8',width:794,height:1123,scale:scale,useCORS:true,allowTaint:false,logging:false,removeContainer:true,imageTimeout:20000,scrollX:0,scrollY:0,windowWidth:794,windowHeight:1123});if(!canvas||canvas.width<minimumWidth||canvas.height<minimumHeight)throw new Error('A4 page '+(index+1)+' returned an incomplete image'+(canvas?' ('+canvas.width+' × '+canvas.height+')':''));
+  const width=canvas.width,height=canvas.height,quality=total>300?.72:total>120?.74:.77,blob=await new Promise(resolve=>canvas.toBlob(resolve,'image/jpeg',quality));canvas.width=1;canvas.height=1;if(!blob)throw new Error('A4 page '+(index+1)+' could not be compressed');return {blob:blob,width:width,height:height}
  }finally{host.remove()}
 }'''
 
@@ -171,7 +171,7 @@ def main() -> None:
     encoded = re.sub(r"</script", r"<\\/script", encoded, flags=re.IGNORECASE)
     output = text[:start] + encoded + text[start + consumed:]
     destination.write_text(output, encoding="utf-8")
-    print("V24 BoS capture and native Last Bound Book storage patch passed.")
+    print("V25 BoS canvas check and native Last Bound Book storage patch passed.")
 
 
 if __name__ == "__main__":
