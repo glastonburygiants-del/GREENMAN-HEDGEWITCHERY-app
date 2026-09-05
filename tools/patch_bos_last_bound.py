@@ -59,16 +59,37 @@ def extract_function(text: str, signature: str) -> str:
     raise SystemExit(f"Unclosed function: {signature}")
 
 
+WAIT_IMAGE = r'''function gmBosWaitImage(img){
+ if(!img)return Promise.resolve();
+ if(img.complete&&img.naturalWidth)return Promise.resolve();
+ return new Promise(resolve=>{
+  let settled=false,timer=0;
+  const done=()=>{if(settled)return;settled=true;if(timer)clearTimeout(timer);try{img.removeEventListener('load',done);img.removeEventListener('error',done)}catch(_e){}resolve()};
+  try{img.addEventListener('load',done,{once:true});img.addEventListener('error',done,{once:true})}catch(_e){}
+  try{if(img.decode)img.decode().then(done,done)}catch(_e){}
+  timer=setTimeout(done,2500)
+ })
+}'''
+
+
+INLINE_BLOB_IMAGES = r'''async function gmBosInlineBlobImages(root){
+ const imgs=qa('img',root).filter(img=>/^blob:/i.test(img.currentSrc||img.src||''));
+ await Promise.all(imgs.map(async img=>{const src=img.currentSrc||img.src||'';try{img.src=await gmBosBlobDataUrl(await fetch(src).then(r=>r.blob()))}catch(_e){}}))
+}'''
+
+
 CAPTURE = r'''async function gmBosFlatBlobFromSheet(sheet,index,total,binding){
  const captureStarted=Date.now();
  if(binding&&binding.registry&&binding.registry.defs&&binding.registry.defs.parentNode)sheet.prepend(binding.registry.defs.parentNode.cloneNode(true));
  if(typeof window.html2canvas!=='function')throw new Error('The mobile page-capture engine did not load');
- await gmBosInlineBlobImages(sheet);
  const host=document.createElement('div');host.setAttribute('aria-hidden','true');host.style.cssText='position:fixed;left:0;top:0;width:794px;height:1123px;margin:0;padding:0;overflow:hidden;pointer-events:none;z-index:-2147483648;background:#f4ecd8;display:block';host.append(sheet);document.body.append(host);
  try{
-  await Promise.all(qa('img',sheet).map(gmBosWaitImage));try{if(document.fonts&&document.fonts.ready)await document.fonts.ready}catch(_e){}await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));
-  const scale=1.5,minimumWidth=Math.floor(794*scale)-2,minimumHeight=Math.floor(1123*scale)-2,canvas=await window.html2canvas(sheet,{backgroundColor:'#f4ecd8',width:794,height:1123,scale:scale,useCORS:true,allowTaint:false,logging:false,removeContainer:true,imageTimeout:20000,scrollX:0,scrollY:0,windowWidth:794,windowHeight:1123});if(!canvas||canvas.width<minimumWidth||canvas.height<minimumHeight)throw new Error('A4 page '+(index+1)+' returned an incomplete image'+(canvas?' ('+canvas.width+' × '+canvas.height+')':''));
-  const width=canvas.width,height=canvas.height,quality=total>300?.72:total>120?.74:.77,blob=await new Promise(resolve=>canvas.toBlob(resolve,'image/jpeg',quality));canvas.width=1;canvas.height=1;if(!blob)throw new Error('A4 page '+(index+1)+' could not be compressed');gmBosDiag('BIND CAPTURE','A4 image completed',{page:index+1,total:total,width:width,height:height,jpegBytes:blob.size,durationMs:Date.now()-captureStarted});return {blob:blob,width:width,height:height}
+  let phase=Date.now();await gmBosInlineBlobImages(sheet);const inlineMs=Date.now()-phase;
+  phase=Date.now();await Promise.all(qa('img',sheet).map(gmBosWaitImage));const imageReadyMs=Date.now()-phase;
+  phase=Date.now();try{if(document.fonts&&document.fonts.ready)await Promise.race([document.fonts.ready,new Promise(resolve=>setTimeout(resolve,2500))])}catch(_e){}const fontReadyMs=Date.now()-phase;
+  phase=Date.now();await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));const settleMs=Date.now()-phase;
+  const scale=1.5,minimumWidth=Math.floor(794*scale)-2,minimumHeight=Math.floor(1123*scale)-2;phase=Date.now();const canvas=await window.html2canvas(sheet,{backgroundColor:'#f4ecd8',width:794,height:1123,scale:scale,useCORS:true,allowTaint:false,logging:false,removeContainer:true,imageTimeout:20000,scrollX:0,scrollY:0,windowWidth:794,windowHeight:1123}),canvasMs=Date.now()-phase;if(!canvas||canvas.width<minimumWidth||canvas.height<minimumHeight)throw new Error('A4 page '+(index+1)+' returned an incomplete image'+(canvas?' ('+canvas.width+' × '+canvas.height+')':''));
+  const width=canvas.width,height=canvas.height,quality=total>300?.72:total>120?.74:.77;phase=Date.now();const blob=await new Promise(resolve=>canvas.toBlob(resolve,'image/jpeg',quality)),jpegMs=Date.now()-phase;canvas.width=1;canvas.height=1;if(!blob)throw new Error('A4 page '+(index+1)+' could not be compressed');gmBosDiag('BIND CAPTURE','A4 image completed',{page:index+1,total:total,width:width,height:height,jpegBytes:blob.size,inlineMs:inlineMs,imageReadyMs:imageReadyMs,fontReadyMs:fontReadyMs,settleMs:settleMs,canvasMs:canvasMs,jpegMs:jpegMs,durationMs:Date.now()-captureStarted});return {blob:blob,width:width,height:height}
  }finally{host.remove()}
 }'''
 
@@ -169,6 +190,12 @@ def patch_scribe(page: str) -> str:
         "Ink Pot busy state",
     )
 
+    old_wait_image = extract_function(page, "function gmBosWaitImage(")
+    page = replace_once(page, old_wait_image, WAIT_IMAGE, "bounded image readiness wait")
+
+    old_inline_images = extract_function(page, "async function gmBosInlineBlobImages(")
+    page = replace_once(page, old_inline_images, INLINE_BLOB_IMAGES, "parallel blob image preparation")
+
     old_capture = extract_function(page, "async function gmBosFlatBlobFromSheet(")
     page = replace_once(page, old_capture, CAPTURE, "same-document A4 capture")
 
@@ -225,10 +252,12 @@ def patch_scribe(page: str) -> str:
         "Ink Pot controls rendered",
         "One Last Bound Book PDF is kept in private app storage.",
         "const host=document.createElement('div')",
+        "timer=setTimeout(done,2500)",
+        "imageReadyMs:imageReadyMs",
     ]
     missing = [item for item in required if item not in page]
     if missing:
-        raise SystemExit("Missing V26 BoS requirements: " + ", ".join(missing))
+        raise SystemExit("Missing V27 BoS requirements: " + ", ".join(missing))
     if "const frame=document.createElement('iframe')" in extract_function(page, "async function gmBosFlatBlobFromSheet("):
         raise SystemExit("Cross-document capture frame remains")
     return page
@@ -247,7 +276,7 @@ def main() -> None:
     encoded = re.sub(r"</script", r"<\\/script", encoded, flags=re.IGNORECASE)
     output = text[:start] + encoded + text[start + consumed:]
     destination.write_text(output, encoding="utf-8")
-    print("V26 Ink Pot controls, safe PDF opening, and timing diagnostics patch passed.")
+    print("V27 fast bounded image readiness and phase diagnostics patch passed.")
 
 
 if __name__ == "__main__":
