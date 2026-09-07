@@ -12,6 +12,7 @@ on:
       - "tools/patch_register_bound_store.py"
       - "tools/patch_register_scribe_service.py"
       - "tools/verify_bos_v29.js"
+      - "current-build-20260907/**"
   workflow_dispatch:
 
 permissions:
@@ -79,6 +80,23 @@ jobs:
           node tools/verify_bos_v29.js \
             "$RUNNER_TEMP/gm-v24/v23.html" \
             "$RUNNER_TEMP/gm-v24/v29.html"
+
+      - name: Apply exact current HTML patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          WORK="$RUNNER_TEMP/gm-v24"
+          command -v zstd >/dev/null || {
+            sudo apt-get update
+            sudo apt-get install -y zstd
+          }
+          cat "$GITHUB_WORKSPACE"/current-build-20260907/fixed_patch.part*.b64 > "$WORK/current.patch.b64"
+          base64 --decode "$WORK/current.patch.b64" > "$WORK/current.patch.zst"
+          echo "616ec57312ad10ec236d8109c450ce5410191742e963bdaabcdc1b0ec70214d4  $WORK/current.patch.zst" | sha256sum -c -
+          mv "$WORK/v29.html" "$WORK/v29-base.html"
+          zstd -d --patch-from="$WORK/v29-base.html" "$WORK/current.patch.zst" -o "$WORK/v29.html"
+          test "$(stat -c%s "$WORK/v29.html")" -eq 32012053
+          echo "f4ec2ec670e253c692ca60fa3de96502c825d1cf5699ff76aa0b0521f0d0ef4d  $WORK/v29.html" | sha256sum -c -
 
       - name: Compile the native store and isolated page renderer
         shell: bash
