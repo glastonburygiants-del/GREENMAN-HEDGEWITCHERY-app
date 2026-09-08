@@ -171,7 +171,7 @@ jobs:
           marker='PAGES.scribe = '
           i=s.index(marker)+len(marker)
           page,_=json.JSONDecoder().raw_decode(s[i:])
-          active=len(re.findall(r'async function gmInkPrintBound\\s*\\(\\)',page))
+          active=len(re.findall(r'async function gmInkPrintBound\s*\(\)',page))
           assert active==1, active
           assert 'gmInkPrintBoundLegacyNativeCutDisabled' in page
           assert 'gmInkEnsureBoundPdfReady' in page
