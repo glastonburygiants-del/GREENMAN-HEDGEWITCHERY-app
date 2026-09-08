@@ -20,7 +20,7 @@ def replace_page(doc, key, value):
     return doc[:start] + literal + doc[start + consumed:]
 
 _s, _n, scribe = decode_page(src, 'scribe')
-pat = re.compile(r'async function gmInkPrintBound\\s*\\(\\)')
+pat = re.compile(r'async function gmInkPrintBound\s*\(\)')
 found = list(pat.finditer(scribe))
 if len(found) != 3:
     raise SystemExit(f'Expected 3 gmInkPrintBound definitions in pinned source, found {len(found)}')
