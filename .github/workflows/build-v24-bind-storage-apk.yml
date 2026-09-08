@@ -61,12 +61,12 @@ jobs:
             sudo apt-get update
             sudo apt-get install -y zstd
           }
-          cat "$GITHUB_WORKSPACE"/current-build-20260907/fixed_patch.part*.b64 > "$WORK/current.patch.b64"
+          cat "$GITHUB_WORKSPACE"/current-build-20260907/fixed_patch.part??.b64 > "$WORK/current.patch.b64"
           base64 --decode "$WORK/current.patch.b64" > "$WORK/current.patch.zst"
-          echo "9fd6033cd5d06632ff351f4a056dc4f4b38824d38e6f27cb6d76a3eaef13a7d8  $WORK/current.patch.zst" | sha256sum -c -
+          echo "4ba4964d0f9c0923d550a6e568d448a0f62db58b4a769902d3f35b30c46deeef  $WORK/current.patch.zst" | sha256sum -c -
           zstd -d --patch-from="$WORK/v29-base.html" "$WORK/current.patch.zst" -o "$WORK/current.html"
-          test "$(stat -c%s "$WORK/current.html")" -eq 32025798
-          echo "97aa9692ad20645a17de30662263bb6d28410815aa49f16c9bfab8079dabd25b  $WORK/current.html" | sha256sum -c -
+          test "$(stat -c%s "$WORK/current.html")" -eq 32037133
+          echo "0d51455210168dee9c40a6a1c520789d6ee104e61ed1f3eebca2a91fe74a1318  $WORK/current.html" | sha256sum -c -
 
           echo "WORK=$WORK" >> "$GITHUB_ENV"
 
@@ -74,7 +74,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          git show 44e113dac3b6e9bb3c2f8aeac07b9dad0b0d39da:tools/BoundBookStore.java > "$WORK/BoundBookStore.java"
+          cp "$GITHUB_WORKSPACE/current-build-20260907/BoundBookStore.java" "$WORK/BoundBookStore.java"
           git show 44e113dac3b6e9bb3c2f8aeac07b9dad0b0d39da:tools/patch_register_bound_store.py > "$WORK/patch_register_bound_store.py"
 
       - name: Compile V28 BoundBookStore only
@@ -95,7 +95,7 @@ jobs:
           python "$WORK/patch_register_bound_store.py"             "$WORK/decoded/smali_classes2/com/greenman/hedgewitchery/MainActivity.smali"
 
           cp "$WORK/current.html" "$WORK/decoded/assets/index.html"
-          sed -i 's/versionCode: 30/versionCode: 45/' "$WORK/decoded/apktool.yml"
+          sed -i 's/versionCode: 30/versionCode: 46/' "$WORK/decoded/apktool.yml"
           sed -i 's/versionName: .*/versionName: 2.7.27/' "$WORK/decoded/apktool.yml"
 
           if grep -Fq 'ScribePdfService' "$WORK/decoded/AndroidManifest.xml"; then exit 1; fi
@@ -120,6 +120,9 @@ jobs:
 
           grep -Fq 'beginLastBoundPdf' "$WORK/decoded/smali_classes3/com/greenman/hedgewitchery/BoundBookStore.smali"
           grep -Fq 'exportLastBoundPdf' "$WORK/decoded/smali_classes3/com/greenman/hedgewitchery/BoundBookStore.smali"
+          grep -Fq 'beginPdfCopy' "$WORK/decoded/smali_classes3/com/greenman/hedgewitchery/BoundBookStore.smali"
+          grep -Fq 'readLastBoundPdfChunk' "$WORK/decoded/smali_classes3/com/greenman/hedgewitchery/BoundBookStore.smali"
+          grep -Fq 'exportLastBoundPdfAs' "$WORK/decoded/smali_classes3/com/greenman/hedgewitchery/BoundBookStore.smali"
 
       - name: Build align and sign
         shell: bash
@@ -146,12 +149,14 @@ jobs:
           "$BT/zipalign" -c -v 4 "$APK" >/dev/null
           "$BT/aapt" dump badging "$APK" | tee "$WORK/badging.txt"
 
-          grep -q "package: name='com.greenman.hedgewitchery' versionCode='45'" "$WORK/badging.txt"
+          grep -q "package: name='com.greenman.hedgewitchery' versionCode='46'" "$WORK/badging.txt"
           unzip -p "$APK" assets/index.html > "$WORK/final-index.html"
           cmp "$WORK/final-index.html" "$WORK/current.html"
-          echo "97aa9692ad20645a17de30662263bb6d28410815aa49f16c9bfab8079dabd25b  $WORK/final-index.html" | sha256sum -c -
+          echo "0d51455210168dee9c40a6a1c520789d6ee104e61ed1f3eebca2a91fe74a1318  $WORK/final-index.html" | sha256sum -c -
 
           unzip -p "$APK" classes3.dex | strings | grep -Fq 'Greenman_Last_Bound_Book.pdf'
+          unzip -p "$APK" classes3.dex | strings | grep -Fq 'beginPdfCopy'
+          unzip -p "$APK" classes3.dex | strings | grep -Fq 'readLastBoundPdfChunk'
           if unzip -p "$APK" classes3.dex | strings | grep -Fq 'ScribePdfService'; then exit 1; fi
           if unzip -p "$APK" AndroidManifest.xml | strings | grep -Fq 'FOREGROUND_SERVICE'; then exit 1; fi
 
