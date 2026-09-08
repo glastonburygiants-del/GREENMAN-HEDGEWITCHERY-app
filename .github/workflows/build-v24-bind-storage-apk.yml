@@ -1,4 +1,4 @@
-name: Build V29 From Confirmed Baseline
+name: Build Current Greenman From V28 Android Base
 
 on:
   push:
@@ -6,12 +6,6 @@ on:
       - main
     paths:
       - ".github/workflows/build-v24-bind-storage-apk.yml"
-      - "tools/BoundBookStore.java"
-      - "tools/ScribePdfService.java"
-      - "tools/patch_bos_last_bound.py"
-      - "tools/patch_register_bound_store.py"
-      - "tools/patch_register_scribe_service.py"
-      - "tools/verify_bos_v29.js"
       - "current-build-20260907/**"
   workflow_dispatch:
 
@@ -23,8 +17,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - name: Check out canonical repository
+      - name: Check out repository with V28 history
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Set up Java 17
         uses: actions/setup-java@v4
@@ -35,57 +31,32 @@ jobs:
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
 
-      - name: Install Android platform and build tools
+      - name: Install Android build tools
         shell: bash
         run: |
           set -euo pipefail
           yes | sdkmanager --licenses >/dev/null || true
           sdkmanager "platforms;android-35" "build-tools;35.0.0"
 
-      - name: Verify exact V5.1 APK shell and V23 source
+      - name: Reconstruct exact current HTML
         shell: bash
         run: |
           set -euo pipefail
+          WORK="$RUNNER_TEMP/gm-v28-current"
+          mkdir -p "$WORK"
           BASE="$GITHUB_WORKSPACE/GREENMAN_HEDGEWITCHERY.apk"
           PACKED="$GITHUB_WORKSPACE/GREENMAN_V23_ENERGY_HEADING_V19_MINIMAL_SAFE.html.xz (1).html"
+
           test "$(stat -c%s "$BASE")" -eq 6690801
           echo "a3e5f03bbd5560b7420626ec02b0c89ff0252a35200a650b9e8ea950bb2e2cdd  $BASE" | sha256sum -c -
-          test "$(stat -c%s "$PACKED")" -eq 6710820
+
           xz --test "$PACKED"
-          mkdir -p "$RUNNER_TEMP/gm-v24"
-          xz --decompress --stdout "$PACKED" > "$RUNNER_TEMP/gm-v24/v23.html"
-          test "$(stat -c%s "$RUNNER_TEMP/gm-v24/v23.html")" -eq 30992156
-          echo "b02e6e2cc69f9239bdf5a4490cd1159b7b6edcdecfc98461a5a49ed034074d59  $RUNNER_TEMP/gm-v24/v23.html" | sha256sum -c -
+          xz --decompress --stdout "$PACKED" > "$WORK/v23.html"
+          echo "b02e6e2cc69f9239bdf5a4490cd1159b7b6edcdecfc98461a5a49ed034074d59  $WORK/v23.html" | sha256sum -c -
 
-      - name: Patch the consolidated BoS and Scribe background route
-        shell: bash
-        run: |
-          set -euo pipefail
-          python tools/patch_bos_last_bound.py \
-            "$RUNNER_TEMP/gm-v24/v23.html" \
-            "$RUNNER_TEMP/gm-v24/v29.html"
-          test "$(stat -c%s "$RUNNER_TEMP/gm-v24/v29.html")" -eq 31037700
-          echo "10fe161dba2deb807d3a82945c0f3b5e8f044fd0219d3bc1d7432ed3b2854192  $RUNNER_TEMP/gm-v24/v29.html" | sha256sum -c -
-          grep -Fq "BoS Text Conversion" "$RUNNER_TEMP/gm-v24/v29.html"
-          grep -Fq "startNativeConversion" "$RUNNER_TEMP/gm-v24/v29.html"
-          grep -Fq "beginPdfPage" "$RUNNER_TEMP/gm-v24/v29.html"
-          grep -Fq "gm_scribe_bos_bound_catalog_v2" "$RUNNER_TEMP/gm-v24/v29.html"
-          grep -Fq "Only the current PDF for each chosen hand is kept." "$RUNNER_TEMP/gm-v24/v29.html"
-          grep -Fq "Choose Scribe Text" "$RUNNER_TEMP/gm-v24/v29.html"
-          grep -Fq "Chapter Contents" "$RUNNER_TEMP/gm-v24/v29.html"
-          if grep -Fq 'id=\"gmInkExportLastBoundBtn\"' "$RUNNER_TEMP/gm-v24/v29.html"; then
-            echo "Duplicate legacy export control remains" >&2
-            exit 1
-          fi
-          node tools/verify_bos_v29.js \
-            "$RUNNER_TEMP/gm-v24/v23.html" \
-            "$RUNNER_TEMP/gm-v24/v29.html"
+          python tools/patch_bos_last_bound.py "$WORK/v23.html" "$WORK/v29-base.html"
+          echo "10fe161dba2deb807d3a82945c0f3b5e8f044fd0219d3bc1d7432ed3b2854192  $WORK/v29-base.html" | sha256sum -c -
 
-      - name: Apply exact current HTML patch
-        shell: bash
-        run: |
-          set -euo pipefail
-          WORK="$RUNNER_TEMP/gm-v24"
           command -v zstd >/dev/null || {
             sudo apt-get update
             sudo apt-get install -y zstd
@@ -93,134 +64,114 @@ jobs:
           cat "$GITHUB_WORKSPACE"/current-build-20260907/fixed_patch.part*.b64 > "$WORK/current.patch.b64"
           base64 --decode "$WORK/current.patch.b64" > "$WORK/current.patch.zst"
           echo "616ec57312ad10ec236d8109c450ce5410191742e963bdaabcdc1b0ec70214d4  $WORK/current.patch.zst" | sha256sum -c -
-          mv "$WORK/v29.html" "$WORK/v29-base.html"
-          zstd -d --patch-from="$WORK/v29-base.html" "$WORK/current.patch.zst" -o "$WORK/v29.html"
-          test "$(stat -c%s "$WORK/v29.html")" -eq 32012053
-          echo "f4ec2ec670e253c692ca60fa3de96502c825d1cf5699ff76aa0b0521f0d0ef4d  $WORK/v29.html" | sha256sum -c -
+          zstd -d --patch-from="$WORK/v29-base.html" "$WORK/current.patch.zst" -o "$WORK/current.html"
+          test "$(stat -c%s "$WORK/current.html")" -eq 32012053
+          echo "f4ec2ec670e253c692ca60fa3de96502c825d1cf5699ff76aa0b0521f0d0ef4d  $WORK/current.html" | sha256sum -c -
 
-      - name: Compile the native store and isolated page renderer
+          echo "WORK=$WORK" >> "$GITHUB_ENV"
+
+      - name: Restore exact V28 native files
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p "$RUNNER_TEMP/gm-v24/helper-classes" "$RUNNER_TEMP/gm-v24/helper-dex"
-          javac -source 8 -target 8 \
-            -cp "$ANDROID_HOME/platforms/android-35/android.jar" \
-            -d "$RUNNER_TEMP/gm-v24/helper-classes" \
-            tools/BoundBookStore.java \
-            tools/ScribePdfService.java
-          "$ANDROID_HOME/build-tools/35.0.0/d8" \
-            --min-api 29 \
-            --output "$RUNNER_TEMP/gm-v24/helper-dex" \
-            $(find "$RUNNER_TEMP/gm-v24/helper-classes" -type f -name '*.class' -print)
+          git show 44e113dac3b6e9bb3c2f8aeac07b9dad0b0d39da:tools/BoundBookStore.java > "$WORK/BoundBookStore.java"
+          git show 44e113dac3b6e9bb3c2f8aeac07b9dad0b0d39da:tools/patch_register_bound_store.py > "$WORK/patch_register_bound_store.py"
 
-      - name: Decode exact shell and register the native bridge and service
+      - name: Compile V28 BoundBookStore only
         shell: bash
         run: |
           set -euo pipefail
-          curl -L --fail --show-error --silent \
-            -o "$RUNNER_TEMP/gm-v24/apktool.jar" \
-            https://github.com/iBotPeaches/Apktool/releases/download/v2.11.1/apktool_2.11.1.jar
-          java -jar "$RUNNER_TEMP/gm-v24/apktool.jar" d -f \
-            "$GITHUB_WORKSPACE/GREENMAN_HEDGEWITCHERY.apk" \
-            -o "$RUNNER_TEMP/gm-v24/decoded"
-          python tools/patch_register_bound_store.py \
-            "$RUNNER_TEMP/gm-v24/decoded/smali_classes2/com/greenman/hedgewitchery/MainActivity.smali"
-          python tools/patch_register_scribe_service.py \
-            "$RUNNER_TEMP/gm-v24/decoded/AndroidManifest.xml"
-          cp "$RUNNER_TEMP/gm-v24/v29.html" "$RUNNER_TEMP/gm-v24/decoded/assets/index.html"
-          sed -i 's/versionCode: 30/versionCode: 37/' "$RUNNER_TEMP/gm-v24/decoded/apktool.yml"
-          sed -i 's/versionName: .*/versionName: 2.7.19-confirmed-baseline/' "$RUNNER_TEMP/gm-v24/decoded/apktool.yml"
-          grep -Fq 'versionCode: 37' "$RUNNER_TEMP/gm-v24/decoded/apktool.yml"
-          grep -Fq 'com.greenman.hedgewitchery.ScribePdfService' "$RUNNER_TEMP/gm-v24/decoded/AndroidManifest.xml"
-          grep -Fq 'android:process=":bosrender"' "$RUNNER_TEMP/gm-v24/decoded/AndroidManifest.xml"
+          mkdir -p "$WORK/helper-classes" "$WORK/helper-dex"
+          javac -source 8 -target 8             -cp "$ANDROID_HOME/platforms/android-35/android.jar"             -d "$WORK/helper-classes"             "$WORK/BoundBookStore.java"
+          "$ANDROID_HOME/build-tools/35.0.0/d8"             --min-api 29             --output "$WORK/helper-dex"             "$WORK/helper-classes/com/greenman/hedgewitchery/BoundBookStore.class"
 
-      - name: Convert all helper DEX classes to added Smali classes
+      - name: Decode shell and install current HTML on V28 base
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p "$RUNNER_TEMP/gm-v24/helper-apk"
-          unzip -p "$GITHUB_WORKSPACE/GREENMAN_HEDGEWITCHERY.apk" AndroidManifest.xml \
-            > "$RUNNER_TEMP/gm-v24/helper-apk/AndroidManifest.xml"
-          cp "$RUNNER_TEMP/gm-v24/helper-dex/classes.dex" "$RUNNER_TEMP/gm-v24/helper-apk/classes.dex"
-          cd "$RUNNER_TEMP/gm-v24/helper-apk"
-          zip -q "$RUNNER_TEMP/gm-v24/helper.apk" AndroidManifest.xml classes.dex
-          java -jar "$RUNNER_TEMP/gm-v24/apktool.jar" d -f -r \
-            "$RUNNER_TEMP/gm-v24/helper.apk" \
-            -o "$RUNNER_TEMP/gm-v24/helper-decoded"
-          HELPER_ROOT="$(find "$RUNNER_TEMP/gm-v24/helper-decoded" -type d -path '*/com/greenman/hedgewitchery' -print -quit)"
-          test -n "$HELPER_ROOT"
-          mkdir -p "$RUNNER_TEMP/gm-v24/decoded/smali_classes3/com/greenman/hedgewitchery"
-          cp -R "$HELPER_ROOT/." "$RUNNER_TEMP/gm-v24/decoded/smali_classes3/com/greenman/hedgewitchery/"
-          grep -Fq 'beginLastBoundPdf' "$RUNNER_TEMP/gm-v24/decoded/smali_classes3/com/greenman/hedgewitchery/BoundBookStore.smali"
-          grep -Fq 'beginPdfJob' "$RUNNER_TEMP/gm-v24/decoded/smali_classes3/com/greenman/hedgewitchery/BoundBookStore.smali"
-          grep -Fq 'exportBookPdf' "$RUNNER_TEMP/gm-v24/decoded/smali_classes3/com/greenman/hedgewitchery/BoundBookStore.smali"
-          grep -Fq 'RENDER_SCRIBE_PDF' "$RUNNER_TEMP/gm-v24/decoded/smali_classes3/com/greenman/hedgewitchery/ScribePdfService.smali"
+          curl -L --fail --show-error --silent             -o "$WORK/apktool.jar"             https://github.com/iBotPeaches/Apktool/releases/download/v2.11.1/apktool_2.11.1.jar
+          java -jar "$WORK/apktool.jar" d -f             "$GITHUB_WORKSPACE/GREENMAN_HEDGEWITCHERY.apk"             -o "$WORK/decoded"
 
-      - name: Rebuild align and sign
+          python "$WORK/patch_register_bound_store.py"             "$WORK/decoded/smali_classes2/com/greenman/hedgewitchery/MainActivity.smali"
+
+          cp "$WORK/current.html" "$WORK/decoded/assets/index.html"
+          sed -i 's/versionCode: 30/versionCode: 38/' "$WORK/decoded/apktool.yml"
+          sed -i 's/versionName: .*/versionName: 2.7.20-v28-base-current/' "$WORK/decoded/apktool.yml"
+
+          if grep -Fq 'ScribePdfService' "$WORK/decoded/AndroidManifest.xml"; then exit 1; fi
+          if grep -Fq 'android.permission.FOREGROUND_SERVICE' "$WORK/decoded/AndroidManifest.xml"; then exit 1; fi
+          if grep -Fq 'android:process=":bosrender"' "$WORK/decoded/AndroidManifest.xml"; then exit 1; fi
+
+      - name: Add V28 helper class
         shell: bash
         run: |
           set -euo pipefail
-          java -jar "$RUNNER_TEMP/gm-v24/apktool.jar" b \
-            "$RUNNER_TEMP/gm-v24/decoded" \
-            -o "$RUNNER_TEMP/gm-v24/unsigned.apk"
+          mkdir -p "$WORK/helper-apk"
+          unzip -p "$GITHUB_WORKSPACE/GREENMAN_HEDGEWITCHERY.apk" AndroidManifest.xml > "$WORK/helper-apk/AndroidManifest.xml"
+          cp "$WORK/helper-dex/classes.dex" "$WORK/helper-apk/classes.dex"
+          cd "$WORK/helper-apk"
+          zip -q "$WORK/helper.apk" AndroidManifest.xml classes.dex
+
+          java -jar "$WORK/apktool.jar" d -f -r "$WORK/helper.apk" -o "$WORK/helper-decoded"
+          HELPER_SMALI="$(find "$WORK/helper-decoded" -type f -name 'BoundBookStore.smali' -print -quit)"
+          test -n "$HELPER_SMALI"
+          mkdir -p "$WORK/decoded/smali_classes3/com/greenman/hedgewitchery"
+          cp "$HELPER_SMALI" "$WORK/decoded/smali_classes3/com/greenman/hedgewitchery/BoundBookStore.smali"
+
+          grep -Fq 'beginLastBoundPdf' "$WORK/decoded/smali_classes3/com/greenman/hedgewitchery/BoundBookStore.smali"
+          grep -Fq 'exportLastBoundPdf' "$WORK/decoded/smali_classes3/com/greenman/hedgewitchery/BoundBookStore.smali"
+
+      - name: Build align and sign
+        shell: bash
+        run: |
+          set -euo pipefail
+          java -jar "$WORK/apktool.jar" b "$WORK/decoded" -o "$WORK/unsigned.apk"
           BT="$ANDROID_HOME/build-tools/35.0.0"
-          "$BT/zipalign" -p -f 4 \
-            "$RUNNER_TEMP/gm-v24/unsigned.apk" \
-            "$RUNNER_TEMP/gm-v24/aligned.apk"
+          "$BT/zipalign" -p -f 4 "$WORK/unsigned.apk" "$WORK/aligned.apk"
+
           mkdir -p "$HOME/.android"
           base64 --decode tools/greenman_debug_keystore.b64 > "$HOME/.android/debug.keystore"
           chmod 600 "$HOME/.android/debug.keystore"
-          "$BT/apksigner" sign \
-            --ks "$HOME/.android/debug.keystore" \
-            --ks-key-alias androiddebugkey \
-            --ks-pass pass:android \
-            --key-pass pass:android \
-            --out "$RUNNER_TEMP/GREENMAN_HEDGEWITCHERY_V29_CONFIRMED_BASELINE.apk" \
-            "$RUNNER_TEMP/gm-v24/aligned.apk"
 
-      - name: Verify final APK and protected payload
+          "$BT/apksigner" sign             --ks "$HOME/.android/debug.keystore"             --ks-key-alias androiddebugkey             --ks-pass pass:android             --key-pass pass:android             --out "$RUNNER_TEMP/GREENMAN_HEDGEWITCHERY_CURRENT_V28_BASE.apk"             "$WORK/aligned.apk"
+
+      - name: Verify V28-base APK
         shell: bash
         run: |
           set -euo pipefail
-          APK="$RUNNER_TEMP/GREENMAN_HEDGEWITCHERY_V29_CONFIRMED_BASELINE.apk"
+          APK="$RUNNER_TEMP/GREENMAN_HEDGEWITCHERY_CURRENT_V28_BASE.apk"
           BT="$ANDROID_HOME/build-tools/35.0.0"
-          "$BT/apksigner" verify --verbose --print-certs "$APK" \
-            | tee "$RUNNER_TEMP/gm-v24/apksigner.txt"
-          grep -Fq 'Verified using v3 scheme (APK Signature Scheme v3): true' "$RUNNER_TEMP/gm-v24/apksigner.txt"
-          grep -Fq "Signer #1 certificate SHA-256 digest: bd22a5c3ff7335237a0e725032816eb563d2e350789e6e555369b0fe32e0c19e" \
-            "$RUNNER_TEMP/gm-v24/apksigner.txt"
-          "$BT/zipalign" -c -v 4 "$APK" >/dev/null
-          "$BT/aapt" dump badging "$APK" | tee "$RUNNER_TEMP/gm-v24/badging.txt"
-          grep -q "package: name='com.greenman.hedgewitchery' versionCode='37'" "$RUNNER_TEMP/gm-v24/badging.txt"
-          grep -q "sdkVersion:'29'" "$RUNNER_TEMP/gm-v24/badging.txt"
-          unzip -p "$APK" assets/index.html > "$RUNNER_TEMP/gm-v24/final-index.html"
-          cmp "$RUNNER_TEMP/gm-v24/final-index.html" "$RUNNER_TEMP/gm-v24/v29.html"
-          unzip -p "$APK" classes3.dex | strings | grep -Fq 'Greenman_Last_Bound_Book.pdf'
-          unzip -p "$APK" classes3.dex | strings | grep -Fq 'ScribePdfService'
-          unzip -p "$APK" classes3.dex | strings | grep -Fq 'render-status.json'
-          unzip -p "$APK" classes2.dex | strings | grep -Fq 'GreenmanFiles'
-          for asset in greenman_bower.html greenman_scribe.html greenman_treehouse.html; do
-            cmp \
-              <(unzip -p "$GITHUB_WORKSPACE/GREENMAN_HEDGEWITCHERY.apk" "assets/$asset") \
-              <(unzip -p "$APK" "assets/$asset")
-          done
-          sha256sum "$APK" | tee "$RUNNER_TEMP/gm-v24/final-apk-sha256.txt"
 
-      - name: Upload V29 confirmed-baseline APK
+          "$BT/apksigner" verify --verbose --print-certs "$APK" | tee "$WORK/apksigner.txt"
+          "$BT/zipalign" -c -v 4 "$APK" >/dev/null
+          "$BT/aapt" dump badging "$APK" | tee "$WORK/badging.txt"
+
+          grep -q "package: name='com.greenman.hedgewitchery' versionCode='38'" "$WORK/badging.txt"
+          unzip -p "$APK" assets/index.html > "$WORK/final-index.html"
+          cmp "$WORK/final-index.html" "$WORK/current.html"
+          echo "f4ec2ec670e253c692ca60fa3de96502c825d1cf5699ff76aa0b0521f0d0ef4d  $WORK/final-index.html" | sha256sum -c -
+
+          unzip -p "$APK" classes3.dex | strings | grep -Fq 'Greenman_Last_Bound_Book.pdf'
+          if unzip -p "$APK" classes3.dex | strings | grep -Fq 'ScribePdfService'; then exit 1; fi
+          if unzip -p "$APK" AndroidManifest.xml | strings | grep -Fq 'FOREGROUND_SERVICE'; then exit 1; fi
+
+          sha256sum "$APK" | tee "$WORK/final-apk-sha256.txt"
+
+      - name: Upload V28-base APK
         uses: actions/upload-artifact@v4
         with:
-          name: GREENMAN-V29-CONFIRMED-BASELINE-APK
-          path: ${{ runner.temp }}/GREENMAN_HEDGEWITCHERY_V29_CONFIRMED_BASELINE.apk
+          name: GREENMAN-CURRENT-V28-BASE-APK
+          path: ${{ runner.temp }}/GREENMAN_HEDGEWITCHERY_CURRENT_V28_BASE.apk
           if-no-files-found: error
           retention-days: 30
 
-      - name: Upload V29 confirmed-baseline audit
+      - name: Upload audit
         uses: actions/upload-artifact@v4
         with:
-          name: GREENMAN-V29-CONFIRMED-BASELINE-AUDIT
+          name: GREENMAN-CURRENT-V28-BASE-AUDIT
           path: |
-            ${{ runner.temp }}/gm-v24/apksigner.txt
-            ${{ runner.temp }}/gm-v24/badging.txt
-            ${{ runner.temp }}/gm-v24/final-apk-sha256.txt
+            ${{ runner.temp }}/gm-v28-current/apksigner.txt
+            ${{ runner.temp }}/gm-v28-current/badging.txt
+            ${{ runner.temp }}/gm-v28-current/final-apk-sha256.txt
           if-no-files-found: error
           retention-days: 30
