@@ -146,7 +146,7 @@ jobs:
           "$BT/zipalign" -c -v 4 "$APK" >/dev/null
           "$BT/aapt" dump badging "$APK" | tee "$WORK/badging.txt"
 
-          grep -q "package: name='com.greenman.hedgewitchery' versionCode='39'" "$WORK/badging.txt"
+          grep -q "package: name='com.greenman.hedgewitchery' versionCode='40'" "$WORK/badging.txt"
           unzip -p "$APK" assets/index.html > "$WORK/final-index.html"
           cmp "$WORK/final-index.html" "$WORK/current.html"
           echo "bc0ae13e3f2e24b076c4f3802c41f5e89d3c13440ad10604463e2092cdc22f4f  $WORK/final-index.html" | sha256sum -c -
