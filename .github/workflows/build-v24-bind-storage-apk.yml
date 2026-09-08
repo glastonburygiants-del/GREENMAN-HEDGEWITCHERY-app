@@ -74,8 +74,8 @@ jobs:
           echo "0d51455210168dee9c40a6a1c520789d6ee104e61ed1f3eebca2a91fe74a1318  $WORK/pre-inkpot-fix.html" | sha256sum -c -
 
           python tools/patch_inkpot_cupboard_final.py "$WORK/pre-inkpot-fix.html" "$WORK/current.html"
-          test "$(stat -c%s "$WORK/current.html")" -eq 32060131
-          echo "e81a57a8192d4030718b78ab0c53bc2c983c5d2b616d321ade4ecca7af126850  $WORK/current.html" | sha256sum -c -
+          test "$(stat -c%s "$WORK/current.html")" -eq 32059828
+          echo "48a736add3abc2caf260b8fe97794e5f8d64759204c864b4e5e09d0388f7fb4e  $WORK/current.html" | sha256sum -c -
 
           echo "WORK=$WORK" >> "$GITHUB_ENV"
 
@@ -83,7 +83,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          git show 7636651096b13596bbd692dd10dcd66d170159b0:current-build-20260907/BoundBookStore.java > "$WORK/BoundBookStore.java"
+          cp "$GITHUB_WORKSPACE/current-build-20260907/BoundBookStore.java" "$WORK/BoundBookStore.java"
           git show 44e113dac3b6e9bb3c2f8aeac07b9dad0b0d39da:tools/patch_register_bound_store.py > "$WORK/patch_register_bound_store.py"
 
       - name: Compile V28 BoundBookStore only
@@ -104,8 +104,8 @@ jobs:
           python "$WORK/patch_register_bound_store.py"             "$WORK/decoded/smali_classes2/com/greenman/hedgewitchery/MainActivity.smali"
 
           cp "$WORK/current.html" "$WORK/decoded/assets/index.html"
-          sed -i 's/versionCode: 30/versionCode: 47/' "$WORK/decoded/apktool.yml"
-          sed -i 's/versionName: .*/versionName: 2.7.27/' "$WORK/decoded/apktool.yml"
+          sed -i 's/versionCode: 30/versionCode: 48/' "$WORK/decoded/apktool.yml"
+          sed -i 's/versionName: .*/versionName: 2.7.28/' "$WORK/decoded/apktool.yml"
 
           if grep -Fq 'ScribePdfService' "$WORK/decoded/AndroidManifest.xml"; then exit 1; fi
           if grep -Fq 'android.permission.FOREGROUND_SERVICE' "$WORK/decoded/AndroidManifest.xml"; then exit 1; fi
@@ -132,6 +132,8 @@ jobs:
           grep -Fq 'beginPdfCopy' "$WORK/decoded/smali_classes3/com/greenman/hedgewitchery/BoundBookStore.smali"
           grep -Fq 'readLastBoundPdfChunk' "$WORK/decoded/smali_classes3/com/greenman/hedgewitchery/BoundBookStore.smali"
           grep -Fq 'exportLastBoundPdfAs' "$WORK/decoded/smali_classes3/com/greenman/hedgewitchery/BoundBookStore.smali"
+          grep -Fq 'exportSelectedPagesAs' "$WORK/decoded/smali_classes3/com/greenman/hedgewitchery/BoundBookStore.smali"
+          grep -Fq 'lastError' "$WORK/decoded/smali_classes3/com/greenman/hedgewitchery/BoundBookStore.smali"
 
       - name: Build align and sign
         shell: bash
@@ -145,26 +147,26 @@ jobs:
           base64 --decode tools/greenman_debug_keystore.b64 > "$HOME/.android/debug.keystore"
           chmod 600 "$HOME/.android/debug.keystore"
 
-          "$BT/apksigner" sign             --ks "$HOME/.android/debug.keystore"             --ks-key-alias androiddebugkey             --ks-pass pass:android             --key-pass pass:android             --out "$RUNNER_TEMP/GREENMAN_HEDGEWITCHERY_APOTHECARY_FV_2.7.27.apk"             "$WORK/aligned.apk"
+          "$BT/apksigner" sign             --ks "$HOME/.android/debug.keystore"             --ks-key-alias androiddebugkey             --ks-pass pass:android             --key-pass pass:android             --out "$RUNNER_TEMP/GREENMAN_HEDGEWITCHERY_APOTHECARY_FV_2.7.28.apk"             "$WORK/aligned.apk"
 
       - name: Verify V28-base APK
         shell: bash
         run: |
           set -euo pipefail
-          APK="$RUNNER_TEMP/GREENMAN_HEDGEWITCHERY_APOTHECARY_FV_2.7.27.apk"
+          APK="$RUNNER_TEMP/GREENMAN_HEDGEWITCHERY_APOTHECARY_FV_2.7.28.apk"
           BT="$ANDROID_HOME/build-tools/35.0.0"
 
           "$BT/apksigner" verify --verbose --print-certs "$APK" | tee "$WORK/apksigner.txt"
           "$BT/zipalign" -c -v 4 "$APK" >/dev/null
           "$BT/aapt" dump badging "$APK" | tee "$WORK/badging.txt"
 
-          grep -q "package: name='com.greenman.hedgewitchery' versionCode='47'" "$WORK/badging.txt"
+          grep -q "package: name='com.greenman.hedgewitchery' versionCode='48'" "$WORK/badging.txt"
           unzip -p "$APK" assets/index.html > "$WORK/final-index.html"
           cmp "$WORK/final-index.html" "$WORK/current.html"
-          echo "e81a57a8192d4030718b78ab0c53bc2c983c5d2b616d321ade4ecca7af126850  $WORK/final-index.html" | sha256sum -c -
+          echo "48a736add3abc2caf260b8fe97794e5f8d64759204c864b4e5e09d0388f7fb4e  $WORK/final-index.html" | sha256sum -c -
 
-          grep -Fq 'INKPOT FIX: single active PDF handler' "$WORK/final-index.html"
-          grep -Fq 'CUPBOARD LAYOUT FIX: all doors/drawers together at top' "$WORK/final-index.html"
+          grep -Fq 'INKPOT FIX V2.7.28: one active handler' "$WORK/final-index.html"
+          grep -Fq 'CUPBOARD LAYOUT FIX V2.7.28: Bower/Scribe and drawers joined directly beneath Supply/Spell.' "$WORK/final-index.html"
           python - "$WORK/final-index.html" <<'PY'
           import json,re,sys
           s=open(sys.argv[1],encoding='utf-8').read()
@@ -175,17 +177,23 @@ jobs:
           assert active==1, active
           assert 'gmInkPrintBoundLegacyNativeCutDisabled' in page
           assert 'gmInkEnsureBoundPdfReady' in page
+          assert 'inkExportNativeSelection' in page
+          assert 'inkNativeLastError' in page
           marker='PAGES.cupboard = '
           i=s.index(marker)+len(marker)
           cup,_=json.JSONDecoder().raw_decode(s[i:])
-          a=cup.index("appendIncenseDrawerFront();")
-          b=cup.index("appendOwnedShelf('Crystals','Crystal','Crystal');")
-          assert a < b
+          a=cup.index("appendBowerScribeRooms();")
+          b=cup.index("appendIncenseDrawerFront();")
+          c=cup.index("appendDailyDrawers();")
+          d=cup.index("appendOwnedShelf('Crystals','Crystal','Crystal');")
+          assert a < b < c < d
           PY
 
           unzip -p "$APK" classes3.dex | strings | grep -Fq 'Greenman_Last_Bound_Book.pdf'
           unzip -p "$APK" classes3.dex | strings | grep -Fq 'beginPdfCopy'
           unzip -p "$APK" classes3.dex | strings | grep -Fq 'readLastBoundPdfChunk'
+          unzip -p "$APK" classes3.dex | strings | grep -Fq 'exportSelectedPagesAs'
+          unzip -p "$APK" classes3.dex | strings | grep -Fq 'lastError'
           if unzip -p "$APK" classes3.dex | strings | grep -Fq 'ScribePdfService'; then exit 1; fi
           if unzip -p "$APK" AndroidManifest.xml | strings | grep -Fq 'FOREGROUND_SERVICE'; then exit 1; fi
 
@@ -194,15 +202,15 @@ jobs:
       - name: Upload V28-base APK
         uses: actions/upload-artifact@v4
         with:
-          name: GREENMAN-HEDGEWITCHERY-APOTHECARY-FV-2.7.27-APK
-          path: ${{ runner.temp }}/GREENMAN_HEDGEWITCHERY_APOTHECARY_FV_2.7.27.apk
+          name: GREENMAN-HEDGEWITCHERY-APOTHECARY-FV-2.7.28-APK
+          path: ${{ runner.temp }}/GREENMAN_HEDGEWITCHERY_APOTHECARY_FV_2.7.28.apk
           if-no-files-found: error
           retention-days: 30
 
       - name: Upload audit
         uses: actions/upload-artifact@v4
         with:
-          name: GREENMAN-HEDGEWITCHERY-APOTHECARY-FV-2.7.27-AUDIT
+          name: GREENMAN-HEDGEWITCHERY-APOTHECARY-FV-2.7.28-AUDIT
           path: |
             ${{ runner.temp }}/gm-v28-current/apksigner.txt
             ${{ runner.temp }}/gm-v28-current/badging.txt
