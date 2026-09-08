@@ -9,6 +9,7 @@ on:
       - "current-build-20260907/**"
       - "tools/patch_inkpot_cupboard_final.py"
       - "tools/patch_v2729_hotfix.py"
+      - "tools/patch_v2730_hotfix.py"
   workflow_dispatch:
 
 permissions:
@@ -78,9 +79,13 @@ jobs:
           test "$(stat -c%s "$WORK/current-2728.html")" -eq 32059828
           echo "48a736add3abc2caf260b8fe97794e5f8d64759204c864b4e5e09d0388f7fb4e  $WORK/current-2728.html" | sha256sum -c -
 
-          python tools/patch_v2729_hotfix.py "$WORK/current-2728.html" "$WORK/current.html"
-          test "$(stat -c%s "$WORK/current.html")" -eq 32060705
-          echo "b419178d8017ba188fa794019632b31fd14a2d6aa5705eec8b34212ebf9949cd  $WORK/current.html" | sha256sum -c -
+          python tools/patch_v2729_hotfix.py "$WORK/current-2728.html" "$WORK/current-2729.html"
+          test "$(stat -c%s "$WORK/current-2729.html")" -eq 32060705
+          echo "b419178d8017ba188fa794019632b31fd14a2d6aa5705eec8b34212ebf9949cd  $WORK/current-2729.html" | sha256sum -c -
+
+          python tools/patch_v2730_hotfix.py "$WORK/current-2729.html" "$WORK/current.html"
+          test "$(stat -c%s "$WORK/current.html")" -eq 32057610
+          echo "d5c2bee553055e2fa3d5356446de7e781b4a0ff14ae53d880aadcf5c27e80204  $WORK/current.html" | sha256sum -c -
 
           echo "WORK=$WORK" >> "$GITHUB_ENV"
 
@@ -109,8 +114,8 @@ jobs:
           python "$WORK/patch_register_bound_store.py"             "$WORK/decoded/smali_classes2/com/greenman/hedgewitchery/MainActivity.smali"
 
           cp "$WORK/current.html" "$WORK/decoded/assets/index.html"
-          sed -i 's/versionCode: 30/versionCode: 49/' "$WORK/decoded/apktool.yml"
-          sed -i 's/versionName: .*/versionName: 2.7.29/' "$WORK/decoded/apktool.yml"
+          sed -i 's/versionCode: 30/versionCode: 50/' "$WORK/decoded/apktool.yml"
+          sed -i 's/versionName: .*/versionName: 2.7.30/' "$WORK/decoded/apktool.yml"
 
           if grep -Fq 'ScribePdfService' "$WORK/decoded/AndroidManifest.xml"; then exit 1; fi
           if grep -Fq 'android.permission.FOREGROUND_SERVICE' "$WORK/decoded/AndroidManifest.xml"; then exit 1; fi
@@ -152,25 +157,25 @@ jobs:
           base64 --decode tools/greenman_debug_keystore.b64 > "$HOME/.android/debug.keystore"
           chmod 600 "$HOME/.android/debug.keystore"
 
-          "$BT/apksigner" sign             --ks "$HOME/.android/debug.keystore"             --ks-key-alias androiddebugkey             --ks-pass pass:android             --key-pass pass:android             --out "$RUNNER_TEMP/GREENMAN_HEDGEWITCHERY_APOTHECARY_FV_2.7.29.apk"             "$WORK/aligned.apk"
+          "$BT/apksigner" sign             --ks "$HOME/.android/debug.keystore"             --ks-key-alias androiddebugkey             --ks-pass pass:android             --key-pass pass:android             --out "$RUNNER_TEMP/GREENMAN_HEDGEWITCHERY_APOTHECARY_FV_2.7.30.apk"             "$WORK/aligned.apk"
 
       - name: Verify V28-base APK
         shell: bash
         run: |
           set -euo pipefail
-          APK="$RUNNER_TEMP/GREENMAN_HEDGEWITCHERY_APOTHECARY_FV_2.7.29.apk"
+          APK="$RUNNER_TEMP/GREENMAN_HEDGEWITCHERY_APOTHECARY_FV_2.7.30.apk"
           BT="$ANDROID_HOME/build-tools/35.0.0"
 
           "$BT/apksigner" verify --verbose --print-certs "$APK" | tee "$WORK/apksigner.txt"
           "$BT/zipalign" -c -v 4 "$APK" >/dev/null
           "$BT/aapt" dump badging "$APK" | tee "$WORK/badging.txt"
 
-          grep -q "package: name='com.greenman.hedgewitchery' versionCode='49'" "$WORK/badging.txt"
+          grep -q "package: name='com.greenman.hedgewitchery' versionCode='50'" "$WORK/badging.txt"
           unzip -p "$APK" assets/index.html > "$WORK/final-index.html"
           cmp "$WORK/final-index.html" "$WORK/current.html"
-          echo "b419178d8017ba188fa794019632b31fd14a2d6aa5705eec8b34212ebf9949cd  $WORK/final-index.html" | sha256sum -c -
+          echo "d5c2bee553055e2fa3d5356446de7e781b4a0ff14ae53d880aadcf5c27e80204  $WORK/final-index.html" | sha256sum -c -
 
-          grep -Fq 'INKPOT FIX V2.7.29: whole-book direct copy; filtered chapter/page/spell PDFs rebuilt from exactly the selected bound flat pages.' "$WORK/final-index.html"
+          grep -Fq 'INKPOT V2.7.30: Ink Pot saves only an exact copy of the completed bound PDF; all chapter/page/spell filtering removed from this room.' "$WORK/final-index.html"
           grep -Fq 'CUPBOARD LAYOUT FIX V2.7.29: furniture order unchanged; join CSS is now correctly contained in style.' "$WORK/final-index.html"
           python - "$WORK/final-index.html" <<'PY'
           import json,re,sys
@@ -182,8 +187,12 @@ jobs:
           assert active==1, active
           assert 'gmInkPrintBoundLegacyNativeCutDisabled' in page
           assert 'gmInkEnsureBoundPdfReady' in page
-          assert 'inkMakeSelection(indexes,file' in page
-          assert 'Filtered PDF saved' in page
+          assert 'Save Bound PDF Copy' in page
+          assert "GM_BOS.inkExportWhole(file)" in page
+          assert '1 · Filter this bound PDF' not in page
+          assert 'data-gm-print-mode="chapters"' not in page
+          assert 'data-gm-print-mode="pages"' not in page
+          assert 'data-gm-print-mode="spells"' not in page
           marker='PAGES.cupboard = '
           i=s.index(marker)+len(marker)
           cup,_=json.JSONDecoder().raw_decode(s[i:])
@@ -209,15 +218,15 @@ jobs:
       - name: Upload V28-base APK
         uses: actions/upload-artifact@v4
         with:
-          name: GREENMAN-HEDGEWITCHERY-APOTHECARY-FV-2.7.29-APK
-          path: ${{ runner.temp }}/GREENMAN_HEDGEWITCHERY_APOTHECARY_FV_2.7.29.apk
+          name: GREENMAN-HEDGEWITCHERY-APOTHECARY-FV-2.7.30-APK
+          path: ${{ runner.temp }}/GREENMAN_HEDGEWITCHERY_APOTHECARY_FV_2.7.30.apk
           if-no-files-found: error
           retention-days: 30
 
       - name: Upload audit
         uses: actions/upload-artifact@v4
         with:
-          name: GREENMAN-HEDGEWITCHERY-APOTHECARY-FV-2.7.29-AUDIT
+          name: GREENMAN-HEDGEWITCHERY-APOTHECARY-FV-2.7.30-AUDIT
           path: |
             ${{ runner.temp }}/gm-v28-current/apksigner.txt
             ${{ runner.temp }}/gm-v28-current/badging.txt
