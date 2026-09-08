@@ -6,7 +6,7 @@ on:
     branches:
       - apk-download-tablet-crash-fixed
     paths:
-      - "releases/GREENMAN_HEDGEWITCHERY_TABLET_CRASH_FIXED.apk"
+      - "releases/Greenman HedgeWitchery Apothecary FV1.apk"
       - ".github/workflows/publish-tablet-crash-fixed-apk.yml"
 
 permissions:
@@ -24,7 +24,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          APK="releases/GREENMAN_HEDGEWITCHERY_TABLET_CRASH_FIXED.apk"
+          APK="releases/Greenman HedgeWitchery Apothecary FV1.apk"
           test -s "$APK"
           file "$APK"
           unzip -t "$APK" >/dev/null
@@ -33,7 +33,7 @@ jobs:
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: GREENMAN-HEDGEWITCHERY-TABLET-CRASH-FIXED-APK
-          path: releases/GREENMAN_HEDGEWITCHERY_TABLET_CRASH_FIXED.apk
+          name: Greenman-HedgeWitchery-Apothecary-FV1
+          path: releases/Greenman HedgeWitchery Apothecary FV1.apk
           if-no-files-found: error
           retention-days: 30
