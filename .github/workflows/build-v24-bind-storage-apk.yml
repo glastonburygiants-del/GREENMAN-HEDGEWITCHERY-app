@@ -63,10 +63,10 @@ jobs:
           }
           cat "$GITHUB_WORKSPACE"/current-build-20260907/fixed_patch.part*.b64 > "$WORK/current.patch.b64"
           base64 --decode "$WORK/current.patch.b64" > "$WORK/current.patch.zst"
-          echo "c1cb5275a4fda03abfbdc2fb626d9bcb124b2851a455fe84beffed4c723805f5  $WORK/current.patch.zst" | sha256sum -c -
+          echo "51a287343f43221a4cb9a99e81eb0d38738fbbd129026f5398e6e1bc60bed129  $WORK/current.patch.zst" | sha256sum -c -
           zstd -d --patch-from="$WORK/v29-base.html" "$WORK/current.patch.zst" -o "$WORK/current.html"
-          test "$(stat -c%s "$WORK/current.html")" -eq 32013090
-          echo "bc0ae13e3f2e24b076c4f3802c41f5e89d3c13440ad10604463e2092cdc22f4f  $WORK/current.html" | sha256sum -c -
+          test "$(stat -c%s "$WORK/current.html")" -eq 32013489
+          echo "0b0ef760642a9a6e5392141860e8256c505902fc7f70c855db801405c7a9212f  $WORK/current.html" | sha256sum -c -
 
           echo "WORK=$WORK" >> "$GITHUB_ENV"
 
@@ -95,8 +95,8 @@ jobs:
           python "$WORK/patch_register_bound_store.py"             "$WORK/decoded/smali_classes2/com/greenman/hedgewitchery/MainActivity.smali"
 
           cp "$WORK/current.html" "$WORK/decoded/assets/index.html"
-          sed -i 's/versionCode: 30/versionCode: 40/' "$WORK/decoded/apktool.yml"
-          sed -i 's/versionName: .*/versionName: 2.7.22-v28-script-repair/' "$WORK/decoded/apktool.yml"
+          sed -i 's/versionCode: 30/versionCode: 41/' "$WORK/decoded/apktool.yml"
+          sed -i 's/versionName: .*/versionName: 2.7.23-v28-deity-exact/' "$WORK/decoded/apktool.yml"
 
           if grep -Fq 'ScribePdfService' "$WORK/decoded/AndroidManifest.xml"; then exit 1; fi
           if grep -Fq 'android.permission.FOREGROUND_SERVICE' "$WORK/decoded/AndroidManifest.xml"; then exit 1; fi
@@ -133,23 +133,23 @@ jobs:
           base64 --decode tools/greenman_debug_keystore.b64 > "$HOME/.android/debug.keystore"
           chmod 600 "$HOME/.android/debug.keystore"
 
-          "$BT/apksigner" sign             --ks "$HOME/.android/debug.keystore"             --ks-key-alias androiddebugkey             --ks-pass pass:android             --key-pass pass:android             --out "$RUNNER_TEMP/GREENMAN_HEDGEWITCHERY_CURRENT_V28_BASE_SCRIPT_REPAIR.apk"             "$WORK/aligned.apk"
+          "$BT/apksigner" sign             --ks "$HOME/.android/debug.keystore"             --ks-key-alias androiddebugkey             --ks-pass pass:android             --key-pass pass:android             --out "$RUNNER_TEMP/GREENMAN_HEDGEWITCHERY_CURRENT_V28_DEITY_EXACT.apk"             "$WORK/aligned.apk"
 
       - name: Verify V28-base APK
         shell: bash
         run: |
           set -euo pipefail
-          APK="$RUNNER_TEMP/GREENMAN_HEDGEWITCHERY_CURRENT_V28_BASE_SCRIPT_REPAIR.apk"
+          APK="$RUNNER_TEMP/GREENMAN_HEDGEWITCHERY_CURRENT_V28_DEITY_EXACT.apk"
           BT="$ANDROID_HOME/build-tools/35.0.0"
 
           "$BT/apksigner" verify --verbose --print-certs "$APK" | tee "$WORK/apksigner.txt"
           "$BT/zipalign" -c -v 4 "$APK" >/dev/null
           "$BT/aapt" dump badging "$APK" | tee "$WORK/badging.txt"
 
-          grep -q "package: name='com.greenman.hedgewitchery' versionCode='40'" "$WORK/badging.txt"
+          grep -q "package: name='com.greenman.hedgewitchery' versionCode='41'" "$WORK/badging.txt"
           unzip -p "$APK" assets/index.html > "$WORK/final-index.html"
           cmp "$WORK/final-index.html" "$WORK/current.html"
-          echo "bc0ae13e3f2e24b076c4f3802c41f5e89d3c13440ad10604463e2092cdc22f4f  $WORK/final-index.html" | sha256sum -c -
+          echo "0b0ef760642a9a6e5392141860e8256c505902fc7f70c855db801405c7a9212f  $WORK/final-index.html" | sha256sum -c -
 
           unzip -p "$APK" classes3.dex | strings | grep -Fq 'Greenman_Last_Bound_Book.pdf'
           if unzip -p "$APK" classes3.dex | strings | grep -Fq 'ScribePdfService'; then exit 1; fi
@@ -160,15 +160,15 @@ jobs:
       - name: Upload V28-base APK
         uses: actions/upload-artifact@v4
         with:
-          name: GREENMAN-CURRENT-V28-SCRIPT-REPAIR-APK
-          path: ${{ runner.temp }}/GREENMAN_HEDGEWITCHERY_CURRENT_V28_BASE_SCRIPT_REPAIR.apk
+          name: GREENMAN-CURRENT-V28-DEITY-EXACT-APK
+          path: ${{ runner.temp }}/GREENMAN_HEDGEWITCHERY_CURRENT_V28_DEITY_EXACT.apk
           if-no-files-found: error
           retention-days: 30
 
       - name: Upload audit
         uses: actions/upload-artifact@v4
         with:
-          name: GREENMAN-CURRENT-V28-SCRIPT-REPAIR-AUDIT
+          name: GREENMAN-CURRENT-V28-DEITY-EXACT-AUDIT
           path: |
             ${{ runner.temp }}/gm-v28-current/apksigner.txt
             ${{ runner.temp }}/gm-v28-current/badging.txt
