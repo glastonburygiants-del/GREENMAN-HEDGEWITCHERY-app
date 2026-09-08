@@ -63,7 +63,7 @@ jobs:
           }
           cat "$GITHUB_WORKSPACE"/current-build-20260907/fixed_patch.part*.b64 > "$WORK/current.patch.b64"
           base64 --decode "$WORK/current.patch.b64" > "$WORK/current.patch.zst"
-          echo "e89549fbf434d20a2273092db4dfb43ce133454da25188e95264d99d37a8a977  $WORK/current.patch.zst" | sha256sum -c -
+          echo "c1cb5275a4fda03abfbdc2fb626d9bcb124b2851a455fe84beffed4c723805f5  $WORK/current.patch.zst" | sha256sum -c -
           zstd -d --patch-from="$WORK/v29-base.html" "$WORK/current.patch.zst" -o "$WORK/current.html"
           test "$(stat -c%s "$WORK/current.html")" -eq 32014263
           echo "b7a8a449f8eea52d0ac8fbb95209b64e37570c7e8b0c8790fb060fe0230ac428  $WORK/current.html" | sha256sum -c -
