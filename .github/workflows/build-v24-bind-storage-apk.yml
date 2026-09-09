@@ -181,9 +181,12 @@ jobs:
           python - "$WORK/decoded/smali_classes2/com/greenman/hedgewitchery/MainActivity.smali" <<'PY'
           import sys
           s=open(sys.argv[1],encoding='utf-8').read()
-          view=s.index('->setContentView(Landroid/view/View;)V')
-          immersive=s.index('->enterImmersiveMode()V')
-          assert view < immersive, 'tablet crash repair regressed: immersive mode precedes setContentView'
+          repaired=(
+              '    invoke-virtual {p0, v0}, Lcom/greenman/hedgewitchery/MainActivity;->setContentView(Landroid/view/View;)V\n\n'
+              '    .line 60\n'
+              '    invoke-direct {p0}, Lcom/greenman/hedgewitchery/MainActivity;->enterImmersiveMode()V\n'
+          )
+          assert s.count(repaired)==1, 'tablet crash repair sequence is missing or duplicated'
           print('tablet crash repair confirmed: setContentView precedes immersive mode')
           PY
 
