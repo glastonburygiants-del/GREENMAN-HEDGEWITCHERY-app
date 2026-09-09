@@ -18,6 +18,7 @@ on:
       - "tools/patch_v2736_select_everything.py.zst"
       - "tools/patch_v2737_home_contents.py.zst"
       - "tools/verify_inline_scripts.js"
+      - "tools/force_resources_arsc_stored.py"
   workflow_dispatch:
 
 permissions:
@@ -199,6 +200,14 @@ jobs:
         run: |
           set -euo pipefail
           java -jar "$WORK/apktool.jar" b "$WORK/decoded" -o "$WORK/unsigned.apk"
+
+          # apktool's rebuild does not reliably keep resources.arsc stored
+          # uncompressed. Android 11+ (API 30+) refuses to install an APK
+          # where it isn't, and zipalign cannot fix a compressed entry after
+          # the fact - it only aligns entries that are already stored. So
+          # this has to run here, between build and zipalign.
+          python tools/force_resources_arsc_stored.py "$WORK/unsigned.apk"
+
           BT="$ANDROID_HOME/build-tools/35.0.0"
           "$BT/zipalign" -p -f 4 "$WORK/unsigned.apk" "$WORK/aligned.apk"
 
@@ -218,6 +227,19 @@ jobs:
           "$BT/apksigner" verify --verbose --print-certs "$APK" | tee "$WORK/apksigner.txt"
           "$BT/zipalign" -c -v 4 "$APK" >/dev/null
           "$BT/aapt" dump badging "$APK" | tee "$WORK/badging.txt"
+
+          # Hard gate: resources.arsc MUST be stored uncompressed, or the
+          # OS refuses to install this on Android 11+ (API 30+) at all -
+          # zipalign's own -c check does not catch this, since it only
+          # verifies alignment of entries that are already stored.
+          python - "$APK" <<'PY'
+          import sys, zipfile
+          with zipfile.ZipFile(sys.argv[1]) as z:
+              info = z.getinfo('resources.arsc')
+              if info.compress_type != zipfile.ZIP_STORED:
+                  raise SystemExit('resources.arsc is compressed - this APK will fail to install on Android 11+')
+          print('resources.arsc confirmed stored uncompressed')
+          PY
 
           grep -q "package: name='com.greenman.hedgewitchery' versionCode='61'" "$WORK/badging.txt"
           unzip -p "$APK" assets/index.html > "$WORK/final-index.html"
