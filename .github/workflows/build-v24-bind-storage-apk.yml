@@ -18,6 +18,7 @@ on:
       - "tools/patch_v2736_select_everything.py.zst"
       - "tools/patch_v2737_home_contents.py.zst"
       - "tools/patch_fv3_tablet_home.py"
+      - "tools/patch_fv3_followup_home_childsafe_fullwidth.py"
       - "tools/verify_inline_scripts.js"
       - "tools/force_resources_arsc_stored.py"
       - "tools/patch_immersive_mode_order.py"
@@ -144,6 +145,15 @@ jobs:
           echo "332797a6b8845f8a1786e156e6771b8cc881883e25149ce86480e93014636fe5  $WORK/current.html" | sha256sum -c -
           node tools/verify_inline_scripts.js "$WORK/current.html"
 
+          python tools/patch_fv3_followup_home_childsafe_fullwidth.py "$WORK/current.html" "$WORK/current-followup.html"
+          mv "$WORK/current-followup.html" "$WORK/current.html"
+          test "$(stat -c%s "$WORK/current.html")" -eq 32114648
+          echo "3b398ff5b65e41e2a3a6bcc2ddb71da5fe5acad1481d7e659b56ac6080318484  $WORK/current.html" | sha256sum -c -
+          node tools/verify_inline_scripts.js "$WORK/current.html"
+          grep -Fq 'gm-fv3-child-safe-master-v2' "$WORK/current.html"
+          grep -Fq 'GM_CUPBOARD_CHILD_BAD' "$WORK/current.html"
+          if grep -Fq 'Math.round(stableHeight*9/16)' "$WORK/current.html"; then exit 1; fi
+
           echo "WORK=$WORK" >> "$GITHUB_ENV"
 
       - name: Restore exact V28 native files
@@ -191,7 +201,7 @@ jobs:
           PY
 
           cp "$WORK/current.html" "$WORK/decoded/assets/index.html"
-          sed -i 's/versionCode: 30/versionCode: 62/' "$WORK/decoded/apktool.yml"
+          sed -i 's/versionCode: 30/versionCode: 63/' "$WORK/decoded/apktool.yml"
           sed -i 's/versionName: .*/versionName: FV3/' "$WORK/decoded/apktool.yml"
 
           if grep -Fq 'ScribePdfService' "$WORK/decoded/AndroidManifest.xml"; then exit 1; fi
@@ -268,11 +278,11 @@ jobs:
           print('resources.arsc confirmed stored uncompressed')
           PY
 
-          grep -q "package: name='com.greenman.hedgewitchery' versionCode='62'" "$WORK/badging.txt"
+          grep -q "package: name='com.greenman.hedgewitchery' versionCode='63'" "$WORK/badging.txt"
           grep -q "versionName='FV3'" "$WORK/badging.txt"
           unzip -p "$APK" assets/index.html > "$WORK/final-index.html"
           cmp "$WORK/final-index.html" "$WORK/current.html"
-          echo "332797a6b8845f8a1786e156e6771b8cc881883e25149ce86480e93014636fe5  $WORK/final-index.html" | sha256sum -c -
+          echo "3b398ff5b65e41e2a3a6bcc2ddb71da5fe5acad1481d7e659b56ac6080318484  $WORK/final-index.html" | sha256sum -c -
           node tools/verify_inline_scripts.js "$WORK/final-index.html"
 
           grep -Fq 'INKPOT V2.7.30: Ink Pot saves only an exact copy of the completed bound PDF; all chapter/page/spell filtering removed from this room.' "$WORK/final-index.html"
@@ -426,11 +436,15 @@ jobs:
           assert '>SPELLS</button>' in home_new
           assert 'width:clamp(210px,58vw,240px)' in home_new
           assert 'flex-direction:column!important' in home_new
-          assert home_new.index('<!-- FOOTER -->') < home_new.index('<!-- CLEAR SPELL BLOCK')
+          assert home_new.index('gm-home-source-note') < home_new.index('<!-- HOW IT WORKS -->')
           assert 'background:linear-gradient(#89643a,#51351d)' in home_new
           assert 'gm-fv3-tablet-proportions' in s
-          assert 'Math.round(stableHeight*9/16)' in s
-          assert '#gmCupboardKey{\n  width:88px!important' in s
+          assert 'Math.round(stableHeight*9/16)' not in s
+          assert '#gmCupboardKey{width:88px!important' in s
+          assert 'gm-fv3-child-safe-master-v2' in s
+          assert 'GM_CHILD_SAFE_TEXT' in s
+          assert 'GM_CUPBOARD_CHILD_BAD' in s
+          assert 'Traditional adult material is hidden in this child-friendly view.' in s
           admin_new=new_pages['admin']
           assert pm.group(1) not in admin_new
           assert 'gm_admin_pin_v2' in admin_new
