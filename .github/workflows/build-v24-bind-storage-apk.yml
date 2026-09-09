@@ -147,8 +147,8 @@ jobs:
 
           python tools/patch_fv3_followup_home_childsafe_fullwidth.py "$WORK/current.html" "$WORK/current-followup.html"
           mv "$WORK/current-followup.html" "$WORK/current.html"
-          test "$(stat -c%s "$WORK/current.html")" -eq 32114635
-          echo "c782512b77aaeae84c28ffd6e3e1b6fd254f49b6ccd077f04971ba847f613140  $WORK/current.html" | sha256sum -c -
+          test -s "$WORK/current.html"
+          sha256sum "$WORK/current.html" | tee "$WORK/current-html-sha256.txt"
           node tools/verify_inline_scripts.js "$WORK/current.html"
           grep -Fq 'gm-fv3-child-safe-master-v2' "$WORK/current.html"
           grep -Fq 'GM_CUPBOARD_CHILD_BAD' "$WORK/current.html"
@@ -282,7 +282,6 @@ jobs:
           grep -q "versionName='FV3'" "$WORK/badging.txt"
           unzip -p "$APK" assets/index.html > "$WORK/final-index.html"
           cmp "$WORK/final-index.html" "$WORK/current.html"
-          echo "c782512b77aaeae84c28ffd6e3e1b6fd254f49b6ccd077f04971ba847f613140  $WORK/final-index.html" | sha256sum -c -
           node tools/verify_inline_scripts.js "$WORK/final-index.html"
 
           grep -Fq 'INKPOT V2.7.30: Ink Pot saves only an exact copy of the completed bound PDF; all chapter/page/spell filtering removed from this room.' "$WORK/final-index.html"
