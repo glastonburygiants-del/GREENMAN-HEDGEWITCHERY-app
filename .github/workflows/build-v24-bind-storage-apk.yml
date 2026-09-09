@@ -19,6 +19,7 @@ on:
       - "tools/patch_v2737_home_contents.py.zst"
       - "tools/verify_inline_scripts.js"
       - "tools/force_resources_arsc_stored.py"
+      - "tools/patch_immersive_mode_order.py"
   workflow_dispatch:
 
 permissions:
@@ -162,6 +163,14 @@ jobs:
           java -jar "$WORK/apktool.jar" d -f             "$GITHUB_WORKSPACE/GREENMAN_HEDGEWITCHERY.apk"             -o "$WORK/decoded"
 
           python "$WORK/patch_register_bound_store.py"             "$WORK/decoded/smali_classes2/com/greenman/hedgewitchery/MainActivity.smali"
+
+          # Real-device logcat (Acer tablet, Android 13) confirmed a crash
+          # on every open: enterImmersiveMode() called before
+          # setContentView() in onCreate() throws a NullPointerException
+          # in PhoneWindow.getInsetsController() on this OEM's build. Fix
+          # is to call it after setContentView() instead - see
+          # tools/patch_immersive_mode_order.py for the full trace.
+          python tools/patch_immersive_mode_order.py             "$WORK/decoded/smali_classes2/com/greenman/hedgewitchery/MainActivity.smali"
 
           cp "$WORK/current.html" "$WORK/decoded/assets/index.html"
           sed -i 's/versionCode: 30/versionCode: 61/' "$WORK/decoded/apktool.yml"
