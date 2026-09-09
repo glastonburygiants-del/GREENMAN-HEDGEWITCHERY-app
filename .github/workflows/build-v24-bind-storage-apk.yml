@@ -17,6 +17,7 @@ on:
       - "tools/patch_v2735_bos_zoom_contents.py.zst"
       - "tools/patch_v2736_select_everything.py.zst"
       - "tools/patch_v2737_home_contents.py.zst"
+      - "tools/patch_fv3_tablet_home.py"
       - "tools/verify_inline_scripts.js"
       - "tools/force_resources_arsc_stored.py"
       - "tools/patch_immersive_mode_order.py"
@@ -133,9 +134,14 @@ jobs:
 
           zstd -d "$GITHUB_WORKSPACE/tools/patch_v2737_home_contents.py.zst" -o "$WORK/patch_v2737_home_contents.py"
           echo "92cd65507c61eb2137dcb870d6b30ce9269e21f42088ff7f1df2d594f7be36bc  $WORK/patch_v2737_home_contents.py" | sha256sum -c -
-          python "$WORK/patch_v2737_home_contents.py" "$WORK/current-2736.html" "$WORK/current.html"
-          test "$(stat -c%s "$WORK/current.html")" -eq 32104566
-          echo "6a5ad006f114e7da14fb35a6984ae8f51c7c7af985476c7cd834ca4e404cb63c  $WORK/current.html" | sha256sum -c -
+          python "$WORK/patch_v2737_home_contents.py" "$WORK/current-2736.html" "$WORK/current-2741.html"
+          test "$(stat -c%s "$WORK/current-2741.html")" -eq 32104566
+          echo "6a5ad006f114e7da14fb35a6984ae8f51c7c7af985476c7cd834ca4e404cb63c  $WORK/current-2741.html" | sha256sum -c -
+
+          echo "b0073618f7f0c9a2833157ea79dcc11c9684742e9259325f026e62423a27306c  $GITHUB_WORKSPACE/tools/patch_fv3_tablet_home.py" | sha256sum -c -
+          python tools/patch_fv3_tablet_home.py "$WORK/current-2741.html" "$WORK/current.html"
+          test "$(stat -c%s "$WORK/current.html")" -eq 32109237
+          echo "332797a6b8845f8a1786e156e6771b8cc881883e25149ce86480e93014636fe5  $WORK/current.html" | sha256sum -c -
           node tools/verify_inline_scripts.js "$WORK/current.html"
 
           echo "WORK=$WORK" >> "$GITHUB_ENV"
@@ -172,9 +178,18 @@ jobs:
           # tools/patch_immersive_mode_order.py for the full trace.
           python tools/patch_immersive_mode_order.py             "$WORK/decoded/smali_classes2/com/greenman/hedgewitchery/MainActivity.smali"
 
+          python - "$WORK/decoded/smali_classes2/com/greenman/hedgewitchery/MainActivity.smali" <<'PY'
+          import sys
+          s=open(sys.argv[1],encoding='utf-8').read()
+          view=s.index('->setContentView(Landroid/view/View;)V')
+          immersive=s.index('->enterImmersiveMode()V')
+          assert view < immersive, 'tablet crash repair regressed: immersive mode precedes setContentView'
+          print('tablet crash repair confirmed: setContentView precedes immersive mode')
+          PY
+
           cp "$WORK/current.html" "$WORK/decoded/assets/index.html"
-          sed -i 's/versionCode: 30/versionCode: 61/' "$WORK/decoded/apktool.yml"
-          sed -i 's/versionName: .*/versionName: 2.7.41/' "$WORK/decoded/apktool.yml"
+          sed -i 's/versionCode: 30/versionCode: 62/' "$WORK/decoded/apktool.yml"
+          sed -i 's/versionName: .*/versionName: FV3/' "$WORK/decoded/apktool.yml"
 
           if grep -Fq 'ScribePdfService' "$WORK/decoded/AndroidManifest.xml"; then exit 1; fi
           if grep -Fq 'android.permission.FOREGROUND_SERVICE' "$WORK/decoded/AndroidManifest.xml"; then exit 1; fi
@@ -224,13 +239,13 @@ jobs:
           base64 --decode tools/greenman_debug_keystore.b64 > "$HOME/.android/debug.keystore"
           chmod 600 "$HOME/.android/debug.keystore"
 
-          "$BT/apksigner" sign             --ks "$HOME/.android/debug.keystore"             --ks-key-alias androiddebugkey             --ks-pass pass:android             --key-pass pass:android             --out "$RUNNER_TEMP/GREENMAN_HEDGEWITCHERY_APOTHECARY_FV_2.7.41.apk"             "$WORK/aligned.apk"
+          "$BT/apksigner" sign             --ks "$HOME/.android/debug.keystore"             --ks-key-alias androiddebugkey             --ks-pass pass:android             --key-pass pass:android             --out "$RUNNER_TEMP/GREENMAN_HEDGEWITCHERY_APOTHECARY_FV3.apk"             "$WORK/aligned.apk"
 
       - name: Verify V28-base APK
         shell: bash
         run: |
           set -euo pipefail
-          APK="$RUNNER_TEMP/GREENMAN_HEDGEWITCHERY_APOTHECARY_FV_2.7.41.apk"
+          APK="$RUNNER_TEMP/GREENMAN_HEDGEWITCHERY_APOTHECARY_FV3.apk"
           BT="$ANDROID_HOME/build-tools/35.0.0"
 
           "$BT/apksigner" verify --verbose --print-certs "$APK" | tee "$WORK/apksigner.txt"
@@ -250,10 +265,11 @@ jobs:
           print('resources.arsc confirmed stored uncompressed')
           PY
 
-          grep -q "package: name='com.greenman.hedgewitchery' versionCode='61'" "$WORK/badging.txt"
+          grep -q "package: name='com.greenman.hedgewitchery' versionCode='62'" "$WORK/badging.txt"
+          grep -q "versionName='FV3'" "$WORK/badging.txt"
           unzip -p "$APK" assets/index.html > "$WORK/final-index.html"
           cmp "$WORK/final-index.html" "$WORK/current.html"
-          echo "6a5ad006f114e7da14fb35a6984ae8f51c7c7af985476c7cd834ca4e404cb63c  $WORK/final-index.html" | sha256sum -c -
+          echo "332797a6b8845f8a1786e156e6771b8cc881883e25149ce86480e93014636fe5  $WORK/final-index.html" | sha256sum -c -
           node tools/verify_inline_scripts.js "$WORK/final-index.html"
 
           grep -Fq 'INKPOT V2.7.30: Ink Pot saves only an exact copy of the completed bound PDF; all chapter/page/spell filtering removed from this room.' "$WORK/final-index.html"
@@ -270,6 +286,10 @@ jobs:
           grep -Fq 'FV 2.7.37 HOME CLEANUP' "$WORK/final-index.html"
           grep -Fq 'FV 2.7.37 CONTENTS CLEANUP' "$WORK/final-index.html"
           grep -Fq 'gm-bos-checkbox-only-v2737' "$WORK/final-index.html"
+          grep -Fq 'gm-fv3-tablet-proportions' "$WORK/final-index.html"
+          grep -Fq 'gmFv3ApplyTabletRatio' "$WORK/final-index.html"
+          grep -Fq 'FV3 HOME' "$WORK/final-index.html"
+          grep -Fq 'gm-home-fv3' "$WORK/final-index.html"
           grep -Fq 'HedgeWitchery uses its own curated reference data stored on your device.' "$WORK/final-index.html"
           grep -Fq 'data-gm-toc-item-select' "$WORK/final-index.html"
           grep -Fq 'data-gm-spell-group-select' "$WORK/final-index.html"
@@ -400,7 +420,14 @@ jobs:
           assert 'HedgeWitchery uses its own curated reference data stored on your device.' in home_new
           assert 'Its recommendations are created by matching that stored data to your intention.' in home_new
           assert 'AI-generated content' not in home_new
-          assert 'width:156px' in home_new
+          assert '>SPELLS</button>' in home_new
+          assert 'width:clamp(210px,58vw,240px)' in home_new
+          assert 'flex-direction:column!important' in home_new
+          assert home_new.index('<!-- FOOTER -->') < home_new.index('<!-- CLEAR SPELL BLOCK')
+          assert 'background:linear-gradient(#89643a,#51351d)' in home_new
+          assert 'gm-fv3-tablet-proportions' in s
+          assert 'Math.round(stableHeight*9/16)' in s
+          assert '#gmCupboardKey{\n  width:88px!important' in s
           admin_new=new_pages['admin']
           assert pm.group(1) not in admin_new
           assert 'gm_admin_pin_v2' in admin_new
@@ -420,15 +447,15 @@ jobs:
       - name: Upload V28-base APK
         uses: actions/upload-artifact@v4
         with:
-          name: GREENMAN-HEDGEWITCHERY-APOTHECARY-FV-2.7.41-APK
-          path: ${{ runner.temp }}/GREENMAN_HEDGEWITCHERY_APOTHECARY_FV_2.7.41.apk
+          name: GREENMAN-HEDGEWITCHERY-APOTHECARY-FV3-APK
+          path: ${{ runner.temp }}/GREENMAN_HEDGEWITCHERY_APOTHECARY_FV3.apk
           if-no-files-found: error
           retention-days: 30
 
       - name: Upload audit
         uses: actions/upload-artifact@v4
         with:
-          name: GREENMAN-HEDGEWITCHERY-APOTHECARY-FV-2.7.41-AUDIT
+          name: GREENMAN-HEDGEWITCHERY-APOTHECARY-FV3-AUDIT
           path: |
             ${{ runner.temp }}/gm-v28-current/apksigner.txt
             ${{ runner.temp }}/gm-v28-current/badging.txt
