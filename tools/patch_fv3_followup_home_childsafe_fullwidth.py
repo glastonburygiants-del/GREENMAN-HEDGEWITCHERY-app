@@ -79,7 +79,7 @@ if n!=1: raise RuntimeError(f'tablet block: expected 1, found {n}')
 #    UNDER the Clear Spell box and BEFORE the Home bottom tab bar.
 def patch_home(home):
     note_pat=re.compile(
-        r'\\n?<!-- (?:FOOTER|HOME REFERENCE NOTE) -->\\s*(<div class="footer-note gm-home-source-note">.*?</div>)',
+        r'\n?<!-- (?:FOOTER|HOME REFERENCE NOTE) -->\s*(<div class="footer-note gm-home-source-note">.*?</div>)',
         re.S,
     )
     m=note_pat.search(home)
@@ -88,12 +88,12 @@ def patch_home(home):
     note=m.group(1)
     home=home[:m.start()]+home[m.end():]
 
-    clear_anchor='<button class="btn-clear" onclick="showClearPopup()">Clear &amp; Begin New Spell</button>\\n</div>'
+    clear_anchor='<button class="btn-clear" onclick="showClearPopup()">Clear &amp; Begin New Spell</button>\n</div>'
     if home.count(clear_anchor)!=1:
         raise RuntimeError('Clear Spell box closing boundary not found exactly once')
     home=home.replace(
         clear_anchor,
-        clear_anchor+'\\n<!-- FOOTER -->\\n'+note,
+        clear_anchor+'\n<!-- FOOTER -->\n'+note,
         1,
     )
 
