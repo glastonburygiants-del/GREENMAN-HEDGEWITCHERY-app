@@ -17,6 +17,7 @@ on:
       - "tools/patch_v2735_bos_zoom_contents.py.zst"
       - "tools/patch_v2736_select_everything.py.zst"
       - "tools/patch_v2737_home_contents.py.zst"
+      - "tools/verify_inline_scripts.js"
   workflow_dispatch:
 
 permissions:
@@ -129,10 +130,11 @@ jobs:
           echo "cd6248c3ddd9c39c2049068b21da6b2845bc889b64b271495d6fffc764c70410  $WORK/current-2736.html" | sha256sum -c -
 
           zstd -d "$GITHUB_WORKSPACE/tools/patch_v2737_home_contents.py.zst" -o "$WORK/patch_v2737_home_contents.py"
-          echo "58acb0081486804cdf529091e403037970bcb8031e7c0afaec8fdeebe17e81c0  $WORK/patch_v2737_home_contents.py" | sha256sum -c -
+          echo "3cf67c1edf84258c7539f82a50d907b67d1c73fab891938dadfd9f2cc2e399bf  $WORK/patch_v2737_home_contents.py" | sha256sum -c -
           python "$WORK/patch_v2737_home_contents.py" "$WORK/current-2736.html" "$WORK/current.html"
-          test "$(stat -c%s "$WORK/current.html")" -eq 32104650
-          echo "524868928229faa7735b29b037e838db1ba180445cc4ed30b5429f7d5fbc17ff  $WORK/current.html" | sha256sum -c -
+          test "$(stat -c%s "$WORK/current.html")" -eq 32104657
+          echo "a63f8b2f95fee9ffa88b6844f4ad4e15d9c10abca9ebb4de3300a2107f893234  $WORK/current.html" | sha256sum -c -
+          node tools/verify_inline_scripts.js "$WORK/current.html"
 
           echo "WORK=$WORK" >> "$GITHUB_ENV"
 
@@ -161,8 +163,8 @@ jobs:
           python "$WORK/patch_register_bound_store.py"             "$WORK/decoded/smali_classes2/com/greenman/hedgewitchery/MainActivity.smali"
 
           cp "$WORK/current.html" "$WORK/decoded/assets/index.html"
-          sed -i 's/versionCode: 30/versionCode: 57/' "$WORK/decoded/apktool.yml"
-          sed -i 's/versionName: .*/versionName: 2.7.37/' "$WORK/decoded/apktool.yml"
+          sed -i 's/versionCode: 30/versionCode: 58/' "$WORK/decoded/apktool.yml"
+          sed -i 's/versionName: .*/versionName: 2.7.38/' "$WORK/decoded/apktool.yml"
 
           if grep -Fq 'ScribePdfService' "$WORK/decoded/AndroidManifest.xml"; then exit 1; fi
           if grep -Fq 'android.permission.FOREGROUND_SERVICE' "$WORK/decoded/AndroidManifest.xml"; then exit 1; fi
@@ -204,23 +206,24 @@ jobs:
           base64 --decode tools/greenman_debug_keystore.b64 > "$HOME/.android/debug.keystore"
           chmod 600 "$HOME/.android/debug.keystore"
 
-          "$BT/apksigner" sign             --ks "$HOME/.android/debug.keystore"             --ks-key-alias androiddebugkey             --ks-pass pass:android             --key-pass pass:android             --out "$RUNNER_TEMP/GREENMAN_HEDGEWITCHERY_APOTHECARY_FV_2.7.37.apk"             "$WORK/aligned.apk"
+          "$BT/apksigner" sign             --ks "$HOME/.android/debug.keystore"             --ks-key-alias androiddebugkey             --ks-pass pass:android             --key-pass pass:android             --out "$RUNNER_TEMP/GREENMAN_HEDGEWITCHERY_APOTHECARY_FV_2.7.38.apk"             "$WORK/aligned.apk"
 
       - name: Verify V28-base APK
         shell: bash
         run: |
           set -euo pipefail
-          APK="$RUNNER_TEMP/GREENMAN_HEDGEWITCHERY_APOTHECARY_FV_2.7.37.apk"
+          APK="$RUNNER_TEMP/GREENMAN_HEDGEWITCHERY_APOTHECARY_FV_2.7.38.apk"
           BT="$ANDROID_HOME/build-tools/35.0.0"
 
           "$BT/apksigner" verify --verbose --print-certs "$APK" | tee "$WORK/apksigner.txt"
           "$BT/zipalign" -c -v 4 "$APK" >/dev/null
           "$BT/aapt" dump badging "$APK" | tee "$WORK/badging.txt"
 
-          grep -q "package: name='com.greenman.hedgewitchery' versionCode='57'" "$WORK/badging.txt"
+          grep -q "package: name='com.greenman.hedgewitchery' versionCode='58'" "$WORK/badging.txt"
           unzip -p "$APK" assets/index.html > "$WORK/final-index.html"
           cmp "$WORK/final-index.html" "$WORK/current.html"
-          echo "524868928229faa7735b29b037e838db1ba180445cc4ed30b5429f7d5fbc17ff  $WORK/final-index.html" | sha256sum -c -
+          echo "a63f8b2f95fee9ffa88b6844f4ad4e15d9c10abca9ebb4de3300a2107f893234  $WORK/final-index.html" | sha256sum -c -
+          node tools/verify_inline_scripts.js "$WORK/final-index.html"
 
           grep -Fq 'INKPOT V2.7.30: Ink Pot saves only an exact copy of the completed bound PDF; all chapter/page/spell filtering removed from this room.' "$WORK/final-index.html"
           grep -Fq 'CUPBOARD LAYOUT FIX V2.7.29: furniture order unchanged; join CSS is now correctly contained in style.' "$WORK/final-index.html"
@@ -380,15 +383,15 @@ jobs:
       - name: Upload V28-base APK
         uses: actions/upload-artifact@v4
         with:
-          name: GREENMAN-HEDGEWITCHERY-APOTHECARY-FV-2.7.37-APK
-          path: ${{ runner.temp }}/GREENMAN_HEDGEWITCHERY_APOTHECARY_FV_2.7.37.apk
+          name: GREENMAN-HEDGEWITCHERY-APOTHECARY-FV-2.7.38-APK
+          path: ${{ runner.temp }}/GREENMAN_HEDGEWITCHERY_APOTHECARY_FV_2.7.38.apk
           if-no-files-found: error
           retention-days: 30
 
       - name: Upload audit
         uses: actions/upload-artifact@v4
         with:
-          name: GREENMAN-HEDGEWITCHERY-APOTHECARY-FV-2.7.37-AUDIT
+          name: GREENMAN-HEDGEWITCHERY-APOTHECARY-FV-2.7.38-AUDIT
           path: |
             ${{ runner.temp }}/gm-v28-current/apksigner.txt
             ${{ runner.temp }}/gm-v28-current/badging.txt
