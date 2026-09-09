@@ -13,6 +13,7 @@ on:
       - "tools/patch_v2731_cleanup.py"
       - "tools/patch_v2732_security.py.zst"
       - "tools/patch_v2733_recovery.py.zst"
+      - "tools/patch_v2734_scribe_ui_print.py.zst"
   workflow_dispatch:
 
 permissions:
@@ -102,9 +103,15 @@ jobs:
 
           zstd -d "$GITHUB_WORKSPACE/tools/patch_v2733_recovery.py.zst" -o "$WORK/patch_v2733_recovery.py"
           echo "4c1226e3b5f675d9381fcdd5f94d19ab369d05d8d8300724744801b75782e2e0  $WORK/patch_v2733_recovery.py" | sha256sum -c -
-          python "$WORK/patch_v2733_recovery.py" "$WORK/current-2732.html" "$WORK/current.html"
-          test "$(stat -c%s "$WORK/current.html")" -eq 32076983
-          echo "c269f4eccb9717bfaa95c5c9a49e19ed17f86088683eb84958650d4c73a39d96  $WORK/current.html" | sha256sum -c -
+          python "$WORK/patch_v2733_recovery.py" "$WORK/current-2732.html" "$WORK/current-2733.html"
+          test "$(stat -c%s "$WORK/current-2733.html")" -eq 32076983
+          echo "c269f4eccb9717bfaa95c5c9a49e19ed17f86088683eb84958650d4c73a39d96  $WORK/current-2733.html" | sha256sum -c -
+
+          zstd -d "$GITHUB_WORKSPACE/tools/patch_v2734_scribe_ui_print.py.zst" -o "$WORK/patch_v2734_scribe_ui_print.py"
+          echo "34a20d04f35371ca9fe61b807cfe281fcdb01b48443e17660f535a9c5689ec3b  $WORK/patch_v2734_scribe_ui_print.py" | sha256sum -c -
+          python "$WORK/patch_v2734_scribe_ui_print.py" "$WORK/current-2733.html" "$WORK/current.html"
+          test "$(stat -c%s "$WORK/current.html")" -eq 32086053
+          echo "ae997b8b634f91151d797cabe2f340f6bf4ebe05414a4e1d3c163788a0f3a7b4  $WORK/current.html" | sha256sum -c -
 
           echo "WORK=$WORK" >> "$GITHUB_ENV"
 
@@ -133,8 +140,8 @@ jobs:
           python "$WORK/patch_register_bound_store.py"             "$WORK/decoded/smali_classes2/com/greenman/hedgewitchery/MainActivity.smali"
 
           cp "$WORK/current.html" "$WORK/decoded/assets/index.html"
-          sed -i 's/versionCode: 30/versionCode: 53/' "$WORK/decoded/apktool.yml"
-          sed -i 's/versionName: .*/versionName: 2.7.33/' "$WORK/decoded/apktool.yml"
+          sed -i 's/versionCode: 30/versionCode: 54/' "$WORK/decoded/apktool.yml"
+          sed -i 's/versionName: .*/versionName: 2.7.34/' "$WORK/decoded/apktool.yml"
 
           if grep -Fq 'ScribePdfService' "$WORK/decoded/AndroidManifest.xml"; then exit 1; fi
           if grep -Fq 'android.permission.FOREGROUND_SERVICE' "$WORK/decoded/AndroidManifest.xml"; then exit 1; fi
@@ -176,29 +183,31 @@ jobs:
           base64 --decode tools/greenman_debug_keystore.b64 > "$HOME/.android/debug.keystore"
           chmod 600 "$HOME/.android/debug.keystore"
 
-          "$BT/apksigner" sign             --ks "$HOME/.android/debug.keystore"             --ks-key-alias androiddebugkey             --ks-pass pass:android             --key-pass pass:android             --out "$RUNNER_TEMP/GREENMAN_HEDGEWITCHERY_APOTHECARY_FV_2.7.33.apk"             "$WORK/aligned.apk"
+          "$BT/apksigner" sign             --ks "$HOME/.android/debug.keystore"             --ks-key-alias androiddebugkey             --ks-pass pass:android             --key-pass pass:android             --out "$RUNNER_TEMP/GREENMAN_HEDGEWITCHERY_APOTHECARY_FV_2.7.34.apk"             "$WORK/aligned.apk"
 
       - name: Verify V28-base APK
         shell: bash
         run: |
           set -euo pipefail
-          APK="$RUNNER_TEMP/GREENMAN_HEDGEWITCHERY_APOTHECARY_FV_2.7.33.apk"
+          APK="$RUNNER_TEMP/GREENMAN_HEDGEWITCHERY_APOTHECARY_FV_2.7.34.apk"
           BT="$ANDROID_HOME/build-tools/35.0.0"
 
           "$BT/apksigner" verify --verbose --print-certs "$APK" | tee "$WORK/apksigner.txt"
           "$BT/zipalign" -c -v 4 "$APK" >/dev/null
           "$BT/aapt" dump badging "$APK" | tee "$WORK/badging.txt"
 
-          grep -q "package: name='com.greenman.hedgewitchery' versionCode='53'" "$WORK/badging.txt"
+          grep -q "package: name='com.greenman.hedgewitchery' versionCode='54'" "$WORK/badging.txt"
           unzip -p "$APK" assets/index.html > "$WORK/final-index.html"
           cmp "$WORK/final-index.html" "$WORK/current.html"
-          echo "c269f4eccb9717bfaa95c5c9a49e19ed17f86088683eb84958650d4c73a39d96  $WORK/final-index.html" | sha256sum -c -
+          echo "ae997b8b634f91151d797cabe2f340f6bf4ebe05414a4e1d3c163788a0f3a7b4  $WORK/final-index.html" | sha256sum -c -
 
           grep -Fq 'INKPOT V2.7.30: Ink Pot saves only an exact copy of the completed bound PDF; all chapter/page/spell filtering removed from this room.' "$WORK/final-index.html"
           grep -Fq 'CUPBOARD LAYOUT FIX V2.7.29: furniture order unchanged; join CSS is now correctly contained in style.' "$WORK/final-index.html"
           grep -Fq 'FV 2.7.31 USER-WORDING CLEANUP' "$WORK/final-index.html"
           grep -Fq 'FV 2.7.33 SECURITY' "$WORK/final-index.html"
           grep -Fq 'FV 2.7.33 SCRIBE RECOVERY' "$WORK/final-index.html"
+          grep -Fq 'FV 2.7.34 SCRIBE UI REPAIR' "$WORK/final-index.html"
+          grep -Fq 'gm-scribe-privacy-ui-v2734' "$WORK/final-index.html"
           grep -Fq 'RSA-OAEP-SHA256' "$WORK/final-index.html"
           grep -Fq 'gmScribeRecoverPayload' "$WORK/final-index.html"
           grep -Fq 'PBKDF2-SHA256' "$WORK/final-index.html"
@@ -212,7 +221,7 @@ jobs:
           if grep -Fiq '[cite:' "$WORK/final-index.html"; then exit 1; fi
           if grep -Fiq 'App should pull this row' "$WORK/final-index.html"; then exit 1; fi
           python - "$WORK/final-index.html" <<'PY'
-          import json,re,sys
+          import base64,json,re,sys
           s=open(sys.argv[1],encoding='utf-8').read()
           marker='PAGES.scribe = '
           i=s.index(marker)+len(marker)
@@ -259,6 +268,18 @@ jobs:
           assert 'RSA-OAEP-SHA256' in sp
           assert 'gmScribeRecoverPayload' in sp
           assert 'privateCipher' in sp and 'publicSpki' in sp
+          assert 'FV 2.7.34 SCRIBE UI REPAIR' in sp
+          assert 'gmScribePrivacyDialog' in sp
+          assert '.lockedSpineTitle .bosGlyph svg' in sp
+          privacy=sp[sp.index('function gmScribeInlineNotice'):sp.index('function gmScribeUpdateLockUi')]
+          assert 'prompt(' not in privacy
+          assert 'alert(' not in privacy
+          dm=re.search(r'const DESK_B64="([A-Za-z0-9+/=]+)"',sp)
+          assert dm
+          desk=base64.b64decode(dm.group(1)).decode('utf-8')
+          assert 'gmScribePrintBackground2734' in desk
+          assert 'min-height:297mm!important' in desk
+          assert 'print-color-adjust:exact' in desk
           # Read the old 2.7.31 values only to prove readable app access secrets remain absent.
           old=open(sys.argv[1].replace('final-index.html','current-2731.html'),encoding='utf-8').read()
           gm=re.search(r"function submitGate\(\).*?if\(val==='([^']+)'\).*?if\(val==='([^']+)'\)",old,re.S)
@@ -289,15 +310,15 @@ jobs:
       - name: Upload V28-base APK
         uses: actions/upload-artifact@v4
         with:
-          name: GREENMAN-HEDGEWITCHERY-APOTHECARY-FV-2.7.33-APK
-          path: ${{ runner.temp }}/GREENMAN_HEDGEWITCHERY_APOTHECARY_FV_2.7.33.apk
+          name: GREENMAN-HEDGEWITCHERY-APOTHECARY-FV-2.7.34-APK
+          path: ${{ runner.temp }}/GREENMAN_HEDGEWITCHERY_APOTHECARY_FV_2.7.34.apk
           if-no-files-found: error
           retention-days: 30
 
       - name: Upload audit
         uses: actions/upload-artifact@v4
         with:
-          name: GREENMAN-HEDGEWITCHERY-APOTHECARY-FV-2.7.33-AUDIT
+          name: GREENMAN-HEDGEWITCHERY-APOTHECARY-FV-2.7.34-AUDIT
           path: |
             ${{ runner.temp }}/gm-v28-current/apksigner.txt
             ${{ runner.temp }}/gm-v28-current/badging.txt
