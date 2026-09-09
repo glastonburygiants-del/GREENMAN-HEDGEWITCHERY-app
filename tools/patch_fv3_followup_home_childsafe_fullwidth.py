@@ -75,8 +75,8 @@ pat=re.compile(r'<style id="gm-fv3-tablet-proportions">.*?</style>\s*<script id=
 source,n=pat.subn(new_tablet,source,count=1)
 if n!=1: raise RuntimeError(f'tablet block: expected 1, found {n}')
 
-# 2) The approved reference wording is a real Home-only shell footer below
-#    the OUTER bottom navigation buttons. Remove it from the embedded Home page.
+# 2) The approved reference wording is the app-wide footer below the OUTER
+#    bottom navigation buttons. Remove the duplicate from embedded Home content.
 def patch_home(home):
     note_pat=re.compile(r'\\n?<!-- (?:FOOTER|HOME REFERENCE NOTE) -->\\s*(<div class="footer-note gm-home-source-note">.*?</div>)',re.S)
     m=note_pat.search(home)
@@ -119,8 +119,8 @@ footer_css=r'''
   line-height:1.28;
   z-index:51;
 }
-body.page-home #gmHomeFooter{display:block}
-body.page-home #gmShell{grid-template-rows:1fr auto auto}
+#gmHomeFooter{display:block}
+#gmShell{grid-template-rows:1fr auto auto}
 #gmHomeFooter strong{
   display:block;
   margin:0 0 4px;
