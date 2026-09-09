@@ -124,7 +124,7 @@ jobs:
           zstd -d "$GITHUB_WORKSPACE/tools/patch_v2736_select_everything.py.zst" -o "$WORK/patch_v2736_select_everything.py"
           echo "fdf5b9233a776d46c340cca6c46a6db48b815bf7c5ef21fccdf4f913bd49e6d4  $WORK/patch_v2736_select_everything.py" | sha256sum -c -
           python "$WORK/patch_v2736_select_everything.py" "$WORK/current-2735.html" "$WORK/current.html"
-          test "$(stat -c%s "$WORK/current.html")" -eq 32092593
+          test "$(stat -c%s "$WORK/current.html")" -eq 32100370
           echo "cd6248c3ddd9c39c2049068b21da6b2845bc889b64b271495d6fffc764c70410  $WORK/current.html" | sha256sum -c -
 
           echo "WORK=$WORK" >> "$GITHUB_ENV"
