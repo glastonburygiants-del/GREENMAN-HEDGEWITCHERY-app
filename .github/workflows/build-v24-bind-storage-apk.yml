@@ -19,6 +19,8 @@ on:
       - "tools/patch_v2737_home_contents.py.zst"
       - "tools/patch_fv3_tablet_home.py"
       - "tools/patch_fv3_followup_home_childsafe_fullwidth.py"
+      - "tools/restore_fv3_scribe_direct.py.zst.b64"
+      - "tools/fv3_scribe_direct_glyphs.part*.b64"
       - "tools/verify_inline_scripts.js"
       - "tools/force_resources_arsc_stored.py"
       - "tools/patch_immersive_mode_order.py"
@@ -147,6 +149,10 @@ jobs:
 
           python tools/patch_fv3_followup_home_childsafe_fullwidth.py "$WORK/current.html" "$WORK/current-followup.html"
           mv "$WORK/current-followup.html" "$WORK/current.html"
+          base64 --decode "$GITHUB_WORKSPACE/tools/restore_fv3_scribe_direct.py.zst.b64" > "$WORK/restore_fv3_scribe_direct.py.zst"
+          zstd -d "$WORK/restore_fv3_scribe_direct.py.zst" -o "$GITHUB_WORKSPACE/tools/restore_fv3_scribe_direct.py"
+          python "$GITHUB_WORKSPACE/tools/restore_fv3_scribe_direct.py" "$WORK/current.html" "$WORK/current-scribe-restored.html"
+          mv "$WORK/current-scribe-restored.html" "$WORK/current.html"
           test -s "$WORK/current.html"
           sha256sum "$WORK/current.html" | tee "$WORK/current-html-sha256.txt"
           node tools/verify_inline_scripts.js "$WORK/current.html"
@@ -201,7 +207,7 @@ jobs:
           PY
 
           cp "$WORK/current.html" "$WORK/decoded/assets/index.html"
-          sed -i 's/versionCode: 30/versionCode: 64/' "$WORK/decoded/apktool.yml"
+          sed -i 's/versionCode: 30/versionCode: 65/' "$WORK/decoded/apktool.yml"
           sed -i 's/versionName: .*/versionName: FV3/' "$WORK/decoded/apktool.yml"
 
           if grep -Fq 'ScribePdfService' "$WORK/decoded/AndroidManifest.xml"; then exit 1; fi
@@ -278,7 +284,7 @@ jobs:
           print('resources.arsc confirmed stored uncompressed')
           PY
 
-          grep -q "package: name='com.greenman.hedgewitchery' versionCode='64'" "$WORK/badging.txt"
+          grep -q "package: name='com.greenman.hedgewitchery' versionCode='65'" "$WORK/badging.txt"
           grep -q "versionName='FV3'" "$WORK/badging.txt"
           unzip -p "$APK" assets/index.html > "$WORK/final-index.html"
           cmp "$WORK/final-index.html" "$WORK/current.html"
