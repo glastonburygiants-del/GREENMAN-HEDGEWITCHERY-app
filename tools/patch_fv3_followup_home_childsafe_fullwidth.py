@@ -75,71 +75,37 @@ pat=re.compile(r'<style id="gm-fv3-tablet-proportions">.*?</style>\s*<script id=
 source,n=pat.subn(new_tablet,source,count=1)
 if n!=1: raise RuntimeError(f'tablet block: expected 1, found {n}')
 
-# 2) The approved reference wording is the app-wide footer below the OUTER
-#    bottom navigation buttons. Remove the duplicate from embedded Home content.
+# 2) The approved reference wording belongs in the Home content directly
+#    UNDER the Clear Spell box and BEFORE the Home bottom tab bar.
 def patch_home(home):
-    note_pat=re.compile(r'\\n?<!-- (?:FOOTER|HOME REFERENCE NOTE) -->\\s*(<div class="footer-note gm-home-source-note">.*?</div>)',re.S)
-    m=note_pat.search(home)
-    if not m: raise RuntimeError('Home source note not found')
-    home=home[:m.start()]+home[m.end():]
-    home=re.sub(
-        r'\\n?\\.gm-home-source-note\\{.*?\\}\\n\\.gm-home-source-note strong\\{.*?\\}\\n\\.gm-home-source-note p\\{.*?\\}',
-        '',
-        home,
-        count=1,
-        flags=re.S,
+    note_pat=re.compile(
+        r'\\n?<!-- (?:FOOTER|HOME REFERENCE NOTE) -->\\s*(<div class="footer-note gm-home-source-note">.*?</div>)',
+        re.S,
     )
-    if 'gm-home-source-note' in home:
-        raise RuntimeError('Home source note still exists inside embedded Home page')
+    m=note_pat.search(home)
+    if not m:
+        raise RuntimeError('Home source note not found')
+    note=m.group(1)
+    home=home[:m.start()]+home[m.end():]
+
+    clear_anchor='<button class="btn-clear" onclick="showClearPopup()">Clear &amp; Begin New Spell</button>\\n</div>'
+    if home.count(clear_anchor)!=1:
+        raise RuntimeError('Clear Spell box closing boundary not found exactly once')
+    home=home.replace(
+        clear_anchor,
+        clear_anchor+'\\n<!-- FOOTER -->\\n'+note,
+        1,
+    )
+
+    if not (
+        home.index('<!-- CLEAR SPELL BLOCK')
+        < home.index('<!-- FOOTER -->')
+        < home.index('<!-- BOTTOM TAB BAR -->')
+    ):
+        raise RuntimeError('Home footer is not directly below Clear Spell and above bottom tabs')
     return home
+
 source=replace_json_string(source,'const PAGES = {"home":',patch_home)
-
-shell_anchor='  <nav id="gmBottomTabs" aria-label="Greenman app tabs"></nav>\\n</div>'
-shell_footer='''  <nav id="gmBottomTabs" aria-label="Greenman app tabs"></nav>
-  <footer id="gmHomeFooter" aria-label="Greenman Apothecary reference note">
-    <strong>Greenman HedgeWitchery Apothecary · Woods Witch &amp; RuneSmith</strong>
-    <p>Magical traditions can vary, use this Greenman Apothecary as a guide and continue your own research.</p>
-    <p>HedgeWitchery uses its own curated reference data stored on your device. Its recommendations are created by matching that stored data to your intention.</p>
-  </footer>
-</div>'''
-source=replace_once(source,shell_anchor,shell_footer,'outer Home footer placement')
-
-footer_css=r'''
-<style id="gm-home-shell-footer-fv3">
-#gmHomeFooter{
-  display:none;
-  width:100%;
-  padding:8px 12px 10px;
-  background:#21170d;
-  border-top:1px solid rgba(201,168,76,.55);
-  color:#b99a5b;
-  text-align:center;
-  font-family:Georgia,'Times New Roman',serif;
-  font-size:10.5px;
-  line-height:1.28;
-  z-index:51;
-}
-#gmHomeFooter{display:block}
-#gmShell{grid-template-rows:1fr auto auto}
-#gmHomeFooter strong{
-  display:block;
-  margin:0 0 4px;
-  color:#d4b553;
-  font-size:10.5px;
-  line-height:1.25;
-  letter-spacing:.025em;
-}
-#gmHomeFooter p{margin:2px 0 0}
-@media(max-width:520px){
-  #gmHomeFooter{padding:6px 8px 7px;font-size:9.5px;line-height:1.22}
-  #gmHomeFooter strong{font-size:9.5px;margin-bottom:3px}
-}
-@media print{#gmHomeFooter{display:none!important}}
-</style>
-'''
-head_end=source.find('</head>')
-if head_end<0: raise RuntimeError('outer </head> not found for Home footer CSS')
-source=source[:head_end]+footer_css+source[head_end:]
 
 # Shared child-facing vocabulary. This deliberately does NOT alter Grimoire data.
 MASTER_REGEX=(
@@ -238,7 +204,7 @@ required=[
  'gm-fv3-child-safe-master-v2','GM_CHILD_SAFE_TEXT','GM_CUPBOARD_CHILD_BAD',
  'Traditional adult material is hidden in this child-friendly view.',
  'isOver18SpellEntry(entry)','readSavedSpellEntries()',
- 'gmHomeFooter','gm-home-shell-footer-fv3',
+ 'gm-home-source-note','<!-- FOOTER -->',
  'Greenman HedgeWitchery Apothecary · Woods Witch &amp; RuneSmith',
  'HedgeWitchery uses its own curated reference data stored on your device.',
  'gm-fv3-tablet-proportions'
