@@ -103,6 +103,14 @@ def patch_home(home):
         < home.index('<!-- BOTTOM TAB BAR -->')
     ):
         raise RuntimeError('Home footer is not directly below Clear Spell and above bottom tabs')
+    for required_text in [
+        'Greenman HedgeWitchery Apothecary · Woods Witch &amp; RuneSmith',
+        'Magical traditions can vary, use this Greenman Apothecary as a guide and continue your own research.',
+        'HedgeWitchery uses its own curated reference data stored on your device.',
+        'Its recommendations are created by matching that stored data to your intention.',
+    ]:
+        if required_text not in home:
+            raise RuntimeError('Home footer wording missing: '+required_text)
     return home
 
 source=replace_json_string(source,'const PAGES = {"home":',patch_home)
@@ -205,7 +213,6 @@ required=[
  'Traditional adult material is hidden in this child-friendly view.',
  'isOver18SpellEntry(entry)','readSavedSpellEntries()',
  'gm-home-source-note','<!-- FOOTER -->',
- 'Greenman HedgeWitchery Apothecary · Woods Witch &amp; RuneSmith',
  'HedgeWitchery uses its own curated reference data stored on your device.',
  'gm-fv3-tablet-proportions'
 ]
