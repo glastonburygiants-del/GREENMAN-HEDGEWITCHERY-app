@@ -19,8 +19,7 @@ on:
       - "tools/patch_v2737_home_contents.py.zst"
       - "tools/patch_fv3_tablet_home.py"
       - "tools/patch_fv3_followup_home_childsafe_fullwidth.py"
-      - "tools/restore_fv3_scribe_direct.py.zst.b64"
-      - "tools/fv3_scribe_direct_glyphs.part*.b64"
+      - "tools/restore_fv3_scribe_direct_compact.part*.b64"
       - "tools/verify_inline_scripts.js"
       - "tools/force_resources_arsc_stored.py"
       - "tools/patch_immersive_mode_order.py"
@@ -149,16 +148,96 @@ jobs:
 
           python tools/patch_fv3_followup_home_childsafe_fullwidth.py "$WORK/current.html" "$WORK/current-followup.html"
           mv "$WORK/current-followup.html" "$WORK/current.html"
-          base64 --decode "$GITHUB_WORKSPACE/tools/restore_fv3_scribe_direct.py.zst.b64" > "$WORK/restore_fv3_scribe_direct.py.zst"
-          zstd -d "$WORK/restore_fv3_scribe_direct.py.zst" -o "$GITHUB_WORKSPACE/tools/restore_fv3_scribe_direct.py"
-          python "$GITHUB_WORKSPACE/tools/restore_fv3_scribe_direct.py" "$WORK/current.html" "$WORK/current-scribe-restored.html"
+          : > "$WORK/restore_fv3_scribe_direct.py.zst.b64"
+          for n in 00 01 02 03 04 05 06 07 08 09 10 11 12 13; do
+            cat "$GITHUB_WORKSPACE/tools/restore_fv3_scribe_direct_compact.part$n.b64" >> "$WORK/restore_fv3_scribe_direct.py.zst.b64"
+          done
+          test "$(stat -c%s "$WORK/restore_fv3_scribe_direct.py.zst.b64")" -eq 51484
+          echo "2796eaa0a8292583e7907cecc0b209077f09e62cb9f68db67bb75e77ddbb53aa  $WORK/restore_fv3_scribe_direct.py.zst.b64" | sha256sum -c -
+          base64 --decode "$WORK/restore_fv3_scribe_direct.py.zst.b64" > "$WORK/restore_fv3_scribe_direct.py.zst"
+          echo "1f98b8af6f16fd0fd369c8eff4e158829a205c4634e6a9c4dc2266b837c592b6  $WORK/restore_fv3_scribe_direct.py.zst" | sha256sum -c -
+          zstd -d "$WORK/restore_fv3_scribe_direct.py.zst" -o "$WORK/restore_fv3_scribe_direct.py"
+          echo "c3effab71f41436037b4106fb1a9bb373db5714fb901678c6b5fe7a6e360a1b9  $WORK/restore_fv3_scribe_direct.py" | sha256sum -c -
+          python "$WORK/restore_fv3_scribe_direct.py" "$WORK/current.html" "$WORK/current-scribe-restored.html"
           mv "$WORK/current-scribe-restored.html" "$WORK/current.html"
+
           test -s "$WORK/current.html"
           sha256sum "$WORK/current.html" | tee "$WORK/current-html-sha256.txt"
           node tools/verify_inline_scripts.js "$WORK/current.html"
           grep -Fq 'gm-fv3-child-safe-master-v2' "$WORK/current.html"
           grep -Fq 'GM_CUPBOARD_CHILD_BAD' "$WORK/current.html"
           if grep -Fq 'Math.round(stableHeight*9/16)' "$WORK/current.html"; then exit 1; fi
+
+          python - "$WORK/current.html" <<'PY'
+          import base64, json, re, sys
+          app = open(sys.argv[1], encoding="utf-8").read()
+          marker = "PAGES.scribe = "
+          start = app.index(marker) + len(marker)
+          scribe, _ = json.JSONDecoder().raw_decode(app[start:])
+
+          for token in (
+              "Sanskrit_Devanagari",
+              "Sumerian_Cuneiform",
+              "GM_SCRIBE_PRIVACY_V=3",
+              "GM_SCRIBE_RECOVERY",
+              "gmScribePrivacyDialog",
+              "renderInkScribePrint",
+          ):
+              assert token in scribe, f"missing preserved/restored Scribe marker: {token}"
+
+          for token in (
+              "Language Packs",
+              ".argosmodel",
+              "GM_TRANSLATION_INDEX",
+              "gm_scribe_language_pack_state_v2",
+              "Translator engine:",
+              "native language-model runtime",
+              "Classic_Maya",
+          ):
+              assert token not in scribe, f"unwanted Scribe translator/Maya marker remains: {token}"
+
+          match = re.search(r'const DESK_B64="([A-Za-z0-9+/=]+)"', scribe)
+          assert match, "Scribe desk payload not found"
+          desk = base64.b64decode(match.group(1)).decode("utf-8")
+
+          def read_json(mark):
+              pos = desk.index(mark) + len(mark)
+              return json.JSONDecoder().raw_decode(desk[pos:])[0]
+
+          rules = read_json("const SCRIPT_RULES=")
+          targets = read_json("const TARGETS=")
+          order = read_json("ORDER=")
+          expected = [
+              "Ugaritic", "Hieratic", "Demotic", "Sanskrit_Devanagari",
+              "Sumerian_Cuneiform", "Hebrew", "Greek", "Elder_Futhark",
+              "Anglo_Saxon_Futhorc", "Ogham", "Pictish", "Theban",
+              "Chaldean", "Malachim", "Magi", "Celestial", "Passing_River",
+              "Masonic", "Tengwar", "Angerthas"
+          ]
+          assert order == expected, order
+          assert list(rules) == expected, list(rules)
+          assert list(targets) == expected, list(targets)
+          assert len(rules) == 20 and len(targets) == 20
+
+          assert rules["Ogham"]["direction"] == "btt"
+          for sid in ("Hebrew", "Hieratic", "Demotic"):
+              assert rules[sid]["direction"] == "rtl", (sid, rules[sid])
+          for sid in ("Ugaritic", "Greek", "Sanskrit_Devanagari", "Sumerian_Cuneiform"):
+              assert rules[sid]["direction"] == "ltr", (sid, rules[sid])
+
+          for token in (
+              "GM_LANGUAGE_TRANSLATION_ENABLED",
+              "renderRuntimeNeeded",
+              "renderControlledUgaritic",
+              "renderControlledTransliteration",
+          ):
+              assert token not in desk, f"semantic translator hook remains: {token}"
+
+          for token in ("ROMAN_LABELS", "Roman Normal", "Roman Title", "Roman Italic", "renderOghamParagraph", "verticalBTT"):
+              assert token in desk, f"missing preserved direct-writing feature: {token}"
+
+          print("Scribe verified: 20 direct writing hands; Sanskrit/Sumerian restored; Ogham BTT; RTL scripts preserved; translator packs removed")
+          PY
 
           echo "WORK=$WORK" >> "$GITHUB_ENV"
 
