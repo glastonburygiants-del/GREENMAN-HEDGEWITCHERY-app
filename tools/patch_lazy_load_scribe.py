@@ -1,18 +1,17 @@
 #!/usr/bin/env python3
-"""Defer Scribe's large payload until first navigation and apply two narrow
-real-device tablet performance fixes before it is wrapped lazily.
+"""Keep the successful Ogham Treehouse tablet optimisation while restoring
+Scribe/BoS binding byte-for-byte to the proven lazy-load baseline.
 
-1. Ogham Treehouse wheel: during the physical spin, stop repainting twenty
-   live stave drop-shadows and twenty spoke shadows on every 18 degree click.
-   The full carved artwork and selected-stave glow return when the wheel stops.
-   One parent parity attribute replaces forty spoke class mutations.
-2. BoS binding: only Ritual Tools and Reference Index pages use a slightly
-   lighter A4 raster scale. The live BoS remains untouched. Reference Index
-   dotted row rules become equivalent solid hairlines only in the flattened
-   copy, reducing html2canvas work on the text-dense end pages.
+Real tablet testing of the previous combined patch showed the wheel became much
+smoother, but the BoS binding path regressed badly. This patch therefore:
 
-The existing lazy-Scribe behaviour is preserved: the finished Scribe string is
-wrapped in __gmLazyScribeSrc() and cached by the PAGES.scribe getter.
+1. keeps only the Treehouse wheel paint optimisation;
+2. does not alter Scribe's capture scale, index styles, binding DOM or logging;
+3. wraps the original eager PAGES.scribe string literal byte-for-byte with the
+   same lazy getter used by the successful baseline build.
+
+That means the BoS binder is exactly the baseline binder again, while the Ogham
+wheel improvement remains.
 """
 from __future__ import annotations
 
@@ -21,7 +20,7 @@ import re
 import sys
 from pathlib import Path
 
-MARKER = "GM_FV3_TABLET_PERF_OGHAM_BOS_V1"
+MARKER = "GM_FV3_TABLET_PERF_OGHAM_ONLY_V2"
 
 
 def replace_once(text: str, old: str, new: str, label: str) -> str:
@@ -45,9 +44,6 @@ def decode_json_value(text: str, marker: str, label: str) -> tuple[str, int, int
 
 
 def js_string_literal(value: str) -> str:
-    # A raw </script> inside a JavaScript string still terminates the containing
-    # HTML script element. JSON permits escaped '/', so preserve browser-safe
-    # inline-script encoding when rebuilding giant page strings.
     literal = json.dumps(value, ensure_ascii=False, separators=(",", ":"))
     return re.sub(r"</script", r"<\\/script", literal, flags=re.IGNORECASE)
 
@@ -62,10 +58,10 @@ def patch_treehouse(tree: str) -> str:
         raise SystemExit("Treehouse performance patch is already present")
 
     perf_css = r'''
-<style id="gm-fv3-tablet-performance-v1">
-/* GM_FV3_TABLET_PERF_OGHAM_BOS_V1
-   Tablet wheel: keep the carved artwork, but do not repaint twenty live
-   drop-shadows and spoke shadows while the rigid wheel is moving. */
+<style id="gm-fv3-tablet-performance-v2">
+/* GM_FV3_TABLET_PERF_OGHAM_ONLY_V2
+   Keep the carved wheel, but do not repaint twenty live stave drop-shadows
+   and spoke shadows while the rigid wheel is physically moving. */
 #wheelStation.threadMoving .wheelStave{filter:none!important;transition:none!important}
 #wheelStation.threadMoving .spoke{filter:none!important;opacity:1!important;box-shadow:none!important;transition:none!important}
 #wheel[data-step-parity="0"] .spoke[data-parity="0"],
@@ -92,8 +88,6 @@ def patch_treehouse(tree: str) -> str:
 }'''
     tree = replace_once(tree, old_shade, new_shade, "Treehouse spoke shading")
 
-    # Keep the stopper flick on every physical click, but do not alter child
-    # spoke paint on every step. The final selected step still sets the shade.
     step_pattern = "    setWheelAngle(stepNo*18);\n    shadeWheelStep(stepNo);\n    flapOnce(false,delay);"
     count = tree.count(step_pattern)
     if count != 2:
@@ -112,29 +106,51 @@ def patch_bower(bower: str) -> str:
     return replace_json_value(bower, "frame.srcdoc=", patch_treehouse(tree), "Ogham Treehouse srcdoc")
 
 
-def patch_scribe(scribe: str) -> str:
-    if MARKER in scribe:
-        raise SystemExit("Scribe performance patch is already present")
+def lazy_wrap_scribe_exact(text: str) -> str:
+    """Wrap the existing Scribe literal without decoding or re-encoding it."""
+    marker = 'PAGES.scribe = "'
+    start = text.find(marker)
+    if start < 0:
+        raise SystemExit('PAGES.scribe = "..." assignment not found')
+    if text.find(marker, start + 1) != -1:
+        raise SystemExit('PAGES.scribe = "..." assignment anchor is not unique')
 
-    old_scale = "const scale=1.5,minimumWidth=Math.floor(794*scale)-2,minimumHeight=Math.floor(1123*scale)-2;phase=Date.now();const canvas=await window.html2canvas(sheet,{backgroundColor:'#f4ecd8',width:794,height:1123,scale:scale,"
-    new_scale = "/* GM_FV3_TABLET_PERF_OGHAM_BOS_V1: keep full A4 content; lighten only text-heavy end-page raster work. */const captureChapter=String(sheet&&sheet.dataset&&sheet.dataset.chapter||''),scale=captureChapter==='index'?1.35:(captureChapter==='tools'?1.40:1.5),minimumWidth=Math.floor(794*scale)-2,minimumHeight=Math.floor(1123*scale)-2;phase=Date.now();const canvas=await window.html2canvas(sheet,{backgroundColor:'#f4ecd8',width:794,height:1123,scale:scale,"
-    scribe = replace_once(scribe, old_scale, new_scale, "BoS targeted capture scale")
+    quote_start = start + len(marker) - 1
+    i = quote_start + 1
+    n = len(text)
+    while i < n:
+        c = text[i]
+        if c == "\\":
+            i += 2
+            continue
+        if c == '"':
+            break
+        i += 1
+    if i >= n:
+        raise SystemExit('unterminated PAGES.scribe string literal')
 
-    old_map = " if(printMap)gmBosApplyPrintMap(page,clone,printMap);\n const stage=document.createElement('div');"
-    new_map = " if(printMap)gmBosApplyPrintMap(page,clone,printMap);\n if(clone.dataset.chapter==='index'){const perf=document.createElement('style');perf.setAttribute('data-gm-bind-perf','reference-index');perf.textContent='.gmBosIndexRow{border-bottom:.22mm solid rgba(185,163,126,.66)!important}.gmBosIndexRows{contain:layout style!important}';clone.append(perf)}\n const stage=document.createElement('div');"
-    scribe = replace_once(scribe, old_map, new_map, "BoS reference-index print simplification")
+    quote_end = i + 1
+    if quote_end >= len(text) or text[quote_end] != ';':
+        raise SystemExit('PAGES.scribe string literal not followed by ";" as expected')
 
-    old_diag = "jpegMs:jpegMs,jpegMethod:encoded&&encoded.method||'unknown',reusedCaptureFrame:!!binding,durationMs:Date.now()-captureStarted"
-    new_diag = "jpegMs:jpegMs,jpegMethod:encoded&&encoded.method||'unknown',captureScale:scale,captureChapter:captureChapter,reusedCaptureFrame:!!binding,durationMs:Date.now()-captureStarted"
-    scribe = replace_once(scribe, old_diag, new_diag, "BoS capture diagnostics")
+    literal = text[quote_start:quote_end]
+    statement_end = quote_end + 1
+    replacement = (
+        'function __gmLazyScribeSrc(){return ' + literal + ';}\n'
+        'Object.defineProperty(PAGES,"scribe",{configurable:true,enumerable:true,'
+        'get:function(){var v=__gmLazyScribeSrc();'
+        'Object.defineProperty(PAGES,"scribe",{value:v,configurable:true,writable:true,enumerable:true});'
+        'return v;}});'
+    )
 
-    if scribe.count(MARKER) != 1:
-        raise SystemExit("Scribe performance marker is missing or duplicated")
-    if "captureChapter==='index'?1.35:(captureChapter==='tools'?1.40:1.5)" not in scribe:
-        raise SystemExit("Targeted BoS scale rule missing")
-    if "data-gm-bind-perf','reference-index'" not in scribe:
-        raise SystemExit("Reference Index flattened-copy simplification missing")
-    return scribe
+    patched = text[:start] + replacement + text[statement_end:]
+    if 'PAGES.scribe = "' in patched:
+        raise SystemExit('direct PAGES.scribe assignment survived')
+    if patched.count('__gmLazyScribeSrc') != 2:
+        raise SystemExit('expected exactly 2 occurrences of __gmLazyScribeSrc')
+    if literal not in patched:
+        raise SystemExit('original Scribe string literal was not preserved byte-for-byte')
+    return patched
 
 
 def main() -> None:
@@ -148,49 +164,24 @@ def main() -> None:
     if "function __gmLazyScribeSrc(){return " in text:
         raise SystemExit("Scribe is already lazy-loaded; expected eager reconstruction input")
 
-    # Patch only the Bower's embedded Treehouse source.
+    # Keep only the proven wheel optimisation in Bower/Treehouse.
     bower, _, _ = decode_json_value(text, "PAGES.bower = ", "Bower page")
-    bower_patched = patch_bower(bower)
-    text = replace_json_value(text, "PAGES.bower = ", bower_patched, "Bower page")
+    text = replace_json_value(text, "PAGES.bower = ", patch_bower(bower), "Bower page")
 
-    # Patch Scribe while it is still in the eager assignment form, then wrap
-    # the completed string with the same one-shot lazy getter used previously.
-    scribe, scribe_start, scribe_end = decode_json_value(text, "PAGES.scribe = ", "Scribe page")
-    scribe_patched = patch_scribe(scribe)
-    literal = js_string_literal(scribe_patched)
+    # Do not touch Scribe content at all. Preserve its exact original literal.
+    patched = lazy_wrap_scribe_exact(text)
 
-    assignment_start = text.rfind("PAGES.scribe = ", 0, scribe_start)
-    if assignment_start < 0:
-        raise SystemExit("PAGES.scribe assignment start not found")
-    statement_end = scribe_end
-    if statement_end >= len(text) or text[statement_end] != ';':
-        raise SystemExit('PAGES.scribe string literal not followed by ";" as expected')
-    statement_end += 1
-
-    replacement = (
-        'function __gmLazyScribeSrc(){return ' + literal + ';}\n'
-        'Object.defineProperty(PAGES,"scribe",{configurable:true,enumerable:true,'
-        'get:function(){var v=__gmLazyScribeSrc();'
-        'Object.defineProperty(PAGES,"scribe",{value:v,configurable:true,writable:true,enumerable:true});'
-        'return v;}});'
-    )
-    patched = text[:assignment_start] + replacement + text[statement_end:]
-
-    if "PAGES.scribe = " in patched:
-        raise SystemExit("direct PAGES.scribe assignment survived")
-    if patched.count("__gmLazyScribeSrc") != 2:
-        raise SystemExit("expected exactly 2 occurrences of __gmLazyScribeSrc (definition + call)")
-    if patched.count(MARKER) != 2:
-        raise SystemExit(f"expected 2 tablet-performance markers in final app, found {patched.count(MARKER)}")
+    if patched.count(MARKER) != 1:
+        raise SystemExit(f"expected exactly one Ogham marker, found {patched.count(MARKER)}")
+    if "captureChapter==='index'?1.35" in patched or "data-gm-bind-perf" in patched:
+        raise SystemExit("regressed BoS bind optimisation survived unexpectedly")
     if "#wheelStation.threadMoving .wheelStave{filter:none!important" not in patched:
         raise SystemExit("Treehouse shadow suppression missing from final app")
-    if "captureScale:scale,captureChapter:captureChapter" not in patched:
-        raise SystemExit("BoS performance diagnostics missing from final app")
 
     out.write_text(patched, encoding="utf-8")
-    print("PAGES.scribe deferred: parsed/constructed on first navigation to Scribe, not at app startup")
-    print("Ogham wheel tablet path: live child shadows suppressed only while spinning; stopper/winch unchanged")
-    print("BoS tablet bind path: Ritual Tools 1.40x; Reference Index 1.35x; live BoS unchanged")
+    print("PAGES.scribe deferred with its original string literal preserved byte-for-byte")
+    print("Ogham wheel tablet optimisation kept")
+    print("BoS binding restored exactly to the successful pre-wheel baseline")
 
 
 if __name__ == "__main__":
