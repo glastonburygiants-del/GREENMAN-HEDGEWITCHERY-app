@@ -420,9 +420,26 @@ jobs:
           python - "$WORK/final-index.html" <<'PY'
           import base64,json,re,sys
           s=open(sys.argv[1],encoding='utf-8').read()
-          marker='PAGES.scribe = '
-          i=s.index(marker)+len(marker)
-          page,_=json.JSONDecoder().raw_decode(s[i:])
+
+          def extract_scribe(text):
+              # PAGES.scribe is now lazy-loaded (see patch_lazy_load_scribe.py):
+              # the literal "PAGES.scribe = \"..." assignment was replaced with
+              # a function returning the same string, wrapped in a getter.
+              # Support both forms so this check works regardless of which
+              # ran - the eager form if this script is ever reverted, or the
+              # lazy form after it.
+              eager = 'PAGES.scribe = '
+              lazy = 'function __gmLazyScribeSrc(){return '
+              if eager in text:
+                  i = text.index(eager) + len(eager)
+              elif lazy in text:
+                  i = text.index(lazy) + len(lazy)
+              else:
+                  raise SystemExit('PAGES.scribe not found in either eager or lazy form')
+              value, _ = json.JSONDecoder().raw_decode(text[i:])
+              return value
+
+          page=extract_scribe(s)
           active=len(re.findall(r'async function gmInkPrintBound\s*\(\)',page))
           assert active==1, active
           assert 'gmInkPrintBoundLegacyNativeCutDisabled' in page
@@ -456,7 +473,7 @@ jobs:
           assert 'gmScribePinHash' not in s
           assert 'gm_scribe_translation_locks_v1' not in s
           assert 'readerLockTranslation' not in s
-          sm='PAGES.scribe = '; si=s.index(sm)+len(sm); sp,_=json.JSONDecoder().raw_decode(s[si:])
+          sp=extract_scribe(s)
           assert sp.count('function renderReader(){')==1
           assert sp.count('function openBook(')==1
           assert sp.count('function renderInkScribePrint(){')==1
