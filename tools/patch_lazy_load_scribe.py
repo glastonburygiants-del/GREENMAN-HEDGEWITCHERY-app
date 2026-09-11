@@ -1,17 +1,17 @@
 #!/usr/bin/env python3
-"""Keep the successful Ogham Treehouse tablet optimisation while restoring
-Scribe/BoS binding byte-for-byte to the proven lazy-load baseline.
+"""Keep the successful Ogham Treehouse tablet optimisation, preserve the
+proven lazy-loaded BoS binder, and apply two narrow presentation fixes.
 
-Real tablet testing of the previous combined patch showed the wheel became much
-smoother, but the BoS binding path regressed badly. This patch therefore:
+Real tablet testing showed:
+1. the Ogham wheel optimisation is worth keeping;
+2. the binder itself should stay on the restored baseline path;
+3. the finished-bind modal still shows a redundant Cancel button;
+4. live Contents selection checkboxes are being flattened into the PDF.
 
-1. keeps only the Treehouse wheel paint optimisation;
-2. does not alter Scribe's capture scale, index styles, binding DOM or logging;
-3. wraps the original eager PAGES.scribe string literal byte-for-byte with the
-   same lazy getter used by the successful baseline build.
-
-That means the BoS binder is exactly the baseline binder again, while the Ogham
-wheel improvement remains.
+This patch therefore changes only those two presentation details inside the
+Scribe string before applying the existing one-shot lazy wrapper. It does not
+change capture scale, html2canvas options, page timing, PDF storage, or any
+other binding behaviour.
 """
 from __future__ import annotations
 
@@ -21,6 +21,7 @@ import sys
 from pathlib import Path
 
 MARKER = "GM_FV3_TABLET_PERF_OGHAM_ONLY_V2"
+SCRIBE_UI_MARKER = "GM_FV3_BIND_UI_CLEANUP_V1"
 
 
 def replace_once(text: str, old: str, new: str, label: str) -> str:
@@ -57,7 +58,7 @@ def patch_treehouse(tree: str) -> str:
     if MARKER in tree:
         raise SystemExit("Treehouse performance patch is already present")
 
-    perf_css = r'''
+    perf_css = r"""
 <style id="gm-fv3-tablet-performance-v2">
 /* GM_FV3_TABLET_PERF_OGHAM_ONLY_V2
    Keep the carved wheel, but do not repaint twenty live stave drop-shadows
@@ -69,23 +70,23 @@ def patch_treehouse(tree: str) -> str:
 #wheel[data-step-parity="0"] .spoke[data-parity="1"],
 #wheel[data-step-parity="1"] .spoke[data-parity="0"]{filter:brightness(.86);opacity:.92}
 </style>
-'''
+"""
     tree = replace_once(tree, "</head>", perf_css + "</head>", "Treehouse performance CSS")
 
     old_mount = "const spoke=document.createElement('span'); spoke.className='spoke'; spoke.style.transform=`rotate(${a-90}deg)`; wheel.appendChild(spoke); wheelSpokes.push(spoke);"
     new_mount = "const spoke=document.createElement('span'); spoke.className='spoke'; spoke.dataset.parity=String(i&1); spoke.style.transform=`rotate(${a-90}deg)`; wheel.appendChild(spoke); wheelSpokes.push(spoke);"
     tree = replace_once(tree, old_mount, new_mount, "Treehouse spoke parity")
 
-    old_shade = r'''function shadeWheelStep(stepNo){
+    old_shade = r"""function shadeWheelStep(stepNo){
   wheelPairs.forEach((pair,i)=>{
     pair.spoke.classList.toggle('stepLight',((i+stepNo)&1)===0);
     pair.spoke.classList.toggle('stepDark',((i+stepNo)&1)===1);
   });
-}'''
-    new_shade = r'''function shadeWheelStep(stepNo){
+}"""
+    new_shade = r"""function shadeWheelStep(stepNo){
   /* One parent attribute replaces forty child class mutations. */
   wheel.dataset.stepParity=String(stepNo&1);
-}'''
+}"""
     tree = replace_once(tree, old_shade, new_shade, "Treehouse spoke shading")
 
     step_pattern = "    setWheelAngle(stepNo*18);\n    shadeWheelStep(stepNo);\n    flapOnce(false,delay);"
@@ -106,8 +107,7 @@ def patch_bower(bower: str) -> str:
     return replace_json_value(bower, "frame.srcdoc=", patch_treehouse(tree), "Ogham Treehouse srcdoc")
 
 
-def lazy_wrap_scribe_exact(text: str) -> str:
-    """Wrap the existing Scribe literal without decoding or re-encoding it."""
+def find_scribe_literal(text: str) -> tuple[int, int, int, int]:
     marker = 'PAGES.scribe = "'
     start = text.find(marker)
     if start < 0:
@@ -127,29 +127,101 @@ def lazy_wrap_scribe_exact(text: str) -> str:
             break
         i += 1
     if i >= n:
-        raise SystemExit('unterminated PAGES.scribe string literal')
+        raise SystemExit("unterminated PAGES.scribe string literal")
 
     quote_end = i + 1
-    if quote_end >= len(text) or text[quote_end] != ';':
+    if quote_end >= len(text) or text[quote_end] != ";":
         raise SystemExit('PAGES.scribe string literal not followed by ";" as expected')
+    return start, quote_start, quote_end, quote_end + 1
 
+
+def patch_scribe_literal_ui(text: str) -> str:
+    """Patch only the raw Scribe literal, preserving all other bytes exactly."""
+    start, quote_start, quote_end, statement_end = find_scribe_literal(text)
     literal = text[quote_start:quote_end]
-    statement_end = quote_end + 1
+
+    if SCRIBE_UI_MARKER in literal:
+        raise SystemExit("Scribe UI cleanup patch is already present")
+
+    # 1) Finished binding modal: remove only the redundant final Cancel button.
+    # Use the three visible labels from the completed modal to avoid touching the
+    # genuine Cancel control shown while a bind is still in progress.
+    title_pos = literal.find("Book of Shadows Bound")
+    if title_pos < 0:
+        raise SystemExit("Completed-bind modal title not found")
+    stay_pos = literal.find("Stay Editing BoS", title_pos, title_pos + 20000)
+    go_pos = literal.find("Go to Ink Pot BoS", stay_pos, stay_pos + 12000) if stay_pos >= 0 else -1
+    cancel_pos = literal.find("Cancel", go_pos, go_pos + 8000) if go_pos >= 0 else -1
+    if min(stay_pos, go_pos, cancel_pos) < 0:
+        raise SystemExit("Completed-bind modal buttons not found in expected order")
+
+    button_start = literal.rfind("<button", go_pos, cancel_pos + 1)
+    button_end = literal.find("</button>", cancel_pos)
+    if button_start < 0 or button_end < 0 or button_end - cancel_pos > 3000:
+        raise SystemExit("Completed-bind Cancel button boundaries not found")
+    button_end += len("</button>")
+    cancel_button = literal[button_start:button_end]
+    if cancel_button.count("Cancel") != 1:
+        raise SystemExit("Completed-bind Cancel button match is ambiguous")
+
+    literal = literal[:button_start] + literal[button_end:]
+
+    # 2) Binding clone only: remove interactive checkboxes before html2canvas.
+    # This keeps the live Contents page selectable while preventing selection
+    # ticks from appearing in the flattened A4 PDF.
+    clone_anchor = (
+        " if(printMap)gmBosApplyPrintMap(page,clone,printMap);\\n"
+        " const stage=document.createElement('div');"
+    )
+    clone_replacement = (
+        " if(printMap)gmBosApplyPrintMap(page,clone,printMap);\\n"
+        f" /* {SCRIBE_UI_MARKER}: live selection controls never belong in the flat PDF. */"
+        " if(clone&&clone.querySelectorAll){clone.querySelectorAll('input[type=checkbox]').forEach(function(cb){"
+        "var p=cb.parentElement;if(p&&p.tagName==='LABEL'&&!String(p.textContent||'').trim()){p.remove();}else{cb.remove();}});}\\n"
+        " const stage=document.createElement('div');"
+    )
+    count = literal.count(clone_anchor)
+    if count != 1:
+        raise SystemExit(f"BoS clone checkbox-cleanup anchor: expected 1 match, found {count}")
+    literal = literal.replace(clone_anchor, clone_replacement, 1)
+
+    # Decode the patched literal as JSON to catch any escaping mistake before CI
+    # goes on to package the APK.
+    try:
+        decoded = json.loads(literal)
+    except Exception as exc:
+        raise SystemExit(f"Patched Scribe literal is not valid JSON string data: {exc}") from exc
+
+    if "Book of Shadows Bound" not in decoded:
+        raise SystemExit("Completed-bind modal disappeared unexpectedly")
+    if SCRIBE_UI_MARKER not in decoded:
+        raise SystemExit("Scribe UI cleanup marker missing after patch")
+    if "querySelectorAll('input[type=checkbox]')" not in decoded:
+        raise SystemExit("Bound-copy checkbox cleanup missing after patch")
+
+    return text[:quote_start] + literal + text[quote_end:]
+
+
+def lazy_wrap_scribe_exact(text: str) -> str:
+    """Wrap the already-patched Scribe literal without re-encoding it."""
+    start, quote_start, quote_end, statement_end = find_scribe_literal(text)
+    literal = text[quote_start:quote_end]
+
     replacement = (
-        'function __gmLazyScribeSrc(){return ' + literal + ';}\n'
+        "function __gmLazyScribeSrc(){return " + literal + ";}\n"
         'Object.defineProperty(PAGES,"scribe",{configurable:true,enumerable:true,'
-        'get:function(){var v=__gmLazyScribeSrc();'
+        "get:function(){var v=__gmLazyScribeSrc();"
         'Object.defineProperty(PAGES,"scribe",{value:v,configurable:true,writable:true,enumerable:true});'
-        'return v;}});'
+        "return v;}});"
     )
 
     patched = text[:start] + replacement + text[statement_end:]
     if 'PAGES.scribe = "' in patched:
-        raise SystemExit('direct PAGES.scribe assignment survived')
-    if patched.count('__gmLazyScribeSrc') != 2:
-        raise SystemExit('expected exactly 2 occurrences of __gmLazyScribeSrc')
+        raise SystemExit("direct PAGES.scribe assignment survived")
+    if patched.count("__gmLazyScribeSrc") != 2:
+        raise SystemExit("expected exactly 2 occurrences of __gmLazyScribeSrc")
     if literal not in patched:
-        raise SystemExit('original Scribe string literal was not preserved byte-for-byte')
+        raise SystemExit("patched Scribe string literal was not preserved byte-for-byte")
     return patched
 
 
@@ -164,24 +236,29 @@ def main() -> None:
     if "function __gmLazyScribeSrc(){return " in text:
         raise SystemExit("Scribe is already lazy-loaded; expected eager reconstruction input")
 
-    # Keep only the proven wheel optimisation in Bower/Treehouse.
+    # Keep the proven wheel optimisation in Bower/Treehouse.
     bower, _, _ = decode_json_value(text, "PAGES.bower = ", "Bower page")
     text = replace_json_value(text, "PAGES.bower = ", patch_bower(bower), "Bower page")
 
-    # Do not touch Scribe content at all. Preserve its exact original literal.
+    # Only presentation cleanup inside Scribe. Binder timing/rendering code stays
+    # on the restored baseline path.
+    text = patch_scribe_literal_ui(text)
     patched = lazy_wrap_scribe_exact(text)
 
     if patched.count(MARKER) != 1:
         raise SystemExit(f"expected exactly one Ogham marker, found {patched.count(MARKER)}")
+    if patched.count(SCRIBE_UI_MARKER) != 1:
+        raise SystemExit(f"expected exactly one Scribe UI marker, found {patched.count(SCRIBE_UI_MARKER)}")
     if "captureChapter==='index'?1.35" in patched or "data-gm-bind-perf" in patched:
         raise SystemExit("regressed BoS bind optimisation survived unexpectedly")
     if "#wheelStation.threadMoving .wheelStave{filter:none!important" not in patched:
         raise SystemExit("Treehouse shadow suppression missing from final app")
 
     out.write_text(patched, encoding="utf-8")
-    print("PAGES.scribe deferred with its original string literal preserved byte-for-byte")
+    print("PAGES.scribe deferred with restored binder timings/rendering untouched")
     print("Ogham wheel tablet optimisation kept")
-    print("BoS binding restored exactly to the successful pre-wheel baseline")
+    print("Completed-bind Cancel button removed")
+    print("Bound-copy checkboxes removed from capture clone only")
 
 
 if __name__ == "__main__":
