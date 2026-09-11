@@ -1,17 +1,17 @@
 #!/usr/bin/env python3
-"""Keep the proven Greenman tablet performance path and apply two tiny BoS
-presentation fixes without changing the binder's rendering/timing behaviour.
+"""Keep the successful Ogham Treehouse tablet optimisation while restoring
+Scribe/BoS binding byte-for-byte to the proven lazy-load baseline.
 
-Kept:
-- lazy Scribe loading;
-- Ogham Treehouse wheel paint optimisation;
-- exact baseline BoS capture scale/html2canvas/storage path.
+Real tablet testing of the previous combined patch showed the wheel became much
+smoother, but the BoS binding path regressed badly. This patch therefore:
 
-Changed only:
-1. hide the bind Cancel button after a successful completed bind, while restoring
-   it when a new bind begins;
-2. remove checkbox inputs from the already-cloned print page before rasterising,
-   so live Contents remains selectable but bound A4 Contents pages print cleanly.
+1. keeps only the Treehouse wheel paint optimisation;
+2. does not alter Scribe's capture scale, index styles, binding DOM or logging;
+3. wraps the original eager PAGES.scribe string literal byte-for-byte with the
+   same lazy getter used by the successful baseline build.
+
+That means the BoS binder is exactly the baseline binder again, while the Ogham
+wheel improvement remains.
 """
 from __future__ import annotations
 
@@ -21,7 +21,6 @@ import sys
 from pathlib import Path
 
 MARKER = "GM_FV3_TABLET_PERF_OGHAM_ONLY_V2"
-UI_MARKER = "GM_FV3_BIND_UI_CLEANUP_V2"
 
 
 def replace_once(text: str, old: str, new: str, label: str) -> str:
@@ -107,7 +106,8 @@ def patch_bower(bower: str) -> str:
     return replace_json_value(bower, "frame.srcdoc=", patch_treehouse(tree), "Ogham Treehouse srcdoc")
 
 
-def find_scribe_literal(text: str) -> tuple[int, int, int, int]:
+def lazy_wrap_scribe_exact(text: str) -> str:
+    """Wrap the existing Scribe literal without decoding or re-encoding it."""
     marker = 'PAGES.scribe = "'
     start = text.find(marker)
     if start < 0:
@@ -132,74 +132,9 @@ def find_scribe_literal(text: str) -> tuple[int, int, int, int]:
     quote_end = i + 1
     if quote_end >= len(text) or text[quote_end] != ';':
         raise SystemExit('PAGES.scribe string literal not followed by ";" as expected')
-    return start, quote_start, quote_end, quote_end + 1
 
-
-def raw_json_fragment(value: str) -> str:
-    """Encode only the inside of a JSON string, preserving the rest verbatim."""
-    return json.dumps(value, ensure_ascii=False)[1:-1]
-
-
-def patch_raw_scribe_literal(text: str) -> str:
-    """Replace three unique escaped fragments inside PAGES.scribe only.
-
-    This avoids decoding/re-encoding the 15MB Scribe payload. Every byte other
-    than the three deliberately changed fragments remains exactly as rebuilt.
-    """
-    start, quote_start, quote_end, _ = find_scribe_literal(text)
     literal = text[quote_start:quote_end]
-    if UI_MARKER in literal:
-        raise SystemExit("BoS UI cleanup is already present")
-
-    replacements = [
-        (
-            "if(cancelBtn){cancelBtn.disabled=false;cancelBtn.textContent='Cancel'}",
-            "if(cancelBtn){cancelBtn.style.display='';cancelBtn.disabled=false;cancelBtn.textContent='Cancel'}",
-            "new-bind Cancel reset",
-        ),
-        (
-            "lsSet(SKEYS.boundCatalog,JSON.stringify(result));title.textContent='Book of Shadows Bound';summary.innerHTML='<strong>'+result.pages.length+' A4 pages completed</strong>The bound book is ready in the Ink Pot.';gmBosNotifyShell('complete',{done:result.pages.length,total:result.pages.length,state:'ready',nativeSaved:!!result.nativeSaved});return",
-            "if(cancelBtn)cancelBtn.style.display='none';lsSet(SKEYS.boundCatalog,JSON.stringify(result));title.textContent='Book of Shadows Bound';summary.innerHTML='<strong>'+result.pages.length+' A4 pages completed</strong>The bound book is ready in the Ink Pot.';gmBosNotifyShell('complete',{done:result.pages.length,total:result.pages.length,state:'ready',nativeSaved:!!result.nativeSaved});return",
-            "completed-bind Cancel hide",
-        ),
-        (
-            "qa('input',root).forEach(i=>{i.setAttribute('readonly','readonly');if(i.type!=='checkbox'&&i.type!=='radio')i.setAttribute('value',i.value||'')});",
-            "/* "+UI_MARKER+" */qa('input',root).forEach(i=>{if(i.type==='checkbox'){i.remove();return}i.setAttribute('readonly','readonly');if(i.type!=='radio')i.setAttribute('value',i.value||'')});",
-            "print-clone checkbox removal",
-        ),
-    ]
-
-    for old_decoded, new_decoded, label in replacements:
-        old = raw_json_fragment(old_decoded)
-        new = raw_json_fragment(new_decoded)
-        count = literal.count(old)
-        if count != 1:
-            raise SystemExit(f"{label}: expected 1 escaped Scribe match, found {count}")
-        literal = literal.replace(old, new, 1)
-
-    # Validate that the edited raw literal still decodes to the intended Scribe.
-    try:
-        decoded = json.loads(literal)
-    except Exception as exc:
-        raise SystemExit(f"edited PAGES.scribe literal is invalid: {exc}") from exc
-
-    checks = (
-        "cancelBtn.style.display='';cancelBtn.disabled=false",
-        "if(cancelBtn)cancelBtn.style.display='none';lsSet(SKEYS.boundCatalog",
-        UI_MARKER,
-        "if(i.type==='checkbox'){i.remove();return}",
-    )
-    for token in checks:
-        if token not in decoded:
-            raise SystemExit(f"missing BoS UI cleanup token after validation: {token}")
-
-    return text[:quote_start] + literal + text[quote_end:]
-
-
-def lazy_wrap_scribe_exact(text: str) -> str:
-    """Wrap the patched Scribe literal without decoding/re-encoding it."""
-    start, quote_start, quote_end, statement_end = find_scribe_literal(text)
-    literal = text[quote_start:quote_end]
+    statement_end = quote_end + 1
     replacement = (
         'function __gmLazyScribeSrc(){return ' + literal + ';}\n'
         'Object.defineProperty(PAGES,"scribe",{configurable:true,enumerable:true,'
@@ -207,13 +142,14 @@ def lazy_wrap_scribe_exact(text: str) -> str:
         'Object.defineProperty(PAGES,"scribe",{value:v,configurable:true,writable:true,enumerable:true});'
         'return v;}});'
     )
+
     patched = text[:start] + replacement + text[statement_end:]
     if 'PAGES.scribe = "' in patched:
         raise SystemExit('direct PAGES.scribe assignment survived')
     if patched.count('__gmLazyScribeSrc') != 2:
         raise SystemExit('expected exactly 2 occurrences of __gmLazyScribeSrc')
     if literal not in patched:
-        raise SystemExit('patched Scribe literal was not preserved byte-for-byte')
+        raise SystemExit('original Scribe string literal was not preserved byte-for-byte')
     return patched
 
 
@@ -228,29 +164,24 @@ def main() -> None:
     if "function __gmLazyScribeSrc(){return " in text:
         raise SystemExit("Scribe is already lazy-loaded; expected eager reconstruction input")
 
-    # Proven wheel optimisation only.
+    # Keep only the proven wheel optimisation in Bower/Treehouse.
     bower, _, _ = decode_json_value(text, "PAGES.bower = ", "Bower page")
     text = replace_json_value(text, "PAGES.bower = ", patch_bower(bower), "Bower page")
 
-    # Three tiny presentation edits inside the raw Scribe literal. No binder
-    # scaling, html2canvas, page-generation or storage code is changed.
-    text = patch_raw_scribe_literal(text)
+    # Do not touch Scribe content at all. Preserve its exact original literal.
     patched = lazy_wrap_scribe_exact(text)
 
     if patched.count(MARKER) != 1:
         raise SystemExit(f"expected exactly one Ogham marker, found {patched.count(MARKER)}")
-    if patched.count(UI_MARKER) != 1:
-        raise SystemExit(f"expected exactly one BoS UI cleanup marker, found {patched.count(UI_MARKER)}")
     if "captureChapter==='index'?1.35" in patched or "data-gm-bind-perf" in patched:
-        raise SystemExit("old regressed BoS performance patch survived unexpectedly")
+        raise SystemExit("regressed BoS bind optimisation survived unexpectedly")
     if "#wheelStation.threadMoving .wheelStave{filter:none!important" not in patched:
         raise SystemExit("Treehouse shadow suppression missing from final app")
 
     out.write_text(patched, encoding="utf-8")
-    print("PAGES.scribe remains lazy with all untouched bytes preserved")
+    print("PAGES.scribe deferred with its original string literal preserved byte-for-byte")
     print("Ogham wheel tablet optimisation kept")
-    print("Completed-bind Cancel hides only after successful completion")
-    print("Contents checkboxes removed from flattened print clone only")
+    print("BoS binding restored exactly to the successful pre-wheel baseline")
 
 
 if __name__ == "__main__":
