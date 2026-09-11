@@ -21,6 +21,7 @@ on:
       - "tools/patch_fv3_followup_home_childsafe_fullwidth.py"
       - "tools/restore_fv3_scribe_direct_compact.part*.b64"
       - "tools/verify_inline_scripts.js"
+      - "tools/patch_v2738_cupboard_inkpot_ui_fix.py"
       - "tools/patch_lazy_load_scribe.py"
       - "tools/patch_showpage_duplicate_nav_guard.py"
       - "tools/force_resources_arsc_stored.py"
@@ -240,6 +241,30 @@ jobs:
 
           print("Scribe verified: 20 direct writing hands; Sanskrit/Sumerian restored; Ogham BTT; RTL scripts preserved; translator packs removed")
           PY
+
+          # User report: Cupboard button presses "all seem different and
+          # some give horrible blue boxes" (missing/inconsistent
+          # -webkit-tap-highlight-color across Cupboard button classes), and
+          # a previous Ink Pot fix "was meant to remove cancel button when
+          # book is bound and not print the content selection tick boxes"
+          # but did not fully take effect. Confirmed by reading the actual
+          # shipped CSS/JS: only .feature-room-entry suppressed the tap
+          # highlight while sibling Cupboard buttons did not; the v29 bind
+          # modal's `.gmBosBindChoices.v29 .gmBosCancelBind{display:block}`
+          # rule is unscoped and outranks the state-gated
+          # `.gmBosCancelBind{display:none}` base rule regardless of
+          # binding/packaging state; and the shared
+          # gmBosStripPrintInteractivity() used by both the html2canvas
+          # fallback and the real APK capture path explicitly skips
+          # checkboxes, so @media print rules for the selection tick boxes
+          # never apply to either capture route. Applied last, after every
+          # content check above has verified the eager PAGES.cupboard /
+          # PAGES.scribe form, so this only adds tap-highlight consistency,
+          # scopes the Cancel button CSS to the active job state, and
+          # force-hides the tick boxes on the captured clone.
+          python tools/patch_v2738_cupboard_inkpot_ui_fix.py "$WORK/current.html" "$WORK/current-2738.html"
+          mv "$WORK/current-2738.html" "$WORK/current.html"
+          node tools/verify_inline_scripts.js "$WORK/current.html"
 
           # Real device logs (Choreographer frame-skip warnings, ART GC
           # pressure, a low-memory-killer cascade that killed the print
