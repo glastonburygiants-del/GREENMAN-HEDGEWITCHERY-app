@@ -22,6 +22,7 @@ on:
       - "tools/restore_fv3_scribe_direct_compact.part*.b64"
       - "tools/verify_inline_scripts.js"
       - "tools/patch_lazy_load_scribe.py"
+      - "tools/patch_showpage_duplicate_nav_guard.py"
       - "tools/force_resources_arsc_stored.py"
       - "tools/patch_immersive_mode_order.py"
   workflow_dispatch:
@@ -250,6 +251,24 @@ jobs:
           # so this only changes *when* the identical content is parsed.
           python tools/patch_lazy_load_scribe.py "$WORK/current.html" "$WORK/current-lazy-scribe.html"
           mv "$WORK/current-lazy-scribe.html" "$WORK/current.html"
+          node tools/verify_inline_scripts.js "$WORK/current.html"
+
+          # Real-device diagnostic log (built-in NAVIGATION/FRAME LOOP
+          # instrumentation) showed showPage('scribe') firing 9 times in
+          # ~30s while a background Scribe bind (Ink Pot "Save Bound PDF
+          # Copy") was still running, tripping the app's own FRAME LOOP
+          # detector ("Rapid page-frame replacement detected. Detected 4
+          # occurrences within 1800 ms") and producing the reported
+          # "blank brown screens ... looks like the app's dying" symptom.
+          # Confirmed via direct reading of showPage() that duplicate
+          # back-to-back calls for the page already on screen were never
+          # guarded against, so - combined with the parked-Scribe-frame
+          # restore path only working once - each extra call tore down and
+          # rebuilt the live Scribe iframe from scratch. Applied last, after
+          # every content check above has verified showPage()'s pre-patch
+          # form, so this only adds a narrow same-page debounce guard.
+          python tools/patch_showpage_duplicate_nav_guard.py "$WORK/current.html" "$WORK/current-navguard.html"
+          mv "$WORK/current-navguard.html" "$WORK/current.html"
           node tools/verify_inline_scripts.js "$WORK/current.html"
 
           echo "WORK=$WORK" >> "$GITHUB_ENV"
