@@ -21,6 +21,7 @@ on:
       - "tools/patch_fv3_followup_home_childsafe_fullwidth.py"
       - "tools/restore_fv3_scribe_direct_compact.part*.b64"
       - "tools/verify_inline_scripts.js"
+      - "tools/patch_lazy_load_scribe.py"
       - "tools/force_resources_arsc_stored.py"
       - "tools/patch_immersive_mode_order.py"
   workflow_dispatch:
@@ -238,6 +239,18 @@ jobs:
 
           print("Scribe verified: 20 direct writing hands; Sanskrit/Sumerian restored; Ogham BTT; RTL scripts preserved; translator packs removed")
           PY
+
+          # Real device logs (Choreographer frame-skip warnings, ART GC
+          # pressure, a low-memory-killer cascade that killed the print
+          # spooler) confirmed Scribe's ~15MB payload (code + 217 images)
+          # being parsed/held in memory on every app cold start - whether
+          # or not Scribe is ever opened that session - is the dominant
+          # cause of app lag and memory pressure. Applied last, after every
+          # content check above has verified the eager PAGES.scribe form,
+          # so this only changes *when* the identical content is parsed.
+          python tools/patch_lazy_load_scribe.py "$WORK/current.html" "$WORK/current-lazy-scribe.html"
+          mv "$WORK/current-lazy-scribe.html" "$WORK/current.html"
+          node tools/verify_inline_scripts.js "$WORK/current.html"
 
           echo "WORK=$WORK" >> "$GITHUB_ENV"
 
