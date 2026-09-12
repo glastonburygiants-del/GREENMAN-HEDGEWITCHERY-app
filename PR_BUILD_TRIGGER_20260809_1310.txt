@@ -1,0 +1,1 @@
+Build trigger only. App source comes from corrected main.
