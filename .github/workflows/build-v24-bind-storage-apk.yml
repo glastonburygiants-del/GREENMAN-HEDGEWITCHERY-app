@@ -28,6 +28,7 @@ on:
       - "tools/patch_bos_restore_reflow.py"
       - "tools/force_resources_arsc_stored.py"
       - "tools/patch_immersive_mode_order.py"
+      - "tools/patch_spellbuilder_deities_undefined.py"
   workflow_dispatch:
 
 permissions:
@@ -335,6 +336,26 @@ jobs:
           # outer viewport reset already done at the same two delays.
           python tools/patch_bos_restore_reflow.py "$WORK/current.html" "$WORK/current-restore-reflow.html"
           mv "$WORK/current-restore-reflow.html" "$WORK/current.html"
+          node tools/verify_inline_scripts.js "$WORK/current.html"
+
+          # Real-device diagnostic log captured "ReferenceError: deities is
+          # not defined" twice, both from init() in PAGES.spellBuilder's
+          # engine script, on 14_goddess_herb.html and 15_god_herb.html.
+          # Confirmed by reading the shipped engine script directly: its
+          # init() passes `deities` into renderSelectPage() exactly like
+          # the herbs/crystals/oils/runes steps pass their own accessors,
+          # and deityFilter() (the live, current deity system, backed by
+          # window.GM_DATA.Deities) is defined and correct in this same
+          # closure - but unlike herbs/crystals/oils/runes, there was never
+          # a matching `const deities = () => arr('Deities');` declared
+          # anywhere in that closure. Not a scoping or load-order issue and
+          # not the old parallel "herbs for desires" deity system - just
+          # this one accessor missing from the same list its four siblings
+          # are on. Applied last, after every content check above has
+          # verified the eager PAGES.spellBuilder form, so this only adds
+          # the single missing accessor.
+          python tools/patch_spellbuilder_deities_undefined.py "$WORK/current.html" "$WORK/current-deities-fix.html"
+          mv "$WORK/current-deities-fix.html" "$WORK/current.html"
           node tools/verify_inline_scripts.js "$WORK/current.html"
 
           echo "WORK=$WORK" >> "$GITHUB_ENV"
