@@ -1,0 +1,40 @@
+name: Audit Exact Current Font Bytes
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  audit-fonts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fetch same pinned font sources
+        shell: bash
+        run: |
+          set -euo pipefail
+          F="$RUNNER_TEMP/current-fonts"
+          mkdir -p "$F/licenses"
+          BASE="https://raw.githubusercontent.com/google/fonts/2d85e20401920891efb7cd6272d6339685df2820"
+          curl -fsSL "$BASE/ofl/cinzel/Cinzel%5Bwght%5D.ttf" -o "$F/Cinzel.ttf"
+          for n in Bold BoldItalic Italic Regular SemiBold SemiBoldItalic; do curl -fsSL "$BASE/ofl/crimsontext/CrimsonText-${n}.ttf" -o "$F/CrimsonText-${n}.ttf"; done
+          curl -fsSL "$BASE/ofl/imfellenglish/IMFeENit28P.ttf" -o "$F/IMFellEnglish-Italic.ttf"
+          curl -fsSL "$BASE/ofl/imfellenglish/IMFeENrm28P.ttf" -o "$F/IMFellEnglish-Regular.ttf"
+          curl -fsSL "$BASE/ofl/cinzel/OFL.txt" -o "$F/licenses/cinzel-OFL.txt"
+          curl -fsSL "$BASE/ofl/crimsontext/OFL.txt" -o "$F/licenses/crimsontext-OFL.txt"
+          curl -fsSL "$BASE/ofl/imfellenglish/OFL.txt" -o "$F/licenses/imfellenglish-OFL.txt"
+          find "$F" -type f -print0 | sort -z | xargs -0 sha256sum > "$RUNNER_TEMP/font-sha256.txt"
+          find "$F" -type f -printf '%P %s\n' | sort > "$RUNNER_TEMP/font-sizes.txt"
+      - name: Upload font byte audit
+        uses: actions/upload-artifact@v4
+        with:
+          name: GREENMAN-EXACT-CURRENT-FONT-BYTE-AUDIT
+          path: |
+            ${{ runner.temp }}/font-sha256.txt
+            ${{ runner.temp }}/font-sizes.txt
+          if-no-files-found: error
+          retention-days: 7
