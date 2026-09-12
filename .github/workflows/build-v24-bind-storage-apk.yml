@@ -22,8 +22,10 @@ on:
       - "tools/restore_fv3_scribe_direct_compact.part*.b64"
       - "tools/verify_inline_scripts.js"
       - "tools/patch_v2738_cupboard_inkpot_ui_fix.py"
+      - "tools/patch_bos_reopen_binding_guard.py"
       - "tools/patch_lazy_load_scribe.py"
       - "tools/patch_showpage_duplicate_nav_guard.py"
+      - "tools/patch_bos_restore_reflow.py"
       - "tools/force_resources_arsc_stored.py"
       - "tools/patch_immersive_mode_order.py"
   workflow_dispatch:
@@ -266,6 +268,20 @@ jobs:
           mv "$WORK/current-2738.html" "$WORK/current.html"
           node tools/verify_inline_scripts.js "$WORK/current.html"
 
+          # Real-device report: reopening the live Book of Shadows (e.g. via
+          # openBos()) while a background bind is active was found to reset
+          # GM_BOS's `pages` array and wipe #gmBosPagePool via build() -
+          # discarding the exact page content an in-progress bind is
+          # actively capturing, silently halting its progress with no error
+          # shown. Confirmed by reading GM_BOS.open() directly: it
+          # unconditionally called build() on every open. Applied last,
+          # after every content check above has verified the eager
+          # PAGES.scribe form, so this only adds a binding-active guard
+          # around the existing build() call.
+          python tools/patch_bos_reopen_binding_guard.py "$WORK/current.html" "$WORK/current-bos-reopen-guard.html"
+          mv "$WORK/current-bos-reopen-guard.html" "$WORK/current.html"
+          node tools/verify_inline_scripts.js "$WORK/current.html"
+
           # Real device logs (Choreographer frame-skip warnings, ART GC
           # pressure, a low-memory-killer cascade that killed the print
           # spooler) confirmed Scribe's ~15MB payload (code + 217 images)
@@ -302,6 +318,23 @@ jobs:
           # check above has verified showPage()'s pre-patch form.
           python tools/patch_showpage_duplicate_nav_guard.py "$WORK/current.html" "$WORK/current-navguard.html"
           mv "$WORK/current-navguard.html" "$WORK/current.html"
+          node tools/verify_inline_scripts.js "$WORK/current.html"
+
+          # Real-device report: tapping the persistent "Binding Book of
+          # Shadows · X/Y" status pill to return to the live bind-progress
+          # popup instead showed the Study view with no popup visible.
+          # #gmBosBindModal is `.modal{position:fixed;...}`, independent of
+          # which Scribe view is active, so it should show regardless - but
+          # the parked frame was given an off-screen layout for the whole
+          # parked duration and restoring it only removed that inline style
+          # without signalling the document to recompute layout, which can
+          # leave fixed-position content (the modal) stale/collapsed on
+          # some WebView engines. Applied last, after every content check
+          # above has verified showPage()'s pre-patch form, so this only
+          # adds a resize dispatch on the restored frame alongside the
+          # outer viewport reset already done at the same two delays.
+          python tools/patch_bos_restore_reflow.py "$WORK/current.html" "$WORK/current-restore-reflow.html"
+          mv "$WORK/current-restore-reflow.html" "$WORK/current.html"
           node tools/verify_inline_scripts.js "$WORK/current.html"
 
           echo "WORK=$WORK" >> "$GITHUB_ENV"
