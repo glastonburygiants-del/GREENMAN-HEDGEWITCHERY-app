@@ -29,6 +29,7 @@ on:
       - "tools/force_resources_arsc_stored.py"
       - "tools/patch_immersive_mode_order.py"
       - "tools/patch_spellbuilder_deities_undefined.py"
+      - "tools/patch_v33_button_ux_fixes.py"
   workflow_dispatch:
 
 permissions:
@@ -356,6 +357,32 @@ jobs:
           # the single missing accessor.
           python tools/patch_spellbuilder_deities_undefined.py "$WORK/current.html" "$WORK/current-deities-fix.html"
           mv "$WORK/current-deities-fix.html" "$WORK/current.html"
+          node tools/verify_inline_scripts.js "$WORK/current.html"
+
+          # User report: "some buttons show a blue box on tap and some
+          # don't, some need a double-tap and some a single tap, some feel
+          # slow, some instant, and Cupboard specifically feels
+          # clunky/slow to navigate." Confirmed by reading the actual
+          # shipped code: .gm-home-full-unlock-btn (Home) and .pin-key
+          # (Admin) are missing the :active press-feedback rule every
+          # sibling button in their room already has; .entry-card (BoS),
+          # .incense-drawer-front/.daily-drawer-front (Cupboard),
+          # #backBtn/.close/.modalBackPrimary (Bower) and the nested Ogham
+          # Treehouse iframe's #risen/.castStick/.socket img/.readingBack
+          # are all missing -webkit-tap-highlight-color:transparent that
+          # their visually identical siblings already have; a later "V32"
+          # hotfix silently reassigns buildIncenseBlendCard to a version
+          # gated behind a 400ms setTimeout + dblclick shortcut while the
+          # sibling buildSpellVesselCard opens instantly - the confirmed
+          # cause of Incense Blend cards feeling sluggish; and two dead JS
+          # lookups in PAGES.scribe (#gmInkReturnLiveBtn,
+          # #gmScribeJobTitle) reference ids removed from markup in
+          # earlier cleanups. Applied last, after every content check
+          # above has verified the eager/lazy PAGES form, so this only
+          # makes these four narrow, independent fixes - no deity/herb
+          # code, no broad refactor.
+          python tools/patch_v33_button_ux_fixes.py "$WORK/current.html" "$WORK/current-v33-ux-fix.html"
+          mv "$WORK/current-v33-ux-fix.html" "$WORK/current.html"
           node tools/verify_inline_scripts.js "$WORK/current.html"
 
           echo "WORK=$WORK" >> "$GITHUB_ENV"
