@@ -1,0 +1,108 @@
+name: Diagnose Exact Current Reconstruction
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose-reconstruct:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out repair branch
+        uses: actions/checkout@v4
+
+      - name: Set up zstd
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq zstd
+          zstd --version | tee "$RUNNER_TEMP/zstd-version.txt"
+
+      - name: Recreate verified donor index
+        shell: bash
+        run: |
+          set -euo pipefail
+          ZIP_FILE="$(find "$GITHUB_WORKSPACE" -maxdepth 1 -type f -name 'GREENMAN_HEDGEWITCHERY_ANDROID_PROJECT_GATHER_FIXED*.zip' -print -quit)"
+          test -n "$ZIP_FILE"
+          mkdir -p "$RUNNER_TEMP/donor"
+          unzip -q "$ZIP_FILE" -d "$RUNNER_TEMP/donor"
+          PROJECT_DIR="$(find "$RUNNER_TEMP/donor" -type f -name settings.gradle -printf '%h\n' | head -n 1)"
+          test -n "$PROJECT_DIR"
+          INDEX_FILE="$PROJECT_DIR/app/src/main/assets/index.html"
+          JAVA_FILE="$PROJECT_DIR/app/src/main/java/com/greenman/hedgewitchery/MainActivity.java"
+          python "$GITHUB_WORKSPACE/tools/patch_supply_room.py" "$INDEX_FILE" "$INDEX_FILE"
+          python "$GITHUB_WORKSPACE/tools/patch_customer_print.py" "$INDEX_FILE" "$INDEX_FILE" "$JAVA_FILE" "$JAVA_FILE"
+          python "$GITHUB_WORKSPACE/tools/patch_lite_print_android.py" "$INDEX_FILE" "$INDEX_FILE"
+          python "$GITHUB_WORKSPACE/tools/patch_android_print_lifecycle.py" "$INDEX_FILE" "$INDEX_FILE" "$JAVA_FILE" "$JAVA_FILE"
+          python - "$INDEX_FILE" <<'PY'
+          from pathlib import Path
+          import sys
+          p=Path(sys.argv[1]); t=p.read_text(encoding='utf-8')
+          old='When you wish to keep the full working,'
+          new='When you wish to keep the full spell,'
+          if t.count(old)!=1: raise SystemExit('donor wording boundary mismatch')
+          p.write_text(t.replace(old,new,1),encoding='utf-8')
+          PY
+          sha256sum "$INDEX_FILE" | tee "$RUNNER_TEMP/donor-sha256.txt"
+          cp "$INDEX_FILE" "$RUNNER_TEMP/DONOR_INDEX.html"
+
+      - name: Fetch pinned exact-current fonts
+        shell: bash
+        run: |
+          set -euo pipefail
+          F="$RUNNER_TEMP/current-fonts"
+          mkdir -p "$F/licenses"
+          BASE="https://raw.githubusercontent.com/google/fonts/2d85e20401920891efb7cd6272d6339685df2820"
+          curl -fsSL "$BASE/ofl/cinzel/Cinzel%5Bwght%5D.ttf" -o "$F/Cinzel.ttf"
+          for n in Bold BoldItalic Italic Regular SemiBold SemiBoldItalic; do curl -fsSL "$BASE/ofl/crimsontext/CrimsonText-${n}.ttf" -o "$F/CrimsonText-${n}.ttf"; done
+          curl -fsSL "$BASE/ofl/imfellenglish/IMFeENit28P.ttf" -o "$F/IMFellEnglish-Italic.ttf"
+          curl -fsSL "$BASE/ofl/imfellenglish/IMFeENrm28P.ttf" -o "$F/IMFellEnglish-Regular.ttf"
+          curl -fsSL "$BASE/ofl/cinzel/OFL.txt" -o "$F/licenses/cinzel-OFL.txt"
+          curl -fsSL "$BASE/ofl/crimsontext/OFL.txt" -o "$F/licenses/crimsontext-OFL.txt"
+          curl -fsSL "$BASE/ofl/imfellenglish/OFL.txt" -o "$F/licenses/imfellenglish-OFL.txt"
+          find "$F" -type f -print0 | sort -z | xargs -0 sha256sum > "$RUNNER_TEMP/font-sha256.txt"
+
+      - name: Run reconstruction and capture exact failure
+        shell: bash
+        run: |
+          set +e
+          python "$GITHUB_WORKSPACE/tools/reconstruct_exact_current_apk.py" \
+            "$RUNNER_TEMP/DONOR_INDEX.html" \
+            "$GITHUB_WORKSPACE/tools/exact_current_payload" \
+            "$RUNNER_TEMP/current-fonts" \
+            "$RUNNER_TEMP/greenman-current-unsigned.apk" \
+            > "$RUNNER_TEMP/reconstruct.log" 2>&1
+          status=$?
+          echo "$status" > "$RUNNER_TEMP/reconstruct-exit.txt"
+          {
+            echo '=== RECONSTRUCTION OUTPUT ==='
+            cat "$RUNNER_TEMP/reconstruct.log"
+            echo '=== PAYLOAD PART HASHES ==='
+            sha256sum "$GITHUB_WORKSPACE"/tools/exact_current_payload/*
+            echo '=== DONOR ==='
+            cat "$RUNNER_TEMP/donor-sha256.txt"
+            echo '=== ZSTD ==='
+            cat "$RUNNER_TEMP/zstd-version.txt"
+          } > "$RUNNER_TEMP/exact-reconstruct-diagnostic.txt"
+          cat "$RUNNER_TEMP/exact-reconstruct-diagnostic.txt"
+          exit 0
+
+      - name: Upload exact reconstruction diagnostic
+        uses: actions/upload-artifact@v4
+        with:
+          name: GREENMAN-EXACT-RECONSTRUCTION-DIAGNOSTIC
+          path: |
+            ${{ runner.temp }}/exact-reconstruct-diagnostic.txt
+            ${{ runner.temp }}/reconstruct.log
+            ${{ runner.temp }}/reconstruct-exit.txt
+            ${{ runner.temp }}/donor-sha256.txt
+            ${{ runner.temp }}/font-sha256.txt
+            ${{ runner.temp }}/zstd-version.txt
+          if-no-files-found: error
+          retention-days: 7
