@@ -52,13 +52,21 @@ jobs:
           distribution: temurin
           java-version: "17"
 
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
-
       - name: Install Android build tools
         shell: bash
         run: |
           set -euo pipefail
+          # android-actions/setup-android@v3 started failing here (3
+          # attempts in a row on two separate pushes): it unconditionally
+          # runs `sdkmanager tools`, installing a legacy "Android SDK
+          # Tools" package Google has since removed from the SDK
+          # repository ("Warning: Failed to find package 'tools'"),
+          # unrelated to any content change in this repo. GitHub's
+          # ubuntu-latest runner image already ships a working Android
+          # SDK/cmdline-tools (this is the same sdkmanager the action was
+          # itself invoking), so the action added nothing but that broken
+          # step. Removed; sdkmanager below runs against the preinstalled
+          # SDK directly.
           yes | sdkmanager --licenses >/dev/null || true
           sdkmanager "platforms;android-35" "build-tools;35.0.0"
 
