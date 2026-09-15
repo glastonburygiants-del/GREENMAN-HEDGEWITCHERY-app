@@ -61,12 +61,31 @@ jobs:
           # runs `sdkmanager tools`, installing a legacy "Android SDK
           # Tools" package Google has since removed from the SDK
           # repository ("Warning: Failed to find package 'tools'"),
-          # unrelated to any content change in this repo. GitHub's
-          # ubuntu-latest runner image already ships a working Android
-          # SDK/cmdline-tools (this is the same sdkmanager the action was
-          # itself invoking), so the action added nothing but that broken
-          # step. Removed; sdkmanager below runs against the preinstalled
-          # SDK directly.
+          # unrelated to any content change in this repo. Removing that
+          # step (previous commit) then failed differently: sdkmanager
+          # isn't on PATH by default on the runner image even though the
+          # SDK itself is present at ANDROID_HOME - the action's own error
+          # log showed it downloading a fresh cmdline-tools build to
+          # ANDROID_HOME/cmdline-tools/16.0 itself, i.e. that download is
+          # not preinstalled either. Locate whichever cmdline-tools
+          # sdkmanager is present under ANDROID_HOME (or android-actions
+          # cache dirs) and add it to PATH directly, without relying on
+          # the broken action or a hardcoded version folder name.
+          SDKMANAGER_PATH="$(find "$ANDROID_HOME" -type f -name sdkmanager -path '*/cmdline-tools/*/bin/*' 2>/dev/null | sort -V | tail -n1)"
+          if [ -z "$SDKMANAGER_PATH" ]; then
+            echo "No cmdline-tools sdkmanager found under ANDROID_HOME=$ANDROID_HOME; downloading cmdline-tools directly from Google's official distribution URL."
+            CMDLINE_TOOLS_ZIP="$RUNNER_TEMP/cmdline-tools.zip"
+            curl -fsSL -o "$CMDLINE_TOOLS_ZIP" "https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip"
+            test "$(stat -c%s "$CMDLINE_TOOLS_ZIP")" -gt 50000000
+            unzip -t "$CMDLINE_TOOLS_ZIP" >/dev/null
+            mkdir -p "$ANDROID_HOME/cmdline-tools"
+            unzip -q "$CMDLINE_TOOLS_ZIP" -d "$ANDROID_HOME/cmdline-tools"
+            mv "$ANDROID_HOME/cmdline-tools/cmdline-tools" "$ANDROID_HOME/cmdline-tools/latest"
+            SDKMANAGER_PATH="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          fi
+          echo "Using sdkmanager at: $SDKMANAGER_PATH"
+          export PATH="$(dirname "$SDKMANAGER_PATH"):$PATH"
+
           yes | sdkmanager --licenses >/dev/null || true
           sdkmanager "platforms;android-35" "build-tools;35.0.0"
 
