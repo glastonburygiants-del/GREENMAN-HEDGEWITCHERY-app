@@ -30,6 +30,7 @@ on:
       - "tools/patch_immersive_mode_order.py"
       - "tools/patch_spellbuilder_deities_undefined.py"
       - "tools/patch_v33_button_ux_fixes.py"
+      - "tools/patch_v34_revert_taphighlight_except_drawers.py"
   workflow_dispatch:
 
 permissions:
@@ -383,6 +384,18 @@ jobs:
           # code, no broad refactor.
           python tools/patch_v33_button_ux_fixes.py "$WORK/current.html" "$WORK/current-v33-ux-fix.html"
           mv "$WORK/current-v33-ux-fix.html" "$WORK/current.html"
+          node tools/verify_inline_scripts.js "$WORK/current.html"
+
+          # User feedback after v33 shipped: the blue tap-highlight box
+          # should be left alone everywhere, including the Cupboard's
+          # supply/incense drawers - those already show their own
+          # distinct highlight effect, not the blue one, and should not
+          # have been touched at all. This reverts every
+          # tap-highlight-transparent addition from v33 while keeping its
+          # other three fixes (:active press-feedback, instant Incense
+          # Blend click, dead Scribe lookups).
+          python tools/patch_v34_revert_taphighlight_except_drawers.py "$WORK/current.html" "$WORK/current-v34-revert.html"
+          mv "$WORK/current-v34-revert.html" "$WORK/current.html"
           node tools/verify_inline_scripts.js "$WORK/current.html"
 
           echo "WORK=$WORK" >> "$GITHUB_ENV"
