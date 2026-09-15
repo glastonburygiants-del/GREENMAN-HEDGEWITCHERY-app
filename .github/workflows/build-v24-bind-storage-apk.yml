@@ -31,6 +31,7 @@ on:
       - "tools/patch_spellbuilder_deities_undefined.py"
       - "tools/patch_v33_button_ux_fixes.py"
       - "tools/patch_v34_revert_taphighlight_except_drawers.py"
+      - "tools/patch_v35_daily_room_hard_unload.py"
   workflow_dispatch:
 
 permissions:
@@ -423,6 +424,22 @@ jobs:
           # Blend click, dead Scribe lookups).
           python tools/patch_v34_revert_taphighlight_except_drawers.py "$WORK/current.html" "$WORK/current-v34-revert.html"
           mv "$WORK/current-v34-revert.html" "$WORK/current.html"
+          node tools/verify_inline_scripts.js "$WORK/current.html"
+
+          # Real-device evidence (two diagnostics logs, same 132-page
+          # bind, same device): a bind run cold took 293,985ms with no
+          # spikes; the same bind run after visiting Rune Hall then
+          # Crystal Tumbler earlier in the same session took 463,952ms -
+          # 65% slower, with individual page captures spiking to 5-9
+          # seconds. Confirmed by reading setCupboardView(): leaving
+          # either room only removed the iframe's srcdoc attribute, which
+          # does not reliably force Android WebView to navigate the frame
+          # away from its current (heavy) document, so the previous
+          # room's memory could stay resident and compete with a later
+          # bind. Fix: explicitly navigate the frame to about:blank right
+          # after removing srcdoc, forcing a real unload.
+          python tools/patch_v35_daily_room_hard_unload.py "$WORK/current.html" "$WORK/current-v35-unload.html"
+          mv "$WORK/current-v35-unload.html" "$WORK/current.html"
           node tools/verify_inline_scripts.js "$WORK/current.html"
 
           echo "WORK=$WORK" >> "$GITHUB_ENV"
