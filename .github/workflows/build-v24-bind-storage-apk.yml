@@ -32,6 +32,8 @@ on:
       - "tools/patch_v33_button_ux_fixes.py"
       - "tools/patch_v34_revert_taphighlight_except_drawers.py"
       - "tools/patch_v35_daily_room_hard_unload.py"
+      - "tools/patch_v36_bos_art_cache_escape.py"
+      - "tools/patch_v37_bos_ux_printspell_page100.py.zst.b64"
   workflow_dispatch:
 
 permissions:
@@ -452,6 +454,18 @@ jobs:
           # can be reused across pages.
           python tools/patch_v36_bos_art_cache_escape.py "$WORK/current.html" "$WORK/current-v36-art-cache.html"
           mv "$WORK/current-v36-art-cache.html" "$WORK/current.html"
+          node tools/verify_inline_scripts.js "$WORK/current.html"
+
+          # BoS V37: enlarge only the existing navigation controls, restore
+          # complete Main Contents page references, present chapter contents
+          # as proper destination cards, replace Read Symbols with Print Spell,
+          # and skip fully clipped/off-page artwork during page preparation.
+          base64 --decode "$GITHUB_WORKSPACE/tools/patch_v37_bos_ux_printspell_page100.py.zst.b64" > "$WORK/patch_v37_bos_ux_printspell_page100.py.zst"
+          echo "5663613bfe0ac425c9724cdd70f78cd079119db48c1b49815e9f6655bc16419f  $WORK/patch_v37_bos_ux_printspell_page100.py.zst" | sha256sum -c -
+          zstd -d "$WORK/patch_v37_bos_ux_printspell_page100.py.zst" -o "$WORK/patch_v37_bos_ux_printspell_page100.py"
+          echo "61f87c9109e6d7f8fb331c60fee571dee90ebe18c89f86b85fcf4875e18d0721  $WORK/patch_v37_bos_ux_printspell_page100.py" | sha256sum -c -
+          python "$WORK/patch_v37_bos_ux_printspell_page100.py" "$WORK/current.html" "$WORK/current-v37-bos-ux.html"
+          mv "$WORK/current-v37-bos-ux.html" "$WORK/current.html"
           node tools/verify_inline_scripts.js "$WORK/current.html"
 
           echo "WORK=$WORK" >> "$GITHUB_ENV"
