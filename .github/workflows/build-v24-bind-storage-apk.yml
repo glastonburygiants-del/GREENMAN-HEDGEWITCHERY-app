@@ -34,6 +34,7 @@ on:
       - "tools/patch_v35_daily_room_hard_unload.py"
       - "tools/patch_v36_bos_art_cache_escape.py"
       - "tools/patch_v37_bos_ux_printspell_page100.py"
+      - "tools/patch_v38_chapter_openers_one_page.py.zlib.b64"
   workflow_dispatch:
 
 permissions:
@@ -462,6 +463,21 @@ jobs:
           # and skip fully clipped/off-page artwork during page preparation.
           python tools/patch_v37_bos_ux_printspell_page100.py "$WORK/current.html" "$WORK/current-v37-bos-ux.html"
           mv "$WORK/current-v37-bos-ux.html" "$WORK/current.html"
+          node tools/verify_inline_scripts.js "$WORK/current.html"
+
+          # V38: one designed A4 opener per BoS chapter. The old chapter map
+          # split at 18 destinations and produced continuation pages; this
+          # replaces only that chapter-opener renderer with a single adaptive
+          # grid that changes density to keep every chapter opener on one page.
+          python - <<'PY'
+import base64,zlib
+from pathlib import Path
+src=Path('tools/patch_v38_chapter_openers_one_page.py.zlib.b64')
+out=Path(r'''$WORK/patch_v38_chapter_openers_one_page.py''')
+out.write_bytes(zlib.decompress(base64.b64decode(src.read_text().strip())))
+PY
+          python "$WORK/patch_v38_chapter_openers_one_page.py" "$WORK/current.html" "$WORK/current-v38-chapter-openers.html"
+          mv "$WORK/current-v38-chapter-openers.html" "$WORK/current.html"
           node tools/verify_inline_scripts.js "$WORK/current.html"
 
           echo "WORK=$WORK" >> "$GITHUB_ENV"
