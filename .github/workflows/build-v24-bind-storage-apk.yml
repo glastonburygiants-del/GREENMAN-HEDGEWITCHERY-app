@@ -442,6 +442,18 @@ jobs:
           mv "$WORK/current-v35-unload.html" "$WORK/current.html"
           node tools/verify_inline_scripts.js "$WORK/current.html"
 
+          # Action 166 diagnostics showed the APK bind-wide artwork cache
+          # remained at artCache: 0. The exact shipped Scribe source contains
+          # a malformed /^data:image\// guard after outer-string escaping.
+          # Browser HTML mostly avoids that path because rasterised artwork is
+          # held as blob: URLs, but the APK uses data:image URLs so prepared
+          # SVG artwork can survive its isolated A4 capture frame. Repair only
+          # that escaped slash so raster results enter the existing cache and
+          # can be reused across pages.
+          python tools/patch_v36_bos_art_cache_escape.py "$WORK/current.html" "$WORK/current-v36-art-cache.html"
+          mv "$WORK/current-v36-art-cache.html" "$WORK/current.html"
+          node tools/verify_inline_scripts.js "$WORK/current.html"
+
           echo "WORK=$WORK" >> "$GITHUB_ENV"
 
       - name: Restore exact V28 native files
