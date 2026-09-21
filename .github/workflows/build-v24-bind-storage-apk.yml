@@ -469,13 +469,7 @@ jobs:
           # split at 18 destinations and produced continuation pages; this
           # replaces only that chapter-opener renderer with a single adaptive
           # grid that changes density to keep every chapter opener on one page.
-          python - <<'PY'
-import base64,zlib
-from pathlib import Path
-src=Path('tools/patch_v38_chapter_openers_one_page.py.zlib.b64')
-out=Path(r'''$WORK/patch_v38_chapter_openers_one_page.py''')
-out.write_bytes(zlib.decompress(base64.b64decode(src.read_text().strip())))
-PY
+          python -c "import base64,zlib,pathlib; pathlib.Path('$WORK/patch_v38_chapter_openers_one_page.py').write_bytes(zlib.decompress(base64.b64decode(pathlib.Path('tools/patch_v38_chapter_openers_one_page.py.zlib.b64').read_text().strip())))"
           python "$WORK/patch_v38_chapter_openers_one_page.py" "$WORK/current.html" "$WORK/current-v38-chapter-openers.html"
           mv "$WORK/current-v38-chapter-openers.html" "$WORK/current.html"
           node tools/verify_inline_scripts.js "$WORK/current.html"
