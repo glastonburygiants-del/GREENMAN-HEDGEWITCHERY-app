@@ -479,6 +479,18 @@ jobs:
           # Adds Wildwood CARD/CASH to Quick List, Greenman basket controls
           # to BoS entry selection, and improves category count visibility.
           python -c "import base64,zlib,pathlib; pathlib.Path('$WORK/patch_fv3_journal_sales.py').write_bytes(zlib.decompress(base64.b64decode(pathlib.Path('tools/patch_fv3_journal_sales.py.zlib.b64').read_text().strip())))"
+          # json.loads/json.dumps decodes the existing <\/script> safety escapes.
+          # Restore them before writing PAGES back into the outer HTML script.
+          python - "$WORK/patch_fv3_journal_sales.py" <<'PY'
+          from pathlib import Path
+          import sys
+          p=Path(sys.argv[1])
+          s=p.read_text(encoding='utf-8')
+          old="newobj=json.dumps(pages,ensure_ascii=False,separators=(',',':'))"
+          new="newobj=json.dumps(pages,ensure_ascii=False,separators=(',',':')).replace('</script>', '<' + chr(92) + '/script>')"
+          assert s.count(old)==1, s.count(old)
+          p.write_text(s.replace(old,new,1),encoding='utf-8')
+          PY
           python "$WORK/patch_fv3_journal_sales.py" "$WORK/current.html" "$WORK/current-journal-sales.html"
           mv "$WORK/current-journal-sales.html" "$WORK/current.html"
           node tools/verify_inline_scripts.js "$WORK/current.html"
