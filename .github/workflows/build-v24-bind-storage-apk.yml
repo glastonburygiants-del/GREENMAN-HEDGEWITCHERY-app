@@ -35,6 +35,7 @@ on:
       - "tools/patch_v36_bos_art_cache_escape.py"
       - "tools/patch_v37_bos_ux_printspell_page100.py"
       - "tools/patch_v38_chapter_openers_one_page.py.zlib.b64"
+      - "tools/patch_fv3_journal_sales.py.zlib.b64"
   workflow_dispatch:
 
 permissions:
@@ -473,6 +474,17 @@ jobs:
           python "$WORK/patch_v38_chapter_openers_one_page.py" "$WORK/current.html" "$WORK/current-v38-chapter-openers.html"
           mv "$WORK/current-v38-chapter-openers.html" "$WORK/current.html"
           node tools/verify_inline_scripts.js "$WORK/current.html"
+
+          # FV3 Journal sales: isolated final Journal-only patch.
+          # Adds Wildwood CARD/CASH to Quick List, Greenman basket controls
+          # to BoS entry selection, and improves category count visibility.
+          python -c "import base64,zlib,pathlib; pathlib.Path('$WORK/patch_fv3_journal_sales.py').write_bytes(zlib.decompress(base64.b64decode(pathlib.Path('tools/patch_fv3_journal_sales.py.zlib.b64').read_text().strip())))"
+          python "$WORK/patch_fv3_journal_sales.py" "$WORK/current.html" "$WORK/current-journal-sales.html"
+          mv "$WORK/current-journal-sales.html" "$WORK/current.html"
+          node tools/verify_inline_scripts.js "$WORK/current.html"
+          grep -Fq 'ADD SPELL KIT TO BASKET' "$WORK/current.html"
+          grep -Fq 'gmWildwoodStart' "$WORK/current.html"
+          grep -Fq 'gmBasketBar' "$WORK/current.html"
 
           echo "WORK=$WORK" >> "$GITHUB_ENV"
 
