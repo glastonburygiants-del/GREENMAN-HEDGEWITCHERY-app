@@ -42,6 +42,7 @@ on:
       - "tools/patch_fv3_sales_diagnostics.py"
       - "tools/patch_fv3_sales_error_and_basket_clear.py"
       - "tools/patch_fv3_sales_purchased_badge.py"
+      - "tools/patch_fv3_sales_rerender_entries.py"
       - "tools/greenman_release_keystore.b64"
   workflow_dispatch:
 
@@ -563,6 +564,19 @@ jobs:
           # app already treats as final elsewhere (e.g. Wildwood Cash).
           python tools/patch_fv3_sales_purchased_badge.py "$WORK/current.html" "$WORK/current-purchased-badge.html"
           mv "$WORK/current-purchased-badge.html" "$WORK/current.html"
+          node tools/verify_inline_scripts.js "$WORK/current.html"
+
+          # Real-device report: the basket correctly cleared after a
+          # purchase, but the entry card below it still showed the plain
+          # "ADD SPELL KIT TO BASKET" button with no Purchased badge.
+          # Confirmed by reading renderEntries() directly: it's the only
+          # function that redraws the Book of Shadows entry list, and
+          # nothing in gmCheckoutBasket() ever called it after marking a
+          # purchase - the list DOM was built before the purchase and was
+          # never regenerated, so it couldn't show the new state even
+          # though the underlying data was already correct.
+          python tools/patch_fv3_sales_rerender_entries.py "$WORK/current.html" "$WORK/current-rerender.html"
+          mv "$WORK/current-rerender.html" "$WORK/current.html"
           node tools/verify_inline_scripts.js "$WORK/current.html"
 
           echo "WORK=$WORK" >> "$GITHUB_ENV"
