@@ -39,6 +39,7 @@ on:
       - "tools/patch_v38_chapter_openers_one_page.py.zlib.b64"
       - "tools/patch_fv3_journal_sales.py.zlib.b64"
       - "tools/patch_fv3_sales_herbcount_gate.py"
+      - "tools/patch_fv3_sales_diagnostics.py"
       - "tools/greenman_release_keystore.b64"
   workflow_dispatch:
 
@@ -517,6 +518,20 @@ jobs:
           # so an unsellable spell simply isn't offered for sale.
           python tools/patch_fv3_sales_herbcount_gate.py "$WORK/current.html" "$WORK/current-herbcount-gate.html"
           mv "$WORK/current-herbcount-gate.html" "$WORK/current.html"
+          node tools/verify_inline_scripts.js "$WORK/current.html"
+
+          # Real-device debugging showed the checkout "Failed to fetch"
+          # error never appeared in a GREENMAN TABLET DIAGNOSTICS log at
+          # all - the sales code only shows its own errors on-screen,
+          # unlike every other area of the app, which made this bug much
+          # harder to track down than it needed to be. Wires the same
+          # add(...) diagnostics calls already used throughout the rest of
+          # the app into gmAddSpellToBasket/gmCheckoutBasket/
+          # gmFinishWildwood, so future sales issues show up directly in a
+          # log (checkout/sale failures marked serious, with the real
+          # error message) instead of only as an on-screen message.
+          python tools/patch_fv3_sales_diagnostics.py "$WORK/current.html" "$WORK/current-sales-diagnostics.html"
+          mv "$WORK/current-sales-diagnostics.html" "$WORK/current.html"
           node tools/verify_inline_scripts.js "$WORK/current.html"
 
           echo "WORK=$WORK" >> "$GITHUB_ENV"
