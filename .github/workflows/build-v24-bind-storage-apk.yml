@@ -914,11 +914,18 @@ jobs:
 
           sha256sum "$APK" | tee "$WORK/final-apk-sha256.txt"
 
+          # User feedback: every run's artifact and APK had the exact same
+          # name, so a phone downloading build after build ends up with a
+          # pile of "(1)", "(2)" ... "(1000)" duplicate files with no way to
+          # tell them apart. Copy to a run-numbered filename right before
+          # upload so every build's download is uniquely named on its own.
+          cp "$APK" "$RUNNER_TEMP/GREENMAN_HEDGEWITCHERY_APOTHECARY_FV3_run${{ github.run_number }}.apk"
+
       - name: Upload V28-base APK
         uses: actions/upload-artifact@v4
         with:
-          name: GREENMAN-HEDGEWITCHERY-APOTHECARY-FV3-APK
-          path: ${{ runner.temp }}/GREENMAN_HEDGEWITCHERY_APOTHECARY_FV3.apk
+          name: GREENMAN-HEDGEWITCHERY-APOTHECARY-FV3-APK-run${{ github.run_number }}
+          path: ${{ runner.temp }}/GREENMAN_HEDGEWITCHERY_APOTHECARY_FV3_run${{ github.run_number }}.apk
           if-no-files-found: error
           retention-days: 30
 
