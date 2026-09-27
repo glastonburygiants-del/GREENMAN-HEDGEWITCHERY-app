@@ -563,6 +563,35 @@ jobs:
             echo "Refusing to build a debuggable payments APK"
             exit 1
           fi
+
+          # The FV3.1 Journal sales patch (tools/patch_fv3_journal_sales.py.zlib.b64)
+          # added live fetch() calls to Supabase and a PayPal redirect, but this
+          # app was originally built offline-only and its AndroidManifest.xml has
+          # never declared android.permission.INTERNET - confirmed by decoding
+          # the shipped APK's binary manifest directly (no uses-permission
+          # element exists in its string pool at all). Without it, WebView
+          # network requests fail outright regardless of any server-side
+          # Supabase/PayPal configuration. Insert the permission once, right
+          # after the <manifest> opening tag.
+          python - "$WORK/decoded/AndroidManifest.xml" <<'PY'
+          from pathlib import Path
+          import sys
+          p=Path(sys.argv[1])
+          s=p.read_text(encoding='utf-8')
+          permission='<uses-permission android:name="android.permission.INTERNET"/>'
+          if permission in s:
+              print('INTERNET permission already present')
+          else:
+              anchor='platformBuildVersionName="15">'
+              count=s.count(anchor)
+              if count!=1:
+                  raise SystemExit(f'manifest opening-tag anchor: expected exactly 1 occurrence, found {count}')
+              s=s.replace(anchor, anchor+'\n    '+permission, 1)
+              p.write_text(s, encoding='utf-8')
+              print('added android.permission.INTERNET to AndroidManifest.xml')
+          PY
+          grep -Fq 'android.permission.INTERNET' "$WORK/decoded/AndroidManifest.xml"
+
           sed -i 's/versionCode: 30/versionCode: 66/' "$WORK/decoded/apktool.yml"
           sed -i 's/versionName: .*/versionName: FV3.1/' "$WORK/decoded/apktool.yml"
 
@@ -642,6 +671,7 @@ jobs:
 
           grep -q "package: name='com.greenman.hedgewitchery' versionCode='66'" "$WORK/badging.txt"
           grep -q "versionName='FV3.1'" "$WORK/badging.txt"
+          grep -q "uses-permission: name='android.permission.INTERNET'" "$WORK/badging.txt"
           unzip -p "$APK" assets/index.html > "$WORK/final-index.html"
           cmp "$WORK/final-index.html" "$WORK/current.html"
           node tools/verify_inline_scripts.js "$WORK/final-index.html"
