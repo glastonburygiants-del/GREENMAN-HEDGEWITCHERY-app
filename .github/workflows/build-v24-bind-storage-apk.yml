@@ -38,6 +38,7 @@ on:
       - "tools/patch_v38_chapter_openers_one_page.py.zlib.b64"
       - "tools/patch_fv3_journal_sales.py.zlib.b64"
       - "tools/patch_fv3_sales_herbcount_gate.py"
+      - "tools/greenman_release_keystore.b64"
   workflow_dispatch:
 
 permissions:
@@ -685,10 +686,23 @@ jobs:
           "$BT/zipalign" -p -f 4 "$WORK/unsigned.apk" "$WORK/aligned.apk"
 
           mkdir -p "$HOME/.android"
-          base64 --decode tools/greenman_debug_keystore.b64 > "$HOME/.android/debug.keystore"
-          chmod 600 "$HOME/.android/debug.keystore"
 
-          "$BT/apksigner" sign             --ks "$HOME/.android/debug.keystore"             --ks-key-alias androiddebugkey             --ks-pass pass:android             --key-pass pass:android             --out "$RUNNER_TEMP/GREENMAN_HEDGEWITCHERY_APOTHECARY_FV3.apk"             "$WORK/aligned.apk"
+          # Real-device report: the debug-signed APK was consistently
+          # flagged "Harmful app blocked" by Google Play Protect, unrelated
+          # to any code content (identical issues persisted after fixing
+          # the missing permission, the blocked PayPal redirect, and the
+          # stuck version number). Play Protect's reputation scoring is
+          # partly tied to the specific signing certificate's own history;
+          # switching to a freshly generated certificate with no prior
+          # history removes that factor. This is a genuinely different
+          # signing identity from the old debug keystore, so any device
+          # with an old-signed copy still installed must uninstall it
+          # first - there is no way to "update" across a certificate
+          # change, by Android design.
+          base64 --decode tools/greenman_release_keystore.b64 > "$HOME/.android/release.keystore"
+          chmod 600 "$HOME/.android/release.keystore"
+
+          "$BT/apksigner" sign             --ks "$HOME/.android/release.keystore"             --ks-key-alias greenmanrelease2026             --ks-pass pass:greenmanhedgewitchery2026             --key-pass pass:greenmanhedgewitchery2026             --out "$RUNNER_TEMP/GREENMAN_HEDGEWITCHERY_APOTHECARY_FV3.apk"             "$WORK/aligned.apk"
 
       - name: Verify V28-base APK
         shell: bash
