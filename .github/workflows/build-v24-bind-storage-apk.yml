@@ -37,6 +37,7 @@ on:
       - "tools/patch_v37_bos_ux_printspell_page100.py"
       - "tools/patch_v38_chapter_openers_one_page.py.zlib.b64"
       - "tools/patch_fv3_journal_sales.py.zlib.b64"
+      - "tools/patch_fv3_sales_herbcount_gate.py"
   workflow_dispatch:
 
 permissions:
@@ -498,6 +499,23 @@ jobs:
           grep -Fq 'ADD SPELL KIT TO BASKET' "$WORK/current.html"
           grep -Fq 'gmWildwoodStart' "$WORK/current.html"
           grep -Fq 'gmBasketBar' "$WORK/current.html"
+
+          # Confirmed via the live Supabase shop-create-order edge function
+          # (read directly through the Supabase MCP server, not secondhand):
+          # it requires an EXACT herb count per level - Handful=5, Weaving=7,
+          # Full Grove=11 - and rejects anything else outright. The Journal
+          # sales patch's gmSaleLevel() picks a level from a spell's freeform
+          # `depth` text first, then falls back to range checks (11+/7+/else),
+          # either of which can pick a level whose herb count doesn't match
+          # the spell's real herbs - the customer could add it to the basket,
+          # but checkout would always fail there with a confusing backend
+          # error. This makes gmSaleLevel() only return a level on an exact
+          # herb-count match, and gates both sale entry points (the Journal's
+          # basket button, the Quick List's Wildwood CARD/CASH buttons) on it,
+          # so an unsellable spell simply isn't offered for sale.
+          python tools/patch_fv3_sales_herbcount_gate.py "$WORK/current.html" "$WORK/current-herbcount-gate.html"
+          mv "$WORK/current-herbcount-gate.html" "$WORK/current.html"
+          node tools/verify_inline_scripts.js "$WORK/current.html"
 
           echo "WORK=$WORK" >> "$GITHUB_ENV"
 
