@@ -29,6 +29,7 @@ on:
       - "tools/force_resources_arsc_stored.py"
       - "tools/patch_immersive_mode_order.py"
       - "tools/patch_paypal_external_browser.py"
+      - "tools/patch_supabase_fetch_allowlist.py"
       - "tools/patch_spellbuilder_deities_undefined.py"
       - "tools/patch_v33_button_ux_fixes.py"
       - "tools/patch_v34_revert_taphighlight_except_drawers.py"
@@ -567,6 +568,24 @@ jobs:
           # external host remains blocked exactly as before.
           python tools/patch_paypal_external_browser.py             "$WORK/decoded/smali_classes2/com/greenman/hedgewitchery/MainActivity\$LocalAssetWebViewClient.smali"
           grep -Fq 'android.intent.action.VIEW' "$WORK/decoded/smali_classes2/com/greenman/hedgewitchery/MainActivity\$LocalAssetWebViewClient.smali"
+
+          # Real-device report: tapping Checkout showed "Failed to fetch"
+          # on a confirmed-solid Wi-Fi connection, and a direct Supabase
+          # log query for that exact moment showed the request never
+          # arrived at the edge function at all - ruling out a network or
+          # backend problem entirely. Confirmed by reading
+          # shouldInterceptRequest() directly: it runs for every resource
+          # request the page makes (not just top-level navigation - that's
+          # shouldOverrideUrlLoading, already patched above for the PayPal
+          # redirect) and unconditionally blocks any host that isn't
+          # exactly "greenman.local", including fetch()/XHR calls. That
+          # silently blocked the sales code's fetch() to
+          # https://zzfgufuyetybxaeidcxu.supabase.co before it ever
+          # reached the network. Only *.supabase.co is let through this
+          # way; every other external host remains blocked exactly as
+          # before.
+          python tools/patch_supabase_fetch_allowlist.py             "$WORK/decoded/smali_classes2/com/greenman/hedgewitchery/MainActivity\$LocalAssetWebViewClient.smali"
+          grep -Fq 'supabase.co' "$WORK/decoded/smali_classes2/com/greenman/hedgewitchery/MainActivity\$LocalAssetWebViewClient.smali"
 
           python - "$WORK/decoded/smali_classes2/com/greenman/hedgewitchery/MainActivity.smali" <<'PY'
           import sys
