@@ -44,6 +44,7 @@ on:
       - "tools/patch_fv3_sales_purchased_badge.py"
       - "tools/patch_fv3_sales_rerender_entries.py"
       - "tools/patch_fv3_sales_paid_confirmation.py"
+      - "tools/patch_fv34_country_sales_gate.py"
       - "tools/greenman_release_keystore.b64"
   workflow_dispatch:
 
@@ -589,6 +590,13 @@ jobs:
           mv "$WORK/current-paid-confirmation.html" "$WORK/current.html"
           node tools/verify_inline_scripts.js "$WORK/current.html"
 
+          # FV3.4: ask for the user's country once per installation. The
+          # Greenman online Buy Spell buttons and basket only exist for GB.
+          # Wildwood in-person sales are intentionally left unchanged.
+          python tools/patch_fv34_country_sales_gate.py "$WORK/current.html" "$WORK/current-country-gate.html"
+          mv "$WORK/current-country-gate.html" "$WORK/current.html"
+          node tools/verify_inline_scripts.js "$WORK/current.html"
+
           echo "WORK=$WORK" >> "$GITHUB_ENV"
 
       - name: Restore exact V28 native files
@@ -727,8 +735,8 @@ jobs:
           # keystore - they match exactly, so this was never a signature
           # conflict. Bumping versionCode so this and future builds can
           # actually update the device's existing install.
-          sed -i 's/versionCode: 30/versionCode: 68/' "$WORK/decoded/apktool.yml"
-          sed -i 's/versionName: .*/versionName: FV3.3/' "$WORK/decoded/apktool.yml"
+          sed -i 's/versionCode: 30/versionCode: 69/' "$WORK/decoded/apktool.yml"
+          sed -i 's/versionName: .*/versionName: FV3.4/' "$WORK/decoded/apktool.yml"
 
           if grep -Fq 'ScribePdfService' "$WORK/decoded/AndroidManifest.xml"; then exit 1; fi
           if grep -Fq 'android.permission.FOREGROUND_SERVICE' "$WORK/decoded/AndroidManifest.xml"; then exit 1; fi
@@ -817,8 +825,8 @@ jobs:
           print('resources.arsc confirmed stored uncompressed')
           PY
 
-          grep -q "package: name='com.greenman.hedgewitchery' versionCode='68'" "$WORK/badging.txt"
-          grep -q "versionName='FV3.3'" "$WORK/badging.txt"
+          grep -q "package: name='com.greenman.hedgewitchery' versionCode='69'" "$WORK/badging.txt"
+          grep -q "versionName='FV3.4'" "$WORK/badging.txt"
           grep -q "uses-permission: name='android.permission.INTERNET'" "$WORK/badging.txt"
           unzip -p "$APK" assets/index.html > "$WORK/final-index.html"
           cmp "$WORK/final-index.html" "$WORK/current.html"
@@ -827,6 +835,9 @@ jobs:
           grep -Fq 'shop-order-status' "$WORK/final-index.html"
           grep -Fq 'SEE APP FOR FULL INSTRUCTIONS.' "$WORK/final-index.html"
           grep -Fq 'CARRY ON' "$WORK/final-index.html"
+          grep -Fq 'gm-country-first-install-script' "$WORK/final-index.html"
+          grep -Fq 'gm_user_country_v1' "$WORK/final-index.html"
+          grep -Fq 'Spell purchases are currently available for UK delivery only.' "$WORK/final-index.html"
 
           grep -Fq 'INKPOT V2.7.30: Ink Pot saves only an exact copy of the completed bound PDF; all chapter/page/spell filtering removed from this room.' "$WORK/final-index.html"
           grep -Fq 'CUPBOARD LAYOUT FIX V2.7.29: furniture order unchanged; join CSS is now correctly contained in style.' "$WORK/final-index.html"
