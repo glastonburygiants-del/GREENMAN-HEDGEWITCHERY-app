@@ -83,7 +83,7 @@ once(anchor, insert + anchor, 'paid status confirmation')
 
 if journal == original:
     raise SystemExit('no changes applied')
-encoded = json.dumps(journal, ensure_ascii=False)
+encoded = json.dumps(journal, ensure_ascii=False).replace('</script>', '<\\/script>')
 patched = outer[:key_at] + encoded + outer[key_at+used:]
 out.write_text(patched, encoding='utf-8')
 print(f'wrote {out} bytes={len(patched)}')
