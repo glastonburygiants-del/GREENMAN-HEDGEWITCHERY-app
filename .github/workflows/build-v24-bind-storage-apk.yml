@@ -40,6 +40,8 @@ on:
       - "tools/patch_fv3_journal_sales.py.zlib.b64"
       - "tools/patch_fv3_sales_herbcount_gate.py"
       - "tools/patch_fv3_sales_diagnostics.py"
+      - "tools/patch_fv3_sales_error_and_basket_clear.py"
+      - "tools/patch_fv3_sales_purchased_badge.py"
       - "tools/greenman_release_keystore.b64"
   workflow_dispatch:
 
@@ -532,6 +534,35 @@ jobs:
           # error message) instead of only as an on-screen message.
           python tools/patch_fv3_sales_diagnostics.py "$WORK/current.html" "$WORK/current-sales-diagnostics.html"
           mv "$WORK/current-sales-diagnostics.html" "$WORK/current.html"
+          node tools/verify_inline_scripts.js "$WORK/current.html"
+
+          # Real-device diagnostics log confirmed two more sales bugs.
+          # (1) Wildwood Card failed twice showing only "[object Object]":
+          # gmShopPost() did `throw new Error(d.error||...)`, and some of
+          # the Supabase function's error responses set `error` to a raw
+          # object (e.g. PayPal's own response body) rather than a
+          # string - `new Error(anObject)` stringifies via the object's
+          # default toString(), discarding the real detail. (2) The
+          # basket never cleared after a successful checkout - confirmed
+          # by reading gmCheckoutBasket() directly, it never called
+          # gmWriteBasket([]) or removed the busy class after creating
+          # the order, matching the report "basket didn't clear when
+          # paid and just stuck faded out".
+          python tools/patch_fv3_sales_error_and_basket_clear.py "$WORK/current.html" "$WORK/current-sales-fixes.html"
+          mv "$WORK/current-sales-fixes.html" "$WORK/current.html"
+          node tools/verify_inline_scripts.js "$WORK/current.html"
+
+          # User request: a Book of Shadows entry should show it's already
+          # been bought, and offer "Buy Again" instead of the plain "Add
+          # Spell Kit to Basket" label. Adds a localStorage-backed record
+          # of purchased journal_entry_ids, marked the same moment the
+          # basket is now cleared (order successfully created with
+          # Supabase/PayPal) - there is no payment-capture callback that
+          # ever reaches this app instance to confirm PayPal payment
+          # completed, so this is the same "sale was initiated" point the
+          # app already treats as final elsewhere (e.g. Wildwood Cash).
+          python tools/patch_fv3_sales_purchased_badge.py "$WORK/current.html" "$WORK/current-purchased-badge.html"
+          mv "$WORK/current-purchased-badge.html" "$WORK/current.html"
           node tools/verify_inline_scripts.js "$WORK/current.html"
 
           echo "WORK=$WORK" >> "$GITHUB_ENV"
