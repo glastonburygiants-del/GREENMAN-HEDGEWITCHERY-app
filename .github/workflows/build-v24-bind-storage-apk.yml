@@ -28,6 +28,7 @@ on:
       - "tools/patch_bos_restore_reflow.py"
       - "tools/force_resources_arsc_stored.py"
       - "tools/patch_immersive_mode_order.py"
+      - "tools/patch_paypal_external_browser.py"
       - "tools/patch_spellbuilder_deities_undefined.py"
       - "tools/patch_v33_button_ux_fixes.py"
       - "tools/patch_v34_revert_taphighlight_except_drawers.py"
@@ -531,6 +532,22 @@ jobs:
           # is to call it after setContentView() instead - see
           # tools/patch_immersive_mode_order.py for the full trace.
           python tools/patch_immersive_mode_order.py             "$WORK/decoded/smali_classes2/com/greenman/hedgewitchery/MainActivity.smali"
+
+          # The FV3.1 Journal sales patch added a checkout button that sets
+          # window.top.location.href to a PayPal approval URL, but
+          # MainActivity$LocalAssetWebViewClient.shouldOverrideUrlLoading()
+          # only allows navigation whose host is exactly "greenman.local" -
+          # every other host (including paypal.com) returns true (meaning
+          # "handled") but takes no further action, so the checkout button
+          # silently did nothing. This is also the safer fix for the
+          # separate Play Protect "harmful app" classification: an app that
+          # quietly redirects its own embedded WebView to a payment page
+          # reads as a phishing pattern, whereas handing the URL to the
+          # device's real browser via a normal external Intent does not.
+          # Only *.paypal.com is allowed through this way; every other
+          # external host remains blocked exactly as before.
+          python tools/patch_paypal_external_browser.py             "$WORK/decoded/smali_classes2/com/greenman/hedgewitchery/MainActivity\$LocalAssetWebViewClient.smali"
+          grep -Fq 'android.intent.action.VIEW' "$WORK/decoded/smali_classes2/com/greenman/hedgewitchery/MainActivity\$LocalAssetWebViewClient.smali"
 
           python - "$WORK/decoded/smali_classes2/com/greenman/hedgewitchery/MainActivity.smali" <<'PY'
           import sys
