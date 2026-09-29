@@ -1,0 +1,1072 @@
+name: Build Greenman EXP1 Access Key Prototype
+
+on:
+  push:
+    branches:
+      - experimental/web-access-v1
+    paths:
+      - ".github/workflows/build-experimental-web-access-v1.yml"
+      - "current-build-20260907/**"
+      - "tools/patch_inkpot_cupboard_final.py"
+      - "tools/patch_v2729_hotfix.py"
+      - "tools/patch_v2730_hotfix.py"
+      - "tools/patch_v2731_cleanup.py"
+      - "tools/patch_v2732_security.py.zst"
+      - "tools/patch_v2733_recovery.py.zst"
+      - "tools/patch_v2734_scribe_ui_print.py.zst"
+      - "tools/patch_v2735_bos_zoom_contents.py.zst"
+      - "tools/patch_v2736_select_everything.py.zst"
+      - "tools/patch_v2737_home_contents.py.zst"
+      - "tools/patch_fv3_tablet_home.py"
+      - "tools/patch_fv3_followup_home_childsafe_fullwidth.py"
+      - "tools/restore_fv3_scribe_direct_compact.part*.b64"
+      - "tools/verify_inline_scripts.js"
+      - "tools/patch_v2738_cupboard_inkpot_ui_fix.py"
+      - "tools/patch_bos_reopen_binding_guard.py"
+      - "tools/patch_lazy_load_scribe.py"
+      - "tools/patch_showpage_duplicate_nav_guard.py"
+      - "tools/patch_bos_restore_reflow.py"
+      - "tools/force_resources_arsc_stored.py"
+      - "tools/patch_immersive_mode_order.py"
+      - "tools/patch_paypal_external_browser.py"
+      - "tools/patch_supabase_fetch_allowlist.py"
+      - "tools/patch_spellbuilder_deities_undefined.py"
+      - "tools/patch_v33_button_ux_fixes.py"
+      - "tools/patch_v34_revert_taphighlight_except_drawers.py"
+      - "tools/patch_v35_daily_room_hard_unload.py"
+      - "tools/patch_v36_bos_art_cache_escape.py"
+      - "tools/patch_v37_bos_ux_printspell_page100.py"
+      - "tools/patch_v38_chapter_openers_one_page.py.zlib.b64"
+      - "tools/patch_fv3_journal_sales.py.zlib.b64"
+      - "tools/patch_fv3_sales_herbcount_gate.py"
+      - "tools/patch_fv3_sales_diagnostics.py"
+      - "tools/patch_fv3_sales_error_and_basket_clear.py"
+      - "tools/patch_fv3_sales_purchased_badge.py"
+      - "tools/patch_fv3_sales_rerender_entries.py"
+      - "tools/patch_fv3_sales_paid_confirmation.py"
+      - "tools/patch_fv34_country_sales_gate.py"
+      - "tools/patch_exp_access_keys_v1.py"
+      - "tools/greenman_release_keystore.b64"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out repository with V28 history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Install Android build tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          # android-actions/setup-android@v3 started failing here (3
+          # attempts in a row on two separate pushes): it unconditionally
+          # runs `sdkmanager tools`, installing a legacy "Android SDK
+          # Tools" package Google has since removed from the SDK
+          # repository ("Warning: Failed to find package 'tools'"),
+          # unrelated to any content change in this repo. Removing that
+          # step (previous commit) then failed differently: sdkmanager
+          # isn't on PATH by default on the runner image even though the
+          # SDK itself is present at ANDROID_HOME - the action's own error
+          # log showed it downloading a fresh cmdline-tools build to
+          # ANDROID_HOME/cmdline-tools/16.0 itself, i.e. that download is
+          # not preinstalled either. Locate whichever cmdline-tools
+          # sdkmanager is present under ANDROID_HOME (or android-actions
+          # cache dirs) and add it to PATH directly, without relying on
+          # the broken action or a hardcoded version folder name.
+          SDKMANAGER_PATH="$(find "$ANDROID_HOME" -type f -name sdkmanager -path '*/cmdline-tools/*/bin/*' 2>/dev/null | sort -V | tail -n1)"
+          if [ -z "$SDKMANAGER_PATH" ]; then
+            echo "No cmdline-tools sdkmanager found under ANDROID_HOME=$ANDROID_HOME; downloading cmdline-tools directly from Google's official distribution URL."
+            CMDLINE_TOOLS_ZIP="$RUNNER_TEMP/cmdline-tools.zip"
+            curl -fsSL -o "$CMDLINE_TOOLS_ZIP" "https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip"
+            test "$(stat -c%s "$CMDLINE_TOOLS_ZIP")" -gt 50000000
+            unzip -t "$CMDLINE_TOOLS_ZIP" >/dev/null
+            mkdir -p "$ANDROID_HOME/cmdline-tools"
+            unzip -q "$CMDLINE_TOOLS_ZIP" -d "$ANDROID_HOME/cmdline-tools"
+            mv "$ANDROID_HOME/cmdline-tools/cmdline-tools" "$ANDROID_HOME/cmdline-tools/latest"
+            SDKMANAGER_PATH="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          fi
+          echo "Using sdkmanager at: $SDKMANAGER_PATH"
+          export PATH="$(dirname "$SDKMANAGER_PATH"):$PATH"
+
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager "platforms;android-35" "build-tools;35.0.0"
+
+      - name: Reconstruct exact current HTML
+        shell: bash
+        run: |
+          set -euo pipefail
+          WORK="$RUNNER_TEMP/gm-v28-current"
+          mkdir -p "$WORK"
+          BASE="$GITHUB_WORKSPACE/GREENMAN_HEDGEWITCHERY.apk"
+          PACKED="$GITHUB_WORKSPACE/GREENMAN_V23_ENERGY_HEADING_V19_MINIMAL_SAFE.html.xz (1).html"
+
+          test "$(stat -c%s "$BASE")" -eq 6690801
+          echo "a3e5f03bbd5560b7420626ec02b0c89ff0252a35200a650b9e8ea950bb2e2cdd  $BASE" | sha256sum -c -
+
+          xz --test "$PACKED"
+          xz --decompress --stdout "$PACKED" > "$WORK/v23.html"
+          echo "b02e6e2cc69f9239bdf5a4490cd1159b7b6edcdecfc98461a5a49ed034074d59  $WORK/v23.html" | sha256sum -c -
+
+          python tools/patch_bos_last_bound.py "$WORK/v23.html" "$WORK/v29-base.html"
+          echo "10fe161dba2deb807d3a82945c0f3b5e8f044fd0219d3bc1d7432ed3b2854192  $WORK/v29-base.html" | sha256sum -c -
+
+          command -v zstd >/dev/null || {
+            sudo apt-get update
+            sudo apt-get install -y zstd
+          }
+          PINNED_GOOD="7636651096b13596bbd692dd10dcd66d170159b0"
+          : > "$WORK/current.patch.b64"
+          for n in 00 01 02 03 04 05 06 07 08 09; do
+            git show "$PINNED_GOOD:current-build-20260907/fixed_patch.part$n.b64" >> "$WORK/current.patch.b64"
+          done
+          base64 --decode "$WORK/current.patch.b64" > "$WORK/current.patch.zst"
+          echo "4ba4964d0f9c0923d550a6e568d448a0f62db58b4a769902d3f35b30c46deeef  $WORK/current.patch.zst" | sha256sum -c -
+          zstd -d --patch-from="$WORK/v29-base.html" "$WORK/current.patch.zst" -o "$WORK/pre-inkpot-fix.html"
+          test "$(stat -c%s "$WORK/pre-inkpot-fix.html")" -eq 32037133
+          echo "0d51455210168dee9c40a6a1c520789d6ee104e61ed1f3eebca2a91fe74a1318  $WORK/pre-inkpot-fix.html" | sha256sum -c -
+
+          python tools/patch_inkpot_cupboard_final.py "$WORK/pre-inkpot-fix.html" "$WORK/current-2728.html"
+          test "$(stat -c%s "$WORK/current-2728.html")" -eq 32059828
+          echo "48a736add3abc2caf260b8fe97794e5f8d64759204c864b4e5e09d0388f7fb4e  $WORK/current-2728.html" | sha256sum -c -
+
+          python tools/patch_v2729_hotfix.py "$WORK/current-2728.html" "$WORK/current-2729.html"
+          test "$(stat -c%s "$WORK/current-2729.html")" -eq 32060705
+          echo "b419178d8017ba188fa794019632b31fd14a2d6aa5705eec8b34212ebf9949cd  $WORK/current-2729.html" | sha256sum -c -
+
+          python tools/patch_v2730_hotfix.py "$WORK/current-2729.html" "$WORK/current-2730.html"
+          test "$(stat -c%s "$WORK/current-2730.html")" -eq 32057610
+          echo "d5c2bee553055e2fa3d5356446de7e781b4a0ff14ae53d880aadcf5c27e80204  $WORK/current-2730.html" | sha256sum -c -
+
+          python tools/patch_v2731_cleanup.py "$WORK/current-2730.html" "$WORK/current-2731.html"
+          test "$(stat -c%s "$WORK/current-2731.html")" -eq 32015365
+          echo "deb339a1982d3fd2c8df8f3b4e4cc247a223903c639e6c7f00c0bd69ac37599b  $WORK/current-2731.html" | sha256sum -c -
+
+          zstd -d "$GITHUB_WORKSPACE/tools/patch_v2732_security.py.zst" -o "$WORK/patch_v2732_security.py"
+          echo "682a26eaefbc3eebb8dadd4e1b6546e3702505eca14f6d21b30416cb3f292bcd  $WORK/patch_v2732_security.py" | sha256sum -c -
+          python "$WORK/patch_v2732_security.py" "$WORK/current-2731.html" "$WORK/current-2732.html"
+          test "$(stat -c%s "$WORK/current-2732.html")" -eq 32071303
+          echo "8ed98c7fc141ee4e867b18146f2ea7fd05ef3d802238f75a16dbaa626ce29af5  $WORK/current-2732.html" | sha256sum -c -
+
+          zstd -d "$GITHUB_WORKSPACE/tools/patch_v2733_recovery.py.zst" -o "$WORK/patch_v2733_recovery.py"
+          echo "4c1226e3b5f675d9381fcdd5f94d19ab369d05d8d8300724744801b75782e2e0  $WORK/patch_v2733_recovery.py" | sha256sum -c -
+          python "$WORK/patch_v2733_recovery.py" "$WORK/current-2732.html" "$WORK/current-2733.html"
+          test "$(stat -c%s "$WORK/current-2733.html")" -eq 32076983
+          echo "c269f4eccb9717bfaa95c5c9a49e19ed17f86088683eb84958650d4c73a39d96  $WORK/current-2733.html" | sha256sum -c -
+
+          zstd -d "$GITHUB_WORKSPACE/tools/patch_v2734_scribe_ui_print.py.zst" -o "$WORK/patch_v2734_scribe_ui_print.py"
+          echo "34a20d04f35371ca9fe61b807cfe281fcdb01b48443e17660f535a9c5689ec3b  $WORK/patch_v2734_scribe_ui_print.py" | sha256sum -c -
+          python "$WORK/patch_v2734_scribe_ui_print.py" "$WORK/current-2733.html" "$WORK/current-2734.html"
+          test "$(stat -c%s "$WORK/current-2734.html")" -eq 32086053
+          echo "ae997b8b634f91151d797cabe2f340f6bf4ebe05414a4e1d3c163788a0f3a7b4  $WORK/current-2734.html" | sha256sum -c -
+
+          zstd -d "$GITHUB_WORKSPACE/tools/patch_v2735_bos_zoom_contents.py.zst" -o "$WORK/patch_v2735_bos_zoom_contents.py"
+          echo "f8a165e8d871d316e720461be746d84b36dbb93bb6bc66df04718c963a70712a  $WORK/patch_v2735_bos_zoom_contents.py" | sha256sum -c -
+          python "$WORK/patch_v2735_bos_zoom_contents.py" "$WORK/current-2734.html" "$WORK/current-2735.html"
+          test "$(stat -c%s "$WORK/current-2735.html")" -eq 32089842
+          echo "61fe7fa7dc67d4100e68eecce41e3ef57a0695a9082d9bd72b586d62f0ca2a64  $WORK/current-2735.html" | sha256sum -c -
+
+          zstd -d "$GITHUB_WORKSPACE/tools/patch_v2736_select_everything.py.zst" -o "$WORK/patch_v2736_select_everything.py"
+          echo "fdf5b9233a776d46c340cca6c46a6db48b815bf7c5ef21fccdf4f913bd49e6d4  $WORK/patch_v2736_select_everything.py" | sha256sum -c -
+          python "$WORK/patch_v2736_select_everything.py" "$WORK/current-2735.html" "$WORK/current-2736.html"
+          test "$(stat -c%s "$WORK/current-2736.html")" -eq 32100370
+          echo "cd6248c3ddd9c39c2049068b21da6b2845bc889b64b271495d6fffc764c70410  $WORK/current-2736.html" | sha256sum -c -
+
+          zstd -d "$GITHUB_WORKSPACE/tools/patch_v2737_home_contents.py.zst" -o "$WORK/patch_v2737_home_contents.py"
+          echo "92cd65507c61eb2137dcb870d6b30ce9269e21f42088ff7f1df2d594f7be36bc  $WORK/patch_v2737_home_contents.py" | sha256sum -c -
+          python "$WORK/patch_v2737_home_contents.py" "$WORK/current-2736.html" "$WORK/current-2741.html"
+          test "$(stat -c%s "$WORK/current-2741.html")" -eq 32104566
+          echo "6a5ad006f114e7da14fb35a6984ae8f51c7c7af985476c7cd834ca4e404cb63c  $WORK/current-2741.html" | sha256sum -c -
+
+          echo "b0073618f7f0c9a2833157ea79dcc11c9684742e9259325f026e62423a27306c  $GITHUB_WORKSPACE/tools/patch_fv3_tablet_home.py" | sha256sum -c -
+          python tools/patch_fv3_tablet_home.py "$WORK/current-2741.html" "$WORK/current.html"
+          test "$(stat -c%s "$WORK/current.html")" -eq 32109237
+          echo "332797a6b8845f8a1786e156e6771b8cc881883e25149ce86480e93014636fe5  $WORK/current.html" | sha256sum -c -
+          node tools/verify_inline_scripts.js "$WORK/current.html"
+
+          python tools/patch_fv3_followup_home_childsafe_fullwidth.py "$WORK/current.html" "$WORK/current-followup.html"
+          mv "$WORK/current-followup.html" "$WORK/current.html"
+          : > "$WORK/restore_fv3_scribe_direct.py.zst.b64"
+          for n in 00 01 02 03 04 05 06 07 08 09 10 11 12 13; do
+            cat "$GITHUB_WORKSPACE/tools/restore_fv3_scribe_direct_compact.part$n.b64" >> "$WORK/restore_fv3_scribe_direct.py.zst.b64"
+          done
+          test "$(stat -c%s "$WORK/restore_fv3_scribe_direct.py.zst.b64")" -eq 51484
+          echo "2796eaa0a8292583e7907cecc0b209077f09e62cb9f68db67bb75e77ddbb53aa  $WORK/restore_fv3_scribe_direct.py.zst.b64" | sha256sum -c -
+          base64 --decode "$WORK/restore_fv3_scribe_direct.py.zst.b64" > "$WORK/restore_fv3_scribe_direct.py.zst"
+          echo "1f98b8af6f16fd0fd369c8eff4e158829a205c4634e6a9c4dc2266b837c592b6  $WORK/restore_fv3_scribe_direct.py.zst" | sha256sum -c -
+          zstd -d "$WORK/restore_fv3_scribe_direct.py.zst" -o "$WORK/restore_fv3_scribe_direct.py"
+          echo "c3effab71f41436037b4106fb1a9bb373db5714fb901678c6b5fe7a6e360a1b9  $WORK/restore_fv3_scribe_direct.py" | sha256sum -c -
+          python "$WORK/restore_fv3_scribe_direct.py" "$WORK/current.html" "$WORK/current-scribe-restored.html"
+          mv "$WORK/current-scribe-restored.html" "$WORK/current.html"
+
+          test -s "$WORK/current.html"
+          sha256sum "$WORK/current.html" | tee "$WORK/current-html-sha256.txt"
+          node tools/verify_inline_scripts.js "$WORK/current.html"
+          grep -Fq 'gm-fv3-child-safe-master-v2' "$WORK/current.html"
+          grep -Fq 'GM_CUPBOARD_CHILD_BAD' "$WORK/current.html"
+          if grep -Fq 'Math.round(stableHeight*9/16)' "$WORK/current.html"; then exit 1; fi
+
+          python - "$WORK/current.html" <<'PY'
+          import base64, json, re, sys
+          app = open(sys.argv[1], encoding="utf-8").read()
+          marker = "PAGES.scribe = "
+          start = app.index(marker) + len(marker)
+          scribe, _ = json.JSONDecoder().raw_decode(app[start:])
+
+          for token in (
+              "Sanskrit_Devanagari",
+              "Sumerian_Cuneiform",
+              "GM_SCRIBE_PRIVACY_V=3",
+              "GM_SCRIBE_RECOVERY",
+              "gmScribePrivacyDialog",
+              "renderInkScribePrint",
+          ):
+              assert token in scribe, f"missing preserved/restored Scribe marker: {token}"
+
+          for token in (
+              "Language Packs",
+              ".argosmodel",
+              "GM_TRANSLATION_INDEX",
+              "gm_scribe_language_pack_state_v2",
+              "Translator engine:",
+              "native language-model runtime",
+              "Classic_Maya",
+          ):
+              assert token not in scribe, f"unwanted Scribe translator/Maya marker remains: {token}"
+
+          match = re.search(r'const DESK_B64="([A-Za-z0-9+/=]+)"', scribe)
+          assert match, "Scribe desk payload not found"
+          desk = base64.b64decode(match.group(1)).decode("utf-8")
+
+          def read_json(mark):
+              pos = desk.index(mark) + len(mark)
+              return json.JSONDecoder().raw_decode(desk[pos:])[0]
+
+          rules = read_json("const SCRIPT_RULES=")
+          targets = read_json("const TARGETS=")
+          order = read_json("ORDER=")
+          expected = [
+              "Ugaritic", "Hieratic", "Demotic", "Sanskrit_Devanagari",
+              "Sumerian_Cuneiform", "Hebrew", "Greek", "Elder_Futhark",
+              "Anglo_Saxon_Futhorc", "Ogham", "Pictish", "Theban",
+              "Chaldean", "Malachim", "Magi", "Celestial", "Passing_River",
+              "Masonic", "Tengwar", "Angerthas"
+          ]
+          assert order == expected, order
+          assert list(rules) == expected, list(rules)
+          assert list(targets) == expected, list(targets)
+          assert len(rules) == 20 and len(targets) == 20
+
+          assert rules["Ogham"]["direction"] == "btt"
+          for sid in ("Hebrew", "Hieratic", "Demotic"):
+              assert rules[sid]["direction"] == "rtl", (sid, rules[sid])
+          for sid in ("Ugaritic", "Greek", "Sanskrit_Devanagari", "Sumerian_Cuneiform"):
+              assert rules[sid]["direction"] == "ltr", (sid, rules[sid])
+
+          for token in (
+              "GM_LANGUAGE_TRANSLATION_ENABLED",
+              "renderRuntimeNeeded",
+              "renderControlledUgaritic",
+              "renderControlledTransliteration",
+          ):
+              assert token not in desk, f"semantic translator hook remains: {token}"
+
+          for token in ("ROMAN_LABELS", "Roman Normal", "Roman Title", "Roman Italic", "renderOghamParagraph", "verticalBTT"):
+              assert token in desk, f"missing preserved direct-writing feature: {token}"
+
+          print("Scribe verified: 20 direct writing hands; Sanskrit/Sumerian restored; Ogham BTT; RTL scripts preserved; translator packs removed")
+          PY
+
+          # User report: Cupboard button presses "all seem different and
+          # some give horrible blue boxes" (missing/inconsistent
+          # -webkit-tap-highlight-color across Cupboard button classes), and
+          # a previous Ink Pot fix "was meant to remove cancel button when
+          # book is bound and not print the content selection tick boxes"
+          # but did not fully take effect. Confirmed by reading the actual
+          # shipped CSS/JS: only .feature-room-entry suppressed the tap
+          # highlight while sibling Cupboard buttons did not; the v29 bind
+          # modal's `.gmBosBindChoices.v29 .gmBosCancelBind{display:block}`
+          # rule is unscoped and outranks the state-gated
+          # `.gmBosCancelBind{display:none}` base rule regardless of
+          # binding/packaging state; and the shared
+          # gmBosStripPrintInteractivity() used by both the html2canvas
+          # fallback and the real APK capture path explicitly skips
+          # checkboxes, so @media print rules for the selection tick boxes
+          # never apply to either capture route. Applied last, after every
+          # content check above has verified the eager PAGES.cupboard /
+          # PAGES.scribe form, so this only adds tap-highlight consistency,
+          # scopes the Cancel button CSS to the active job state, and
+          # force-hides the tick boxes on the captured clone.
+          python tools/patch_v2738_cupboard_inkpot_ui_fix.py "$WORK/current.html" "$WORK/current-2738.html"
+          mv "$WORK/current-2738.html" "$WORK/current.html"
+          node tools/verify_inline_scripts.js "$WORK/current.html"
+
+          # Real-device report: reopening the live Book of Shadows (e.g. via
+          # openBos()) while a background bind is active was found to reset
+          # GM_BOS's `pages` array and wipe #gmBosPagePool via build() -
+          # discarding the exact page content an in-progress bind is
+          # actively capturing, silently halting its progress with no error
+          # shown. Confirmed by reading GM_BOS.open() directly: it
+          # unconditionally called build() on every open. Applied last,
+          # after every content check above has verified the eager
+          # PAGES.scribe form, so this only adds a binding-active guard
+          # around the existing build() call.
+          python tools/patch_bos_reopen_binding_guard.py "$WORK/current.html" "$WORK/current-bos-reopen-guard.html"
+          mv "$WORK/current-bos-reopen-guard.html" "$WORK/current.html"
+          node tools/verify_inline_scripts.js "$WORK/current.html"
+
+          # Real device logs (Choreographer frame-skip warnings, ART GC
+          # pressure, a low-memory-killer cascade that killed the print
+          # spooler) confirmed Scribe's ~15MB payload (code + 217 images)
+          # being parsed/held in memory on every app cold start - whether
+          # or not Scribe is ever opened that session - is the dominant
+          # cause of app lag and memory pressure. Applied last, after every
+          # content check above has verified the eager PAGES.scribe form,
+          # so this only changes *when* the identical content is parsed.
+          python tools/patch_lazy_load_scribe.py "$WORK/current.html" "$WORK/current-lazy-scribe.html"
+          mv "$WORK/current-lazy-scribe.html" "$WORK/current.html"
+          node tools/verify_inline_scripts.js "$WORK/current.html"
+
+          # Real-device diagnostic log (built-in NAVIGATION/FRAME LOOP
+          # instrumentation) showed showPage('scribe') firing repeatedly
+          # while a background Scribe bind (Ink Pot "Save Bound PDF Copy")
+          # was still running, tripping the app's own FRAME LOOP detector
+          # and producing the reported "blank brown screens ... looks like
+          # the app's dying" symptom. Confirmed via direct reading of
+          # showPage() that duplicate back-to-back calls for the page
+          # already on screen were never guarded against, so - combined
+          # with the parked-Scribe-frame restore path only working once -
+          # each extra call tore down and rebuilt the live Scribe iframe
+          # from scratch. A first version of this fix used a ~700ms
+          # same-page debounce timer; a follow-up real-device log proved
+          # that insufficient (duplicate calls during a bind landed
+          # anywhere from 430ms to 27s apart, since the main thread being
+          # intermittently blocked by the bind itself means "rapid" taps
+          # do not reliably land close together in wall-clock time), so it
+          # still tore the frame down almost every time. This version is
+          # time-independent: it only fires while gmBosShellBindingActive()
+          # reports a bind genuinely still running in the exact frame
+          # already on screen, leaving every other same-page call (e.g.
+          # refreshCurrent()) unaffected. Applied last, after every content
+          # check above has verified showPage()'s pre-patch form.
+          python tools/patch_showpage_duplicate_nav_guard.py "$WORK/current.html" "$WORK/current-navguard.html"
+          mv "$WORK/current-navguard.html" "$WORK/current.html"
+          node tools/verify_inline_scripts.js "$WORK/current.html"
+
+          # Real-device report: tapping the persistent "Binding Book of
+          # Shadows · X/Y" status pill to return to the live bind-progress
+          # popup instead showed the Study view with no popup visible.
+          # #gmBosBindModal is `.modal{position:fixed;...}`, independent of
+          # which Scribe view is active, so it should show regardless - but
+          # the parked frame was given an off-screen layout for the whole
+          # parked duration and restoring it only removed that inline style
+          # without signalling the document to recompute layout, which can
+          # leave fixed-position content (the modal) stale/collapsed on
+          # some WebView engines. Applied last, after every content check
+          # above has verified showPage()'s pre-patch form, so this only
+          # adds a resize dispatch on the restored frame alongside the
+          # outer viewport reset already done at the same two delays.
+          python tools/patch_bos_restore_reflow.py "$WORK/current.html" "$WORK/current-restore-reflow.html"
+          mv "$WORK/current-restore-reflow.html" "$WORK/current.html"
+          node tools/verify_inline_scripts.js "$WORK/current.html"
+
+          # Real-device diagnostic log captured "ReferenceError: deities is
+          # not defined" twice, both from init() in PAGES.spellBuilder's
+          # engine script, on 14_goddess_herb.html and 15_god_herb.html.
+          # Confirmed by reading the shipped engine script directly: its
+          # init() passes `deities` into renderSelectPage() exactly like
+          # the herbs/crystals/oils/runes steps pass their own accessors,
+          # and deityFilter() (the live, current deity system, backed by
+          # window.GM_DATA.Deities) is defined and correct in this same
+          # closure - but unlike herbs/crystals/oils/runes, there was never
+          # a matching `const deities = () => arr('Deities');` declared
+          # anywhere in that closure. Not a scoping or load-order issue and
+          # not the old parallel "herbs for desires" deity system - just
+          # this one accessor missing from the same list its four siblings
+          # are on. Applied last, after every content check above has
+          # verified the eager PAGES.spellBuilder form, so this only adds
+          # the single missing accessor.
+          python tools/patch_spellbuilder_deities_undefined.py "$WORK/current.html" "$WORK/current-deities-fix.html"
+          mv "$WORK/current-deities-fix.html" "$WORK/current.html"
+          node tools/verify_inline_scripts.js "$WORK/current.html"
+
+          # User report: "some buttons show a blue box on tap and some
+          # don't, some need a double-tap and some a single tap, some feel
+          # slow, some instant, and Cupboard specifically feels
+          # clunky/slow to navigate." Confirmed by reading the actual
+          # shipped code: .gm-home-full-unlock-btn (Home) and .pin-key
+          # (Admin) are missing the :active press-feedback rule every
+          # sibling button in their room already has; .entry-card (BoS),
+          # .incense-drawer-front/.daily-drawer-front (Cupboard),
+          # #backBtn/.close/.modalBackPrimary (Bower) and the nested Ogham
+          # Treehouse iframe's #risen/.castStick/.socket img/.readingBack
+          # are all missing -webkit-tap-highlight-color:transparent that
+          # their visually identical siblings already have; a later "V32"
+          # hotfix silently reassigns buildIncenseBlendCard to a version
+          # gated behind a 400ms setTimeout + dblclick shortcut while the
+          # sibling buildSpellVesselCard opens instantly - the confirmed
+          # cause of Incense Blend cards feeling sluggish; and two dead JS
+          # lookups in PAGES.scribe (#gmInkReturnLiveBtn,
+          # #gmScribeJobTitle) reference ids removed from markup in
+          # earlier cleanups. Applied last, after every content check
+          # above has verified the eager/lazy PAGES form, so this only
+          # makes these four narrow, independent fixes - no deity/herb
+          # code, no broad refactor.
+          python tools/patch_v33_button_ux_fixes.py "$WORK/current.html" "$WORK/current-v33-ux-fix.html"
+          mv "$WORK/current-v33-ux-fix.html" "$WORK/current.html"
+          node tools/verify_inline_scripts.js "$WORK/current.html"
+
+          # User feedback after v33 shipped: the blue tap-highlight box
+          # should be left alone everywhere, including the Cupboard's
+          # supply/incense drawers - those already show their own
+          # distinct highlight effect, not the blue one, and should not
+          # have been touched at all. This reverts every
+          # tap-highlight-transparent addition from v33 while keeping its
+          # other three fixes (:active press-feedback, instant Incense
+          # Blend click, dead Scribe lookups).
+          python tools/patch_v34_revert_taphighlight_except_drawers.py "$WORK/current.html" "$WORK/current-v34-revert.html"
+          mv "$WORK/current-v34-revert.html" "$WORK/current.html"
+          node tools/verify_inline_scripts.js "$WORK/current.html"
+
+          # Real-device evidence (two diagnostics logs, same 132-page
+          # bind, same device): a bind run cold took 293,985ms with no
+          # spikes; the same bind run after visiting Rune Hall then
+          # Crystal Tumbler earlier in the same session took 463,952ms -
+          # 65% slower, with individual page captures spiking to 5-9
+          # seconds. Confirmed by reading setCupboardView(): leaving
+          # either room only removed the iframe's srcdoc attribute, which
+          # does not reliably force Android WebView to navigate the frame
+          # away from its current (heavy) document, so the previous
+          # room's memory could stay resident and compete with a later
+          # bind. Fix: explicitly navigate the frame to about:blank right
+          # after removing srcdoc, forcing a real unload.
+          python tools/patch_v35_daily_room_hard_unload.py "$WORK/current.html" "$WORK/current-v35-unload.html"
+          mv "$WORK/current-v35-unload.html" "$WORK/current.html"
+          node tools/verify_inline_scripts.js "$WORK/current.html"
+
+          # Action 166 diagnostics showed the APK bind-wide artwork cache
+          # remained at artCache: 0. The exact shipped Scribe source contains
+          # a malformed /^data:image\// guard after outer-string escaping.
+          # Browser HTML mostly avoids that path because rasterised artwork is
+          # held as blob: URLs, but the APK uses data:image URLs so prepared
+          # SVG artwork can survive its isolated A4 capture frame. Repair only
+          # that escaped slash so raster results enter the existing cache and
+          # can be reused across pages.
+          python tools/patch_v36_bos_art_cache_escape.py "$WORK/current.html" "$WORK/current-v36-art-cache.html"
+          mv "$WORK/current-v36-art-cache.html" "$WORK/current.html"
+          node tools/verify_inline_scripts.js "$WORK/current.html"
+
+          # BoS V37: enlarge only the existing navigation controls, restore
+          # complete Main Contents page references, present chapter contents
+          # as proper destination cards, replace Read Symbols with Print Spell,
+          # and skip fully clipped/off-page artwork during page preparation.
+          python tools/patch_v37_bos_ux_printspell_page100.py "$WORK/current.html" "$WORK/current-v37-bos-ux.html"
+          mv "$WORK/current-v37-bos-ux.html" "$WORK/current.html"
+          node tools/verify_inline_scripts.js "$WORK/current.html"
+
+          # V38: one designed A4 opener per BoS chapter. The old chapter map
+          # split at 18 destinations and produced continuation pages; this
+          # replaces only that chapter-opener renderer with a single adaptive
+          # grid that changes density to keep every chapter opener on one page.
+          python -c "import base64,zlib,pathlib; pathlib.Path('$WORK/patch_v38_chapter_openers_one_page.py').write_bytes(zlib.decompress(base64.b64decode(pathlib.Path('tools/patch_v38_chapter_openers_one_page.py.zlib.b64').read_text().strip())))"
+          python "$WORK/patch_v38_chapter_openers_one_page.py" "$WORK/current.html" "$WORK/current-v38-chapter-openers.html"
+          mv "$WORK/current-v38-chapter-openers.html" "$WORK/current.html"
+          node tools/verify_inline_scripts.js "$WORK/current.html"
+
+          # FV3 Journal sales: isolated final Journal-only patch.
+          # Adds Wildwood CARD/CASH to Quick List, Greenman basket controls
+          # to BoS entry selection, and improves category count visibility.
+          python -c "import base64,zlib,pathlib; pathlib.Path('$WORK/patch_fv3_journal_sales.py').write_bytes(zlib.decompress(base64.b64decode(pathlib.Path('tools/patch_fv3_journal_sales.py.zlib.b64').read_text().strip())))"
+          # json.loads/json.dumps decodes the existing <\/script> safety escapes.
+          # Restore them before writing PAGES back into the outer HTML script.
+          python - "$WORK/patch_fv3_journal_sales.py" <<'PY'
+          from pathlib import Path
+          import sys
+          p=Path(sys.argv[1])
+          s=p.read_text(encoding='utf-8')
+          old="newobj=json.dumps(pages,ensure_ascii=False,separators=(',',':'))"
+          new="newobj=json.dumps(pages,ensure_ascii=False,separators=(',',':')).replace('</script>', '<' + chr(92) + '/script>')"
+          assert s.count(old)==1, s.count(old)
+          p.write_text(s.replace(old,new,1),encoding='utf-8')
+          PY
+          python "$WORK/patch_fv3_journal_sales.py" "$WORK/current.html" "$WORK/current-journal-sales.html"
+          mv "$WORK/current-journal-sales.html" "$WORK/current.html"
+          node tools/verify_inline_scripts.js "$WORK/current.html"
+          grep -Fq 'ADD SPELL KIT TO BASKET' "$WORK/current.html"
+          grep -Fq 'gmWildwoodStart' "$WORK/current.html"
+          grep -Fq 'gmBasketBar' "$WORK/current.html"
+
+          # Confirmed via the live Supabase shop-create-order edge function
+          # (read directly through the Supabase MCP server, not secondhand):
+          # it requires an EXACT herb count per level - Handful=5, Weaving=7,
+          # Full Grove=11 - and rejects anything else outright. The Journal
+          # sales patch's gmSaleLevel() picks a level from a spell's freeform
+          # `depth` text first, then falls back to range checks (11+/7+/else),
+          # either of which can pick a level whose herb count doesn't match
+          # the spell's real herbs - the customer could add it to the basket,
+          # but checkout would always fail there with a confusing backend
+          # error. This makes gmSaleLevel() only return a level on an exact
+          # herb-count match, and gates both sale entry points (the Journal's
+          # basket button, the Quick List's Wildwood CARD/CASH buttons) on it,
+          # so an unsellable spell simply isn't offered for sale.
+          python tools/patch_fv3_sales_herbcount_gate.py "$WORK/current.html" "$WORK/current-herbcount-gate.html"
+          mv "$WORK/current-herbcount-gate.html" "$WORK/current.html"
+          node tools/verify_inline_scripts.js "$WORK/current.html"
+
+          # Real-device debugging showed the checkout "Failed to fetch"
+          # error never appeared in a GREENMAN TABLET DIAGNOSTICS log at
+          # all - the sales code only shows its own errors on-screen,
+          # unlike every other area of the app, which made this bug much
+          # harder to track down than it needed to be. Wires the same
+          # add(...) diagnostics calls already used throughout the rest of
+          # the app into gmAddSpellToBasket/gmCheckoutBasket/
+          # gmFinishWildwood, so future sales issues show up directly in a
+          # log (checkout/sale failures marked serious, with the real
+          # error message) instead of only as an on-screen message.
+          python tools/patch_fv3_sales_diagnostics.py "$WORK/current.html" "$WORK/current-sales-diagnostics.html"
+          mv "$WORK/current-sales-diagnostics.html" "$WORK/current.html"
+          node tools/verify_inline_scripts.js "$WORK/current.html"
+
+          # Real-device diagnostics log confirmed two more sales bugs.
+          # (1) Wildwood Card failed twice showing only "[object Object]":
+          # gmShopPost() did `throw new Error(d.error||...)`, and some of
+          # the Supabase function's error responses set `error` to a raw
+          # object (e.g. PayPal's own response body) rather than a
+          # string - `new Error(anObject)` stringifies via the object's
+          # default toString(), discarding the real detail. (2) The
+          # basket never cleared after a successful checkout - confirmed
+          # by reading gmCheckoutBasket() directly, it never called
+          # gmWriteBasket([]) or removed the busy class after creating
+          # the order, matching the report "basket didn't clear when
+          # paid and just stuck faded out".
+          python tools/patch_fv3_sales_error_and_basket_clear.py "$WORK/current.html" "$WORK/current-sales-fixes.html"
+          mv "$WORK/current-sales-fixes.html" "$WORK/current.html"
+          node tools/verify_inline_scripts.js "$WORK/current.html"
+
+          # User request: a Book of Shadows entry should show it's already
+          # been bought, and offer "Buy Again" instead of the plain "Add
+          # Spell Kit to Basket" label. Adds a localStorage-backed record
+          # of purchased journal_entry_ids, marked the same moment the
+          # basket is now cleared (order successfully created with
+          # Supabase/PayPal) - there is no payment-capture callback that
+          # ever reaches this app instance to confirm PayPal payment
+          # completed, so this is the same "sale was initiated" point the
+          # app already treats as final elsewhere (e.g. Wildwood Cash).
+          python tools/patch_fv3_sales_purchased_badge.py "$WORK/current.html" "$WORK/current-purchased-badge.html"
+          mv "$WORK/current-purchased-badge.html" "$WORK/current.html"
+          node tools/verify_inline_scripts.js "$WORK/current.html"
+
+          # Real-device report: the basket correctly cleared after a
+          # purchase, but the entry card below it still showed the plain
+          # "ADD SPELL KIT TO BASKET" button with no Purchased badge.
+          # Confirmed by reading renderEntries() directly: it's the only
+          # function that redraws the Book of Shadows entry list, and
+          # nothing in gmCheckoutBasket() ever called it after marking a
+          # purchase - the list DOM was built before the purchase and was
+          # never regenerated, so it couldn't show the new state even
+          # though the underlying data was already correct.
+          python tools/patch_fv3_sales_rerender_entries.py "$WORK/current.html" "$WORK/current-rerender.html"
+          mv "$WORK/current-rerender.html" "$WORK/current.html"
+          node tools/verify_inline_scripts.js "$WORK/current.html"
+
+          # FV3.3: payment is not treated as purchased merely because a
+          # PayPal order was created. Keep the basket until Supabase confirms
+          # capture, then clear it, mark PURCHASED/BUY AGAIN, and show the
+          # Greenman CARRY ON confirmation. Also generates a 456px-wide
+          # (57mm at 203dpi) PNG instruction slip for the seller email.
+          python tools/patch_fv3_sales_paid_confirmation.py "$WORK/current.html" "$WORK/current-paid-confirmation.html"
+          mv "$WORK/current-paid-confirmation.html" "$WORK/current.html"
+          node tools/verify_inline_scripts.js "$WORK/current.html"
+
+          # FV3.4: ask for the user's country once per installation. The
+          # Greenman online Buy Spell buttons and basket only exist for GB.
+          # Wildwood in-person sales are intentionally left unchanged.
+          python tools/patch_fv34_country_sales_gate.py "$WORK/current.html" "$WORK/current-country-gate.html"
+          mv "$WORK/current-country-gate.html" "$WORK/current.html"
+          node tools/verify_inline_scripts.js "$WORK/current.html"
+
+          # EXP1: Android Admin-only local access-key maker prototype.
+          # This intentionally does not touch live Supabase or the customer gate.
+          python tools/patch_exp_access_keys_v1.py "$WORK/current.html" "$WORK/current-exp-access-v1.html"
+          mv "$WORK/current-exp-access-v1.html" "$WORK/current.html"
+          node tools/verify_inline_scripts.js "$WORK/current.html"
+          grep -Fq 'gm-exp-access-keys-v1' "$WORK/current.html"
+          grep -Fq 'gm_exp_access_keys_v1' "$WORK/current.html"
+          grep -Fq 'Access Key Maker' "$WORK/current.html"
+
+          echo "WORK=$WORK" >> "$GITHUB_ENV"
+
+      - name: Restore exact V28 native files
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp "$GITHUB_WORKSPACE/current-build-20260907/BoundBookStore.java" "$WORK/BoundBookStore.java"
+          git show 44e113dac3b6e9bb3c2f8aeac07b9dad0b0d39da:tools/patch_register_bound_store.py > "$WORK/patch_register_bound_store.py"
+
+      - name: Compile V28 BoundBookStore only
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$WORK/helper-classes" "$WORK/helper-dex"
+          javac -source 8 -target 8             -cp "$ANDROID_HOME/platforms/android-35/android.jar"             -d "$WORK/helper-classes"             "$WORK/BoundBookStore.java"
+          "$ANDROID_HOME/build-tools/35.0.0/d8"             --min-api 29             --output "$WORK/helper-dex"             "$WORK/helper-classes/com/greenman/hedgewitchery/BoundBookStore.class"
+
+      - name: Decode shell and install current HTML on V28 base
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -L --fail --show-error --silent             -o "$WORK/apktool.jar"             https://github.com/iBotPeaches/Apktool/releases/download/v2.11.1/apktool_2.11.1.jar
+          java -jar "$WORK/apktool.jar" d -f             "$GITHUB_WORKSPACE/GREENMAN_HEDGEWITCHERY.apk"             -o "$WORK/decoded"
+
+          python "$WORK/patch_register_bound_store.py"             "$WORK/decoded/smali_classes2/com/greenman/hedgewitchery/MainActivity.smali"
+
+          # Real-device logcat (Acer tablet, Android 13) confirmed a crash
+          # on every open: enterImmersiveMode() called before
+          # setContentView() in onCreate() throws a NullPointerException
+          # in PhoneWindow.getInsetsController() on this OEM's build. Fix
+          # is to call it after setContentView() instead - see
+          # tools/patch_immersive_mode_order.py for the full trace.
+          python tools/patch_immersive_mode_order.py             "$WORK/decoded/smali_classes2/com/greenman/hedgewitchery/MainActivity.smali"
+
+          # The FV3.1 Journal sales patch added a checkout button that sets
+          # window.top.location.href to a PayPal approval URL, but
+          # MainActivity$LocalAssetWebViewClient.shouldOverrideUrlLoading()
+          # only allows navigation whose host is exactly "greenman.local" -
+          # every other host (including paypal.com) returns true (meaning
+          # "handled") but takes no further action, so the checkout button
+          # silently did nothing. This is also the safer fix for the
+          # separate Play Protect "harmful app" classification: an app that
+          # quietly redirects its own embedded WebView to a payment page
+          # reads as a phishing pattern, whereas handing the URL to the
+          # device's real browser via a normal external Intent does not.
+          # Only *.paypal.com is allowed through this way; every other
+          # external host remains blocked exactly as before.
+          python tools/patch_paypal_external_browser.py             "$WORK/decoded/smali_classes2/com/greenman/hedgewitchery/MainActivity\$LocalAssetWebViewClient.smali"
+          grep -Fq 'android.intent.action.VIEW' "$WORK/decoded/smali_classes2/com/greenman/hedgewitchery/MainActivity\$LocalAssetWebViewClient.smali"
+
+          # Real-device report: tapping Checkout showed "Failed to fetch"
+          # on a confirmed-solid Wi-Fi connection, and a direct Supabase
+          # log query for that exact moment showed the request never
+          # arrived at the edge function at all - ruling out a network or
+          # backend problem entirely. Confirmed by reading
+          # shouldInterceptRequest() directly: it runs for every resource
+          # request the page makes (not just top-level navigation - that's
+          # shouldOverrideUrlLoading, already patched above for the PayPal
+          # redirect) and unconditionally blocks any host that isn't
+          # exactly "greenman.local", including fetch()/XHR calls. That
+          # silently blocked the sales code's fetch() to
+          # https://zzfgufuyetybxaeidcxu.supabase.co before it ever
+          # reached the network. Only *.supabase.co is let through this
+          # way; every other external host remains blocked exactly as
+          # before.
+          python tools/patch_supabase_fetch_allowlist.py             "$WORK/decoded/smali_classes2/com/greenman/hedgewitchery/MainActivity\$LocalAssetWebViewClient.smali"
+          grep -Fq 'supabase.co' "$WORK/decoded/smali_classes2/com/greenman/hedgewitchery/MainActivity\$LocalAssetWebViewClient.smali"
+
+          python - "$WORK/decoded/smali_classes2/com/greenman/hedgewitchery/MainActivity.smali" <<'PY'
+          import sys
+          s=open(sys.argv[1],encoding='utf-8').read()
+          repaired=(
+              '    invoke-virtual {p0, v0}, Lcom/greenman/hedgewitchery/MainActivity;->setContentView(Landroid/view/View;)V\n\n'
+              '    .line 60\n'
+              '    invoke-direct {p0}, Lcom/greenman/hedgewitchery/MainActivity;->enterImmersiveMode()V\n'
+          )
+          assert s.count(repaired)==1, 'tablet crash repair sequence is missing or duplicated'
+          print('tablet crash repair confirmed: setContentView precedes immersive mode')
+          PY
+
+          cp "$WORK/current.html" "$WORK/decoded/assets/index.html"
+          python - "$WORK/decoded/AndroidManifest.xml" <<'PY'
+          from pathlib import Path
+          import sys
+          p=Path(sys.argv[1])
+          s=p.read_text(encoding='utf-8')
+          if 'android:debuggable="true"' in s:
+              s=s.replace('android:debuggable="true"', 'android:debuggable="false"', 1)
+              p.write_text(s, encoding='utf-8')
+              print('release hardening: android:debuggable=false')
+          elif 'android:debuggable="false"' in s:
+              print('release hardening already present')
+          else:
+              print('release hardening: debuggable not explicitly set, Android defaults to false')
+          PY
+          if grep -Fq 'android:debuggable="true"' "$WORK/decoded/AndroidManifest.xml"; then
+            echo "Refusing to build a debuggable payments APK"
+            exit 1
+          fi
+
+          # The FV3.1 Journal sales patch (tools/patch_fv3_journal_sales.py.zlib.b64)
+          # added live fetch() calls to Supabase and a PayPal redirect, but this
+          # app was originally built offline-only and its AndroidManifest.xml has
+          # never declared android.permission.INTERNET - confirmed by decoding
+          # the shipped APK's binary manifest directly (no uses-permission
+          # element exists in its string pool at all). Without it, WebView
+          # network requests fail outright regardless of any server-side
+          # Supabase/PayPal configuration. Insert the permission once, right
+          # after the <manifest> opening tag.
+          python - "$WORK/decoded/AndroidManifest.xml" <<'PY'
+          from pathlib import Path
+          import sys
+          p=Path(sys.argv[1])
+          s=p.read_text(encoding='utf-8')
+          permission='<uses-permission android:name="android.permission.INTERNET"/>'
+          if permission in s:
+              print('INTERNET permission already present')
+          else:
+              anchor='platformBuildVersionName="15">'
+              count=s.count(anchor)
+              if count!=1:
+                  raise SystemExit(f'manifest opening-tag anchor: expected exactly 1 occurrence, found {count}')
+              s=s.replace(anchor, anchor+'\n    '+permission, 1)
+              p.write_text(s, encoding='utf-8')
+              print('added android.permission.INTERNET to AndroidManifest.xml')
+          PY
+          grep -Fq 'android.permission.INTERNET' "$WORK/decoded/AndroidManifest.xml"
+
+          # Real-device report: every build since the FV3.1 hardening commit
+          # kept versionCode at 66 unchanged, so none of them could install
+          # over whichever version-66 build the device already had -
+          # Android refuses to install an APK over an existing one unless
+          # its versionCode is equal or higher, regardless of matching
+          # signature. Confirmed directly by comparing the installed APK's
+          # signing certificate (SHA-256 fingerprint) against this repo's
+          # keystore - they match exactly, so this was never a signature
+          # conflict. Bumping versionCode so this and future builds can
+          # actually update the device's existing install.
+          sed -i 's/versionCode: 30/versionCode: 70/' "$WORK/decoded/apktool.yml"
+          sed -i 's/versionName: .*/versionName: EXP1/' "$WORK/decoded/apktool.yml"
+
+          if grep -Fq 'ScribePdfService' "$WORK/decoded/AndroidManifest.xml"; then exit 1; fi
+          if grep -Fq 'android.permission.FOREGROUND_SERVICE' "$WORK/decoded/AndroidManifest.xml"; then exit 1; fi
+          if grep -Fq 'android:process=":bosrender"' "$WORK/decoded/AndroidManifest.xml"; then exit 1; fi
+
+      - name: Add V28 helper class
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$WORK/helper-apk"
+          unzip -p "$GITHUB_WORKSPACE/GREENMAN_HEDGEWITCHERY.apk" AndroidManifest.xml > "$WORK/helper-apk/AndroidManifest.xml"
+          cp "$WORK/helper-dex/classes.dex" "$WORK/helper-apk/classes.dex"
+          cd "$WORK/helper-apk"
+          zip -q "$WORK/helper.apk" AndroidManifest.xml classes.dex
+
+          java -jar "$WORK/apktool.jar" d -f -r "$WORK/helper.apk" -o "$WORK/helper-decoded"
+          HELPER_SMALI="$(find "$WORK/helper-decoded" -type f -name 'BoundBookStore.smali' -print -quit)"
+          test -n "$HELPER_SMALI"
+          mkdir -p "$WORK/decoded/smali_classes3/com/greenman/hedgewitchery"
+          cp "$HELPER_SMALI" "$WORK/decoded/smali_classes3/com/greenman/hedgewitchery/BoundBookStore.smali"
+
+          grep -Fq 'beginLastBoundPdf' "$WORK/decoded/smali_classes3/com/greenman/hedgewitchery/BoundBookStore.smali"
+          grep -Fq 'exportLastBoundPdf' "$WORK/decoded/smali_classes3/com/greenman/hedgewitchery/BoundBookStore.smali"
+          grep -Fq 'beginPdfCopy' "$WORK/decoded/smali_classes3/com/greenman/hedgewitchery/BoundBookStore.smali"
+          grep -Fq 'readLastBoundPdfChunk' "$WORK/decoded/smali_classes3/com/greenman/hedgewitchery/BoundBookStore.smali"
+          grep -Fq 'exportLastBoundPdfAs' "$WORK/decoded/smali_classes3/com/greenman/hedgewitchery/BoundBookStore.smali"
+          grep -Fq 'exportSelectedPagesAs' "$WORK/decoded/smali_classes3/com/greenman/hedgewitchery/BoundBookStore.smali"
+          grep -Fq 'lastError' "$WORK/decoded/smali_classes3/com/greenman/hedgewitchery/BoundBookStore.smali"
+
+      - name: Build align and sign
+        shell: bash
+        run: |
+          set -euo pipefail
+          java -jar "$WORK/apktool.jar" b "$WORK/decoded" -o "$WORK/unsigned.apk"
+
+          # apktool's rebuild does not reliably keep resources.arsc stored
+          # uncompressed. Android 11+ (API 30+) refuses to install an APK
+          # where it isn't, and zipalign cannot fix a compressed entry after
+          # the fact - it only aligns entries that are already stored. So
+          # this has to run here, between build and zipalign.
+          python tools/force_resources_arsc_stored.py "$WORK/unsigned.apk"
+
+          BT="$ANDROID_HOME/build-tools/35.0.0"
+          "$BT/zipalign" -p -f 4 "$WORK/unsigned.apk" "$WORK/aligned.apk"
+
+          mkdir -p "$HOME/.android"
+
+          # Real-device report: the debug-signed APK was consistently
+          # flagged "Harmful app blocked" by Google Play Protect, unrelated
+          # to any code content (identical issues persisted after fixing
+          # the missing permission, the blocked PayPal redirect, and the
+          # stuck version number). Play Protect's reputation scoring is
+          # partly tied to the specific signing certificate's own history;
+          # switching to a freshly generated certificate with no prior
+          # history removes that factor. This is a genuinely different
+          # signing identity from the old debug keystore, so any device
+          # with an old-signed copy still installed must uninstall it
+          # first - there is no way to "update" across a certificate
+          # change, by Android design.
+          base64 --decode tools/greenman_release_keystore.b64 > "$HOME/.android/release.keystore"
+          chmod 600 "$HOME/.android/release.keystore"
+
+          "$BT/apksigner" sign             --ks "$HOME/.android/release.keystore"             --ks-key-alias greenmanrelease2026             --ks-pass pass:greenmanhedgewitchery2026             --key-pass pass:greenmanhedgewitchery2026             --out "$RUNNER_TEMP/GREENMAN_HEDGEWITCHERY_EXPERIMENTAL_ACCESS_V1.apk"             "$WORK/aligned.apk"
+
+      - name: Verify V28-base APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK="$RUNNER_TEMP/GREENMAN_HEDGEWITCHERY_EXPERIMENTAL_ACCESS_V1.apk"
+          BT="$ANDROID_HOME/build-tools/35.0.0"
+
+          "$BT/apksigner" verify --verbose --print-certs "$APK" | tee "$WORK/apksigner.txt"
+          "$BT/zipalign" -c -v 4 "$APK" >/dev/null
+          "$BT/aapt" dump badging "$APK" | tee "$WORK/badging.txt"
+
+          # Hard gate: resources.arsc MUST be stored uncompressed, or the
+          # OS refuses to install this on Android 11+ (API 30+) at all -
+          # zipalign's own -c check does not catch this, since it only
+          # verifies alignment of entries that are already stored.
+          python - "$APK" <<'PY'
+          import sys, zipfile
+          with zipfile.ZipFile(sys.argv[1]) as z:
+              info = z.getinfo('resources.arsc')
+              if info.compress_type != zipfile.ZIP_STORED:
+                  raise SystemExit('resources.arsc is compressed - this APK will fail to install on Android 11+')
+          print('resources.arsc confirmed stored uncompressed')
+          PY
+
+          grep -q "package: name='com.greenman.hedgewitchery' versionCode='70'" "$WORK/badging.txt"
+          grep -q "versionName='EXP1'" "$WORK/badging.txt"
+          grep -q "uses-permission: name='android.permission.INTERNET'" "$WORK/badging.txt"
+          unzip -p "$APK" assets/index.html > "$WORK/final-index.html"
+          cmp "$WORK/final-index.html" "$WORK/current.html"
+          node tools/verify_inline_scripts.js "$WORK/final-index.html"
+          grep -Fq 'gm_greenman_pending_order_v1' "$WORK/final-index.html"
+          grep -Fq 'shop-order-status' "$WORK/final-index.html"
+          grep -Fq 'SEE APP FOR FULL INSTRUCTIONS.' "$WORK/final-index.html"
+          grep -Fq 'CARRY ON' "$WORK/final-index.html"
+          grep -Fq 'gm-country-first-install-script' "$WORK/final-index.html"
+          grep -Fq 'gm_user_country_v1' "$WORK/final-index.html"
+          grep -Fq 'Spell purchases are currently available for UK delivery only.' "$WORK/final-index.html"
+          grep -Fq 'gm-exp-access-keys-v1' "$WORK/final-index.html"
+          grep -Fq 'gm_exp_access_keys_v1' "$WORK/final-index.html"
+          grep -Fq 'Experimental local prototype.' "$WORK/final-index.html"
+
+          grep -Fq 'INKPOT V2.7.30: Ink Pot saves only an exact copy of the completed bound PDF; all chapter/page/spell filtering removed from this room.' "$WORK/final-index.html"
+          grep -Fq 'CUPBOARD LAYOUT FIX V2.7.29: furniture order unchanged; join CSS is now correctly contained in style.' "$WORK/final-index.html"
+          grep -Fq 'FV 2.7.31 USER-WORDING CLEANUP' "$WORK/final-index.html"
+          grep -Fq 'FV 2.7.33 SECURITY' "$WORK/final-index.html"
+          grep -Fq 'FV 2.7.33 SCRIBE RECOVERY' "$WORK/final-index.html"
+          grep -Fq 'FV 2.7.34 SCRIBE UI REPAIR' "$WORK/final-index.html"
+          grep -Fq 'gm-scribe-privacy-ui-v2734' "$WORK/final-index.html"
+          grep -Fq 'FV 2.7.35 SCRIBE BOS ZOOM + CONTENTS' "$WORK/final-index.html"
+          grep -Fq 'gm-bos-contents-touch-v2735' "$WORK/final-index.html"
+          grep -Fq 'FV 2.7.36 SELECT EVERYTHING' "$WORK/final-index.html"
+          grep -Fq 'gm-bos-select-everything-v2736' "$WORK/final-index.html"
+          grep -Fq 'FV 2.7.37 HOME CLEANUP' "$WORK/final-index.html"
+          grep -Fq 'FV 2.7.37 CONTENTS CLEANUP' "$WORK/final-index.html"
+          grep -Fq 'gm-bos-checkbox-only-v2737' "$WORK/final-index.html"
+          grep -Fq 'gm-fv3-tablet-proportions' "$WORK/final-index.html"
+          grep -Fq 'gmFv3ApplyTabletRatio' "$WORK/final-index.html"
+          grep -Fq 'FV3 HOME' "$WORK/final-index.html"
+          grep -Fq 'gm-home-fv3' "$WORK/final-index.html"
+          grep -Fq 'HedgeWitchery uses its own curated reference data stored on your device.' "$WORK/final-index.html"
+          grep -Fq 'data-gm-toc-item-select' "$WORK/final-index.html"
+          grep -Fq 'data-gm-spell-group-select' "$WORK/final-index.html"
+          grep -Fq 'gm_scribe_bos_selected_items_v1' "$WORK/final-index.html"
+          grep -Fq '__gmScribeBosReapplyZoom' "$WORK/final-index.html"
+          grep -Fq 'RSA-OAEP-SHA256' "$WORK/final-index.html"
+          grep -Fq 'gmScribeRecoverPayload' "$WORK/final-index.html"
+          grep -Fq 'PBKDF2-SHA256' "$WORK/final-index.html"
+          grep -Fq 'AES-GCM' "$WORK/final-index.html"
+          grep -Fq 'gmInkScribeProtectBtn' "$WORK/final-index.html"
+          if grep -Fq 'gmScribePinHash' "$WORK/final-index.html"; then exit 1; fi
+          if grep -Fq 'gm_scribe_translation_locks_v1' "$WORK/final-index.html"; then exit 1; fi
+          if grep -Fq 'readerLockTranslation' "$WORK/final-index.html"; then exit 1; fi
+          if grep -Fiq 'SECOND CURRENT MASTER RECORD' "$WORK/final-index.html"; then exit 1; fi
+          if grep -Fiq 'None supported by the source layer' "$WORK/final-index.html"; then exit 1; fi
+          if grep -Fiq '[cite:' "$WORK/final-index.html"; then exit 1; fi
+          if grep -Fiq 'App should pull this row' "$WORK/final-index.html"; then exit 1; fi
+          python - "$WORK/final-index.html" <<'PY'
+          import base64,json,re,sys
+          s=open(sys.argv[1],encoding='utf-8').read()
+
+          def extract_scribe(text):
+              # PAGES.scribe is now lazy-loaded (see patch_lazy_load_scribe.py):
+              # the literal "PAGES.scribe = \"..." assignment was replaced with
+              # a function returning the same string, wrapped in a getter.
+              # Support both forms so this check works regardless of which
+              # ran - the eager form if this script is ever reverted, or the
+              # lazy form after it.
+              eager = 'PAGES.scribe = '
+              lazy = 'function __gmLazyScribeSrc(){return '
+              if eager in text:
+                  i = text.index(eager) + len(eager)
+              elif lazy in text:
+                  i = text.index(lazy) + len(lazy)
+              else:
+                  raise SystemExit('PAGES.scribe not found in either eager or lazy form')
+              value, _ = json.JSONDecoder().raw_decode(text[i:])
+              return value
+
+          page=extract_scribe(s)
+          active=len(re.findall(r'async function gmInkPrintBound\s*\(\)',page))
+          assert active==1, active
+          assert 'gmInkPrintBoundLegacyNativeCutDisabled' in page
+          assert 'gmInkEnsureBoundPdfReady' in page
+          assert 'Save Bound PDF Copy' in page
+          assert "GM_BOS.inkExportWhole(file)" in page
+          assert '1 · Filter this bound PDF' not in page
+          assert 'data-gm-print-mode="chapters"' not in page
+          assert 'data-gm-print-mode="pages"' not in page
+          assert 'data-gm-print-mode="spells"' not in page
+          marker='PAGES.cupboard = '
+          i=s.index(marker)+len(marker)
+          cup,_=json.JSONDecoder().raw_decode(s[i:])
+          a=cup.index("appendBowerScribeRooms();")
+          b=cup.index("appendIncenseDrawerFront();")
+          c=cup.index("appendDailyDrawers();")
+          d=cup.index("appendOwnedShelf('Crystals','Crystal','Crystal');")
+          assert a < b < c < d
+          assert '<style id="gmTopFurnitureJoin2729">' in cup
+          assert '/* TOP FURNITURE JOIN V2.7.28' not in cup
+          marker='PAGES.spellBuilder = ' if 'PAGES.spellBuilder = ' in s else None
+          assert "d['Instruction Notes']" not in s[s.find('function wording(e){'):s.find('function energy(e){')]
+          assert 'EMERALD — SECOND CURRENT MASTER RECORD' not in s
+          assert '[cite:' not in s.lower()
+          assert 'None supported by the source layer' not in s
+          assert 'App should pull this row' not in s
+          assert 'FV 2.7.33 SECURITY' in s
+          assert 'PBKDF2-SHA256' in s
+          assert 'AES-GCM' in s
+          assert 'gmInkScribeProtectBtn' in s
+          assert 'gmScribePinHash' not in s
+          assert 'gm_scribe_translation_locks_v1' not in s
+          assert 'readerLockTranslation' not in s
+          sp=extract_scribe(s)
+          assert sp.count('function renderReader(){')==1
+          assert sp.count('function openBook(')==1
+          assert sp.count('function renderInkScribePrint(){')==1
+          assert 'GM_SCRIBE_PRIVACY_V=3' in sp
+          assert 'GM_SCRIBE_RECOVERY' in sp
+          assert 'RSA-OAEP-SHA256' in sp
+          assert 'gmScribeRecoverPayload' in sp
+          assert 'privateCipher' in sp and 'publicSpki' in sp
+          assert 'FV 2.7.34 SCRIBE UI REPAIR' in sp
+          assert 'gmScribePrivacyDialog' in sp
+          assert '.lockedSpineTitle .bosGlyph svg' in sp
+          privacy=sp[sp.index('function gmScribeInlineNotice'):sp.index('function gmScribeUpdateLockUi')]
+          assert 'prompt(' not in privacy
+          assert 'alert(' not in privacy
+          dm=re.search(r'const DESK_B64="([A-Za-z0-9+/=]+)"',sp)
+          assert dm
+          desk=base64.b64decode(dm.group(1)).decode('utf-8')
+          assert 'gmScribePrintBackground2734' in desk
+          assert 'min-height:297mm!important' in desk
+          assert 'print-color-adjust:exact' in desk
+          assert 'FV 2.7.35 SCRIBE BOS ZOOM + CONTENTS' in sp
+          assert 'gm-bos-contents-touch-v2735' in sp
+          assert 'FV 2.7.36 SELECT EVERYTHING' in sp
+          assert 'gm-bos-select-everything-v2736' in sp
+          assert "gmBosTocPackSections(gmBosTocSections(),18)" in sp
+          assert 'gm_scribe_bos_selected_items_v1' in sp
+          assert 'data-gm-toc-item-select' in sp
+          assert 'data-gm-spell-group-select' in sp
+          assert 'gmBosPageMatchesSelectedItem' in sp
+          toc=sp[sp.index('function gmBosTocChapterHTML'):sp.index('function addContents')]
+          assert 'class="gmBosTocChapterText" data-chapter-jump' in toc
+          assert 'gmBosTocOpenBtn" data-chapter-jump' not in toc
+          assert 'data-gm-toc-item-open' in sp
+          assert 'data-gm-spell-open' in sp
+          assert 'FV 2.7.37 CONTENTS CLEANUP' in sp
+          assert 'gm-bos-checkbox-only-v2737' in sp
+          css_pos=sp.index('gm-bos-checkbox-only-v2737')
+          head_end=sp.index('</head>')
+          body_start=sp.index('<body')
+          print_doc=sp.index("const doc='<!doctype html>")
+          assert css_pos < head_end < body_start < print_doc
+          assert '<span>SELECT</span>' not in sp
+          assert "String(it.chapter||'')==='elements'&&p.classList.contains('gmBosElementAtlasPage')" in sp
+          assert "ch==='elements'&&p.classList.contains('gmBosElementAtlasPage')" in sp
+          assert 'gmBosDeityEmptyPage' in sp
+          fit=sp[sp.index('function fit(force)'):sp.index('function chapterContentsIndex')]
+          assert 'vp.__gmScribeBosUserZoom' in fit
+          assert "sc=base*user" in fit
+          assert "__gmScribeBosResetZoom();const key=b.dataset.gmPageTargetKey" not in sp
+          assert "function jump(ch){const vp=$('#gmBosViewport');if(vp&&typeof vp.__gmScribeBosResetZoom" not in sp
+          assert '__gmScribeBosReapplyZoom' in s
+          assert "vp.addEventListener('focusin'" in s
+          assert "e.target.closest('button,input,select,textarea,label,a,[contenteditable]" in s
+          # Read the old 2.7.31 values only to prove readable app access secrets remain absent.
+          old=open(sys.argv[1].replace('final-index.html','current-2731.html'),encoding='utf-8').read()
+          gm=re.search(r"function submitGate\(\).*?if\(val==='([^']+)'\).*?if\(val==='([^']+)'\)",old,re.S)
+          assert gm
+          for secret in gm.groups():
+              assert secret not in s
+          root='const PAGES = '; oi=old.index(root)+len(root); old_pages,_=json.JSONDecoder().raw_decode(old[oi:])
+          admin_old=old_pages['admin']
+          pm=re.search(r"localStorage\.getItem\(K_PIN\)\|\|'([^']+)'",admin_old)
+          assert pm
+          ni=s.index(root)+len(root); new_pages,_=json.JSONDecoder().raw_decode(s[ni:])
+          home_new=new_pages['home']
+          assert 'FV 2.7.37 HOME CLEANUP' in home_new
+          assert 'gm-fullscreen-home-btn' not in home_new
+          assert 'Explore the Grimoire of herbs, crystals, oils, runes and deities.' in home_new
+          assert 'Woods Witch &amp; RuneSmith' in home_new
+          assert 'Magical traditions can vary, use this Greenman Apothecary as a guide and continue your own research.' in home_new
+          assert 'HedgeWitchery uses its own curated reference data stored on your device.' in home_new
+          assert 'Its recommendations are created by matching that stored data to your intention.' in home_new
+          assert 'AI-generated content' not in home_new
+          assert '>SPELLS</button>' in home_new
+          assert 'width:clamp(210px,58vw,240px)' in home_new
+          assert 'flex-direction:column!important' in home_new
+          assert home_new.index('<!-- CLEAR SPELL BLOCK') < home_new.index('<!-- FOOTER -->') < home_new.index('<!-- BOTTOM TAB BAR -->')
+          assert 'background:linear-gradient(#89643a,#51351d)' in home_new
+          assert 'gm-fv3-tablet-proportions' in s
+          assert 'Math.round(stableHeight*9/16)' not in s
+          assert '#gmCupboardKey{width:88px!important' in s
+          assert 'gm-fv3-child-safe-master-v2' in s
+          assert 'GM_CHILD_SAFE_TEXT' in s
+          assert 'GM_CUPBOARD_CHILD_BAD' in s
+          assert 'Traditional adult material is hidden in this child-friendly view.' in s
+          admin_new=new_pages['admin']
+          assert pm.group(1) not in admin_new
+          assert 'gm_admin_pin_v2' in admin_new
+          assert 'Default PIN:' not in admin_new
+          PY
+
+          unzip -p "$APK" classes3.dex | strings | grep -Fq 'Greenman_Last_Bound_Book.pdf'
+          unzip -p "$APK" classes3.dex | strings | grep -Fq 'beginPdfCopy'
+          unzip -p "$APK" classes3.dex | strings | grep -Fq 'readLastBoundPdfChunk'
+          unzip -p "$APK" classes3.dex | strings | grep -Fq 'exportSelectedPagesAs'
+          unzip -p "$APK" classes3.dex | strings | grep -Fq 'lastError'
+          if unzip -p "$APK" classes3.dex | strings | grep -Fq 'ScribePdfService'; then exit 1; fi
+          if unzip -p "$APK" AndroidManifest.xml | strings | grep -Fq 'FOREGROUND_SERVICE'; then exit 1; fi
+
+          sha256sum "$APK" | tee "$WORK/final-apk-sha256.txt"
+
+          # User feedback: every run's artifact and APK had the exact same
+          # name, so a phone downloading build after build ends up with a
+          # pile of "(1)", "(2)" ... "(1000)" duplicate files with no way to
+          # tell them apart. Copy to a run-numbered filename right before
+          # upload so every build's download is uniquely named on its own.
+          cp "$APK" "$RUNNER_TEMP/GREENMAN_HEDGEWITCHERY_EXPERIMENTAL_ACCESS_V1_run${{ github.run_number }}.apk"
+
+      - name: Upload V28-base APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: GREENMAN-HEDGEWITCHERY-EXPERIMENTAL-ACCESS-V1-APK-run${{ github.run_number }}
+          path: ${{ runner.temp }}/GREENMAN_HEDGEWITCHERY_EXPERIMENTAL_ACCESS_V1_run${{ github.run_number }}.apk
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload audit
+        uses: actions/upload-artifact@v4
+        with:
+          name: GREENMAN-HEDGEWITCHERY-EXPERIMENTAL-ACCESS-V1-AUDIT
+          path: |
+            ${{ runner.temp }}/gm-v28-current/apksigner.txt
+            ${{ runner.temp }}/gm-v28-current/badging.txt
+            ${{ runner.temp }}/gm-v28-current/final-apk-sha256.txt
+          if-no-files-found: error
+          retention-days: 30
