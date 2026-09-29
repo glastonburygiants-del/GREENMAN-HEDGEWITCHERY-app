@@ -45,6 +45,7 @@ on:
       - "tools/patch_fv3_sales_rerender_entries.py"
       - "tools/patch_fv3_sales_paid_confirmation.py"
       - "tools/patch_fv34_country_sales_gate.py"
+      - "tools/patch_fv35_scribe_non_ogham_render.py"
       - "tools/greenman_release_keystore.b64"
   workflow_dispatch:
 
@@ -325,6 +326,17 @@ jobs:
           # around the existing build() call.
           python tools/patch_bos_reopen_binding_guard.py "$WORK/current.html" "$WORK/current-bos-reopen-guard.html"
           mv "$WORK/current-bos-reopen-guard.html" "$WORK/current.html"
+          node tools/verify_inline_scripts.js "$WORK/current.html"
+
+          # FV3.5: non-Ogham Scribe hands could leave a blank parchment on
+          # Android while Ogham still rendered. The common non-Ogham path
+          # performs A4 English-reserve measurement before it creates any
+          # glyphs; if that print-only canvas measurement fails in WebView,
+          # render() has already cleared #output and exits before the script
+          # glyph loop. Keep print sizing non-fatal, add a no-canvas fallback,
+          # and isolate the screen renderer from print-reserve failures.
+          python tools/patch_fv35_scribe_non_ogham_render.py "$WORK/current.html" "$WORK/current-scribe-non-ogham.html"
+          mv "$WORK/current-scribe-non-ogham.html" "$WORK/current.html"
           node tools/verify_inline_scripts.js "$WORK/current.html"
 
           # Real device logs (Choreographer frame-skip warnings, ART GC
@@ -735,8 +747,8 @@ jobs:
           # keystore - they match exactly, so this was never a signature
           # conflict. Bumping versionCode so this and future builds can
           # actually update the device's existing install.
-          sed -i 's/versionCode: 30/versionCode: 69/' "$WORK/decoded/apktool.yml"
-          sed -i 's/versionName: .*/versionName: FV3.4/' "$WORK/decoded/apktool.yml"
+          sed -i 's/versionCode: 30/versionCode: 70/' "$WORK/decoded/apktool.yml"
+          sed -i 's/versionName: .*/versionName: FV3.5/' "$WORK/decoded/apktool.yml"
 
           if grep -Fq 'ScribePdfService' "$WORK/decoded/AndroidManifest.xml"; then exit 1; fi
           if grep -Fq 'android.permission.FOREGROUND_SERVICE' "$WORK/decoded/AndroidManifest.xml"; then exit 1; fi
@@ -825,8 +837,8 @@ jobs:
           print('resources.arsc confirmed stored uncompressed')
           PY
 
-          grep -q "package: name='com.greenman.hedgewitchery' versionCode='69'" "$WORK/badging.txt"
-          grep -q "versionName='FV3.4'" "$WORK/badging.txt"
+          grep -q "package: name='com.greenman.hedgewitchery' versionCode='70'" "$WORK/badging.txt"
+          grep -q "versionName='FV3.5'" "$WORK/badging.txt"
           grep -q "uses-permission: name='android.permission.INTERNET'" "$WORK/badging.txt"
           unzip -p "$APK" assets/index.html > "$WORK/final-index.html"
           cmp "$WORK/final-index.html" "$WORK/current.html"
@@ -949,6 +961,9 @@ jobs:
           assert dm
           desk=base64.b64decode(dm.group(1)).decode('utf-8')
           assert 'gmScribePrintBackground2734' in desk
+          assert 'GM_SCRIBE_NON_OGHAM_RENDER_GUARD_FV35' in desk
+          assert 'if(!ctx||typeof ctx.measureText!==\"function\")' in desk
+          assert 'catch(_gmScribeReserveRenderError)' in desk
           assert 'min-height:297mm!important' in desk
           assert 'print-color-adjust:exact' in desk
           assert 'FV 2.7.35 SCRIBE BOS ZOOM + CONTENTS' in sp
