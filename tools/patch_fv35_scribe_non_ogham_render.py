@@ -7,14 +7,22 @@ from pathlib import Path
 
 DESK_RE = re.compile(r'const DESK_B64=\\\"([A-Za-z0-9+/=]+)\\\"')
 
-OLD = '''  const canvas=updatePrintReserve.canvas||(updatePrintReserve.canvas=document.createElement("canvas"));
-  const ctx=canvas.getContext("2d");
-  ctx.font='17.333px Georgia, "Times New Roman", serif';'''
+ANCHOR = '''function renderEnglishLine(text){
+  const line=document.createElement("div");
+  line.className="englishUnderLine";
+  line.textContent=text;
+  return line;
+}
+'''
 
-NEW = '''  const canvas=updatePrintReserve.canvas||(updatePrintReserve.canvas=document.createElement("canvas"));
-  let ctx=null;try{ctx=canvas.getContext("2d")}catch(_){}
-  if(!ctx||typeof ctx.measureText!=="function")return;
-  ctx.font='17.333px Georgia, "Times New Roman", serif';'''
+APPEND_WORD_GAP = '''function appendWordGap(line){
+  const sp=document.createElement("span");
+  sp.className="space";
+  const wordGap=Math.max(8,typingSizePt*1.34*.46);
+  sp.style.width=wordGap+"px";sp.style.flexBasis=wordGap+"px";sp.style.height=Math.max(18,typingSizePt*1.34)+"px";
+  line.appendChild(sp);
+}
+'''
 
 
 def main() -> None:
@@ -27,21 +35,28 @@ def main() -> None:
         raise SystemExit(f"expected exactly one DESK_B64 payload, found {len(matches)}")
     m=matches[0]
     desk=base64.b64decode(m.group(1),validate=True).decode("utf-8")
-    if desk.count(OLD)!=1:
-        raise SystemExit(f"expected exactly one Scribe canvas block, found {desk.count(OLD)}")
-    patched=desk.replace(OLD,NEW,1)
+
+    if desk.count("function appendWordGap(") != 0:
+        raise SystemExit("appendWordGap is already present; refusing duplicate restore")
+    if desk.count(ANCHOR) != 1:
+        raise SystemExit(f"expected one renderEnglishLine anchor, found {desk.count(ANCHOR)}")
+
+    patched=desk.replace(ANCHOR,ANCHOR+APPEND_WORD_GAP,1)
+    if patched.count("function appendWordGap(line){") != 1:
+        raise SystemExit("appendWordGap restore failed")
+
     b64=base64.b64encode(patched.encode("utf-8")).decode("ascii")
-    out=app[:m.start(1)]+b64+app[m.end(1):]
+    out=app[:m.start(1)] + b64 + app[m.end(1):]
     dst.write_text(out,encoding="utf-8")
 
     check=dst.read_text(encoding="utf-8")
     mm=DESK_RE.search(check)
     if not mm:
         raise SystemExit("DESK_B64 missing after write")
-    d2=base64.b64decode(mm.group(1),validate=True).decode("utf-8")
-    assert NEW in d2
-    assert OLD not in d2
-    print(f"Applied minimal Scribe non-Ogham canvas guard: {src.name} -> {dst.name}")
+    desk_check=base64.b64decode(mm.group(1),validate=True).decode("utf-8")
+    assert desk_check.count("function appendWordGap(line){") == 1
+    assert desk_check.count("appendWordGap(") == 2
+    print(f"Restored exact Scribe appendWordGap helper: {src.name} -> {dst.name}")
 
 
 if __name__=="__main__":
