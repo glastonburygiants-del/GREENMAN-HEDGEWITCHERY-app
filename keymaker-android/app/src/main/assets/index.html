@@ -299,10 +299,24 @@ button:disabled{opacity:.45}
     }
     const del=e.target.closest(".delete");
     if(del){
-      const warning=del.dataset.status==="REDEEMED"
-        ? "Delete this key completely from the Key Maker and Supabase? This will also remove its redeemed entitlement and can stop that access. This cannot be undone."
-        : "Delete this key completely from the Key Maker and Supabase? This cannot be undone.";
-      if(!confirm(warning)) return;
+      if(del.dataset.confirmed!=="1"){
+        del.dataset.confirmed="1";
+        del.textContent="CONFIRM DELETE";
+        showStatus(
+          del.dataset.status==="REDEEMED"
+            ? "Tap CONFIRM DELETE to remove this key and its redeemed access from the Key Maker and Supabase."
+            : "Tap CONFIRM DELETE again to remove this key from the Key Maker and Supabase.",
+          false
+        );
+        setTimeout(()=>{
+          if(del.isConnected && del.dataset.confirmed==="1"){
+            del.dataset.confirmed="0";
+            del.textContent="DELETE";
+            showStatus("",true);
+          }
+        },6000);
+        return;
+      }
 
       del.disabled=true;
       showStatus("",true);
@@ -316,6 +330,8 @@ button:disabled{opacity:.45}
       }catch(err){
         showStatus(String(err.message||err),false);
         del.disabled=false;
+        del.dataset.confirmed="0";
+        del.textContent="DELETE";
       }
       return;
     }
