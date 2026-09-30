@@ -1,0 +1,320 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Greenman HedgeWitchery Apothecary Key Maker</title>
+<style>
+:root{
+  --bg1:#0d1b0e;--bg2:#160d05;--green:#1e5522;--green2:#327637;
+  --paper:#f4e6bf;--paper2:#fff9e8;--gold:#c7a64a;--gold2:#8c6a20;
+  --ink:#2b1b0d;--muted:#705c3a;--red:#8f2f24;
+}
+*{box-sizing:border-box}
+html,body{margin:0;min-height:100%;font-family:Georgia,"Times New Roman",serif}
+body{
+  min-height:100vh;
+  background:radial-gradient(circle at 50% -10%,rgba(84,132,62,.24),transparent 36%),
+             linear-gradient(180deg,var(--bg1),var(--bg2));
+  color:var(--ink);
+}
+.wrap{width:min(900px,100%);margin:0 auto;padding:14px 12px calc(38px + env(safe-area-inset-bottom))}
+.header{
+  text-align:center;color:#fff2c7;background:linear-gradient(#285f2b,#153d17);
+  border:3px solid var(--gold);border-radius:14px;padding:18px 12px;
+  box-shadow:0 0 0 4px #3b250c,0 12px 26px rgba(0,0,0,.4)
+}
+.header h1{margin:0;font-size:clamp(25px,6.5vw,40px);line-height:1.05}
+.header p{margin:8px 0 0;color:#e6d293;letter-spacing:.12em;text-transform:uppercase;font-size:14px}
+.card{
+  margin-top:15px;background:linear-gradient(#f7ebca,#efe0b9);
+  border:3px solid var(--gold2);border-radius:12px;padding:16px;
+  box-shadow:0 0 0 4px #39240c,0 9px 20px rgba(0,0,0,.33)
+}
+.card h2{margin:0 0 12px;color:#205a23;font-size:clamp(22px,5vw,30px);text-transform:uppercase}
+.grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+label{display:block;font-weight:700;margin-bottom:6px;color:#463214}
+input,select{
+  width:100%;min-height:46px;border:2px solid #9c792c;border-radius:8px;
+  background:#fffdf7;color:#25170b;padding:10px 11px;font:16px Georgia,serif
+}
+input:focus,select:focus{outline:3px solid rgba(47,117,54,.16);border-color:#2d7133}
+.row{display:flex;gap:8px;flex-wrap:wrap;margin-top:13px}
+button{min-height:45px;border-radius:9px;padding:9px 14px;font:700 15px Georgia,serif;cursor:pointer}
+button:disabled{opacity:.45}
+.primary{color:#fff4d0;background:linear-gradient(#3d7c40,#225b26);border:2px solid #173e19}
+.secondary{color:#3c2a12;background:#fff9e7;border:2px solid #99752a}
+.danger{color:#fff;background:linear-gradient(#a23a2d,#842a20);border:2px solid #5c1a14}
+.generated{display:none;margin-top:14px;padding:14px;border-radius:10px;background:#edf8e5;border:3px solid #4f7d42}
+.generated .code{margin:6px 0;color:#184c1c;font:800 clamp(22px,7vw,32px) ui-monospace,monospace;letter-spacing:.1em;overflow-wrap:anywhere}
+.status{display:none;margin-top:12px;padding:10px 12px;border-radius:8px;font-weight:700}
+.status.good{display:block;background:#e7f4dc;border:2px solid #4c7d40;color:#224f22}
+.status.bad{display:block;background:#f5d6d0;border:2px solid #9f4a3f;color:#6c2119}
+.toolbar{display:flex;gap:8px;align-items:center;justify-content:space-between;flex-wrap:wrap;margin-bottom:10px}
+.filters{display:flex;gap:5px;flex-wrap:wrap}
+.filter{min-height:35px;padding:7px 9px;font-size:12px;background:#fff9e7;color:#473314;border:1px solid #9b792c}
+.filter.active{background:#285f2a;color:#fff2cf;border-color:#163c18}
+.keylist{display:grid;gap:10px}
+.keyitem{background:var(--paper2);border:2px solid #ae8832;border-radius:10px;padding:12px}
+.keytop{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+.keycode{color:#1b521f;font:800 18px ui-monospace,monospace;letter-spacing:.06em}
+.badge{padding:5px 9px;border-radius:999px;font-size:12px;font-weight:800;border:1px solid #8b6a20;background:#f0dfaa;color:#553c0c}
+.badge.REDEEMED{background:#dce8f5;color:#274b72;border-color:#5b789c}
+.badge.REVOKED{background:#efd2cb;color:#692118;border-color:#9b493e}
+.badge.EXPIRED{background:#e7e3df;color:#5a544e;border-color:#81766e}
+.meta{margin-top:6px;color:var(--muted);line-height:1.4;font-size:14px}
+.empty{color:#6f5b3a;font-style:italic;padding:8px 1px}
+.footer{margin-top:18px;text-align:center;color:#a58d59;font-size:12px}
+@media(max-width:720px){.grid{grid-template-columns:1fr}.card{padding:14px}.row button{flex:1 1 130px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="header">
+    <h1>Greenman HedgeWitchery Apothecary</h1>
+    <p>HedgeWitchery Key Maker</p>
+  </header>
+
+  <section class="card">
+    <h2>Make Access Key</h2>
+    <div class="grid">
+      <div>
+        <label for="type">Access</label>
+        <select id="type">
+          <option value="web">HedgeWitchery Web App</option>
+          <option value="android">HedgeWitchery Android App</option>
+        </select>
+      </div>
+      <div>
+        <label for="duration">Duration</label>
+        <select id="duration">
+          <option value="1">1 month</option>
+          <option value="3">3 months</option>
+          <option value="6">6 months</option>
+          <option value="12">12 months</option>
+          <option value="permanent">Permanent</option>
+        </select>
+      </div>
+      <div>
+        <label for="note">Note</label>
+        <input id="note" maxlength="120" placeholder="Gift, tester, reviewer…">
+      </div>
+    </div>
+
+    <div class="row">
+      <button id="generateBtn" class="primary">GENERATE KEY</button>
+      <button id="refreshBtn" class="secondary">REFRESH</button>
+    </div>
+
+    <div id="generated" class="generated">
+      <div>New access key</div>
+      <div id="generatedCode" class="code"></div>
+      <div class="row"><button id="copyGenerated" class="secondary">COPY KEY</button></div>
+    </div>
+
+    <div id="statusBox" class="status"></div>
+  </section>
+
+  <section class="card">
+    <div class="toolbar">
+      <h2 style="margin:0">Keys</h2>
+      <div class="filters">
+        <button class="filter active" data-filter="ALL">ALL</button>
+        <button class="filter" data-filter="UNUSED">UNUSED</button>
+        <button class="filter" data-filter="REDEEMED">REDEEMED</button>
+        <button class="filter" data-filter="REVOKED">REVOKED</button>
+        <button class="filter" data-filter="EXPIRED">EXPIRED</button>
+      </div>
+    </div>
+    <div id="keyList" class="keylist"><div class="empty">Loading keys…</div></div>
+  </section>
+
+  <div class="footer">Greenman HedgeWitchery Apothecary • HedgeWitchery Key Maker</div>
+</div>
+
+<script>
+(function(){
+  const PROJECT_URL="https://zzfgufuyetybxaeidcxu.supabase.co";
+  const PUBLISHABLE_KEY="sb_publishable_v5C9faTqdknJP9sdbgahCQ_MZVw_2gG";
+  const ENDPOINT=PROJECT_URL+"/functions/v1/greenman-keymaker-private";
+  const LOCAL_CODES="hedgewitchery_keymaker_codes_v1";
+
+  let rows=[];
+  let filter="ALL";
+
+  const type=document.getElementById("type");
+  const duration=document.getElementById("duration");
+  const note=document.getElementById("note");
+  const generateBtn=document.getElementById("generateBtn");
+  const refreshBtn=document.getElementById("refreshBtn");
+  const generated=document.getElementById("generated");
+  const generatedCode=document.getElementById("generatedCode");
+  const statusBox=document.getElementById("statusBox");
+  const keyList=document.getElementById("keyList");
+
+  function token(){
+    try{
+      if(window.HedgeWitcheryKeyMaker && window.HedgeWitcheryKeyMaker.getDeviceToken){
+        return String(window.HedgeWitcheryKeyMaker.getDeviceToken()||"");
+      }
+    }catch(e){}
+    return "";
+  }
+
+  function showStatus(msg,good){
+    statusBox.textContent=msg||"";
+    statusBox.className="status "+(msg?(good?"good":"bad"):"");
+  }
+
+  function localCodes(){
+    try{
+      const d=JSON.parse(localStorage.getItem(LOCAL_CODES)||"{}");
+      return d&&typeof d==="object"?d:{};
+    }catch(e){return {}}
+  }
+
+  function saveCode(id,code){
+    const m=localCodes();
+    m[id]=code;
+    localStorage.setItem(LOCAL_CODES,JSON.stringify(m));
+  }
+
+  function esc(v){
+    return String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+  }
+
+  function copyText(v){
+    if(navigator.clipboard&&navigator.clipboard.writeText) return navigator.clipboard.writeText(v);
+    const t=document.createElement("textarea");
+    t.value=v;document.body.appendChild(t);t.select();document.execCommand("copy");t.remove();
+    return Promise.resolve();
+  }
+
+  async function api(body){
+    const deviceToken=token();
+    if(!deviceToken) throw new Error("This Key Maker build is not authorised.");
+    const r=await fetch(ENDPOINT,{
+      method:"POST",
+      headers:{
+        "Content-Type":"application/json",
+        "apikey":PUBLISHABLE_KEY,
+        "x-greenman-device":deviceToken
+      },
+      body:JSON.stringify(body)
+    });
+    const d=await r.json().catch(()=>({}));
+    if(!r.ok) throw new Error(d.error||("Request failed: "+r.status));
+    return d;
+  }
+
+  function durationText(r){
+    return r.duration_months==null?"Permanent":r.duration_months+" month"+(r.duration_months===1?"":"s");
+  }
+
+  function render(){
+    const known=localCodes();
+    const view=filter==="ALL"?rows:rows.filter(r=>r.status===filter);
+    if(!view.length){
+      keyList.innerHTML='<div class="empty">No keys in this view.</div>';
+      return;
+    }
+
+    keyList.innerHTML=view.map(r=>{
+      const full=known[r.id]||"";
+      const shown=full||r.masked_code;
+      return '<article class="keyitem">'+
+        '<div class="keytop"><div class="keycode">'+esc(shown)+'</div><div class="badge '+esc(r.status)+'">'+esc(r.status)+'</div></div>'+
+        '<div class="meta">'+
+          (r.access_type==="web"?"HedgeWitchery Web App":"HedgeWitchery Android App")+' • '+durationText(r)+' • '+new Date(r.created_at).toLocaleString()+
+          (r.note?'<br>Note: '+esc(r.note):'')+
+          (r.expires_at?'<br>Expires: '+new Date(r.expires_at).toLocaleString():'')+
+          (!full?'<br><em>Masked record only on this device.</em>':'')+
+        '</div>'+
+        '<div class="row">'+
+          (full?'<button class="secondary copy" data-code="'+esc(full)+'">COPY</button>':'')+
+          '<button class="danger revoke" data-id="'+esc(r.id)+'" '+(r.status!=="UNUSED"?"disabled":"")+'>REVOKE</button>'+
+        '</div>'+
+      '</article>';
+    }).join("");
+  }
+
+  async function load(){
+    const d=await api({action:"list"});
+    rows=d.rows||[];
+    render();
+  }
+
+  type.addEventListener("change",()=>{
+    if(type.value==="android"){
+      duration.value="permanent";
+      duration.disabled=true;
+    }else{
+      duration.disabled=false;
+    }
+  });
+
+  generateBtn.addEventListener("click",async()=>{
+    showStatus("",true);
+    generateBtn.disabled=true;
+    try{
+      const d=await api({
+        action:"generate",
+        access_type:type.value,
+        duration:type.value==="android"?"permanent":duration.value,
+        note:note.value.trim()
+      });
+      generatedCode.textContent=d.code;
+      generated.style.display="block";
+      saveCode(d.row.id,d.code);
+      note.value="";
+      await load();
+    }catch(e){
+      showStatus(String(e.message||e),false);
+    }finally{
+      generateBtn.disabled=false;
+    }
+  });
+
+  refreshBtn.addEventListener("click",async()=>{
+    showStatus("",true);
+    try{await load()}catch(e){showStatus(String(e.message||e),false)}
+  });
+
+  document.getElementById("copyGenerated").addEventListener("click",()=>{
+    copyText(generatedCode.textContent||"");
+  });
+
+  keyList.addEventListener("click",async e=>{
+    const copy=e.target.closest(".copy");
+    if(copy){
+      await copyText(copy.dataset.code||"");
+      return;
+    }
+    const revoke=e.target.closest(".revoke");
+    if(!revoke)return;
+
+    revoke.disabled=true;
+    showStatus("",true);
+    try{
+      await api({action:"revoke",id:revoke.dataset.id});
+      await load();
+    }catch(err){
+      showStatus(String(err.message||err),false);
+      revoke.disabled=false;
+    }
+  });
+
+  document.querySelectorAll(".filter").forEach(btn=>{
+    btn.addEventListener("click",()=>{
+      document.querySelectorAll(".filter").forEach(b=>b.classList.remove("active"));
+      btn.classList.add("active");
+      filter=btn.dataset.filter;
+      render();
+    });
+  });
+
+  load().catch(e=>showStatus(String(e.message||e),false));
+})();
+</script>
+</body>
+</html>
