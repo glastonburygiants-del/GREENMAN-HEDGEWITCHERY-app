@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>HedgeWitchery Access Test</title>
+<style>
+:root{--green:#173f1b;--green2:#2e6d31;--gold:#c7a64a;--cream:#f4ead0;--ink:#28180c;--brown:#5d3a1d}
+*{box-sizing:border-box}
+html,body{margin:0;min-height:100%;background:radial-gradient(circle at 50% 0,#355f32 0,#173f1b 36%,#0e240f 100%);color:var(--cream);font-family:Georgia,serif}
+body{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:22px}
+.card{width:min(440px,100%);background:rgba(244,234,208,.97);color:var(--ink);border:2px solid var(--gold);border-radius:18px;padding:22px 18px;box-shadow:0 18px 55px rgba(0,0,0,.5);text-align:center}
+.brand{font-size:24px;font-weight:700;color:var(--green);line-height:1.16;margin-bottom:5px}
+.sub{font-size:14px;letter-spacing:.08em;text-transform:uppercase;color:#6b4d21;margin-bottom:20px}
+label{display:block;text-align:left;font-weight:700;margin:8px 0 7px}
+input{width:100%;padding:14px 12px;border:2px solid #9c7c42;border-radius:10px;background:#fffaf0;font:700 18px monospace;letter-spacing:.06em;text-transform:uppercase;text-align:center;color:#1c170f}
+button{width:100%;padding:14px 12px;border:2px solid var(--gold);border-radius:10px;background:var(--green2);color:#fff7dc;font:700 16px Georgia,serif;letter-spacing:.03em;margin-top:12px}
+button:disabled{opacity:.6}
+.msg{min-height:22px;margin-top:12px;font-size:14px;color:#6e271e}
+.small{font-size:13px;color:#6b5434;line-height:1.45;margin-top:15px}
+#welcome,#success{display:none}
+#welcome h2{color:var(--green);font-size:24px;margin:0 0 15px;line-height:1.2}
+#welcome p{font-size:17px;line-height:1.5;margin:0 0 10px}
+#success h2{color:var(--green);margin:0 0 10px}
+.tick{font-size:48px;margin-bottom:6px}
+.meta{margin-top:14px;padding:12px;background:#fff9e9;border:1px solid #c8ad72;border-radius:10px;font-size:14px;line-height:1.45;text-align:left}
+</style>
+</head>
+<body>
+<div class="card">
+  <section id="gate">
+    <div class="brand">Greenman HedgeWitchery Apothecary</div>
+    <div class="sub">Access Test</div>
+    <label for="code">HedgeWitchery Android App access key</label>
+    <input id="code" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="GM-XXXX-XXXX" maxlength="12">
+    <button id="open" type="button">OPEN THE GATE</button>
+    <div class="msg" id="msg"></div>
+    <div class="small">This small test app checks only the new access-key route. It does not contain or alter your main HedgeWitchery app.</div>
+  </section>
+
+  <section id="welcome">
+    <h2>Welcome to Greenman HedgeWitchery Apothecary.</h2>
+    <p>You’ve found the door. Come in.</p>
+    <p>The cupboards are stocked, the moon is turning, and your Book of Shadows is waiting.</p>
+    <button id="enter" type="button">ENTER THE APOTHECARY</button>
+  </section>
+
+  <section id="success">
+    <div class="tick">✓</div>
+    <h2>Access route working</h2>
+    <p>The Android key was accepted, redeemed and stored on this test installation.</p>
+    <div class="meta" id="meta"></div>
+  </section>
+</div>
+<script>
+(function(){
+'use strict';
+const URL='https://zzfgufuyetybxaeidcxu.supabase.co/functions/v1/greenman-access-redeem';
+const API='sb_publishable_v5C9faTqdknJP9sdbgahCQ_MZVw_2gG';
+const TOKEN='hedgewitchery_access_test_token_v1';
+const META='hedgewitchery_access_test_meta_v1';
+const $=id=>document.getElementById(id);
+
+function fmtCode(v){
+  let s=String(v||'').toUpperCase().replace(/[^A-Z0-9]/g,'');
+  if(s.startsWith('GM'))s=s.slice(2);
+  s=s.slice(0,8);
+  return 'GM-'+s.slice(0,4)+(s.length>4?'-'+s.slice(4):'');
+}
+function valid(v){return /^GM-[A-HJ-NP-Z2-9]{4}-[A-HJ-NP-Z2-9]{4}$/.test(v)}
+async function api(body){
+  const r=await fetch(URL,{method:'POST',headers:{'Content-Type':'application/json','apikey':API},body:JSON.stringify(body)});
+  let d={};try{d=await r.json()}catch(_e){}
+  if(!r.ok)throw new Error(d.error||('Access check failed ('+r.status+')'));
+  return d;
+}
+$('code').addEventListener('input',e=>{e.target.value=fmtCode(e.target.value)});
+$('open').addEventListener('click',async()=>{
+  const code=fmtCode($('code').value);
+  $('code').value=code;
+  if(!valid(code)){$('msg').textContent='Enter the full GM-XXXX-XXXX key.';return}
+  $('open').disabled=true;$('msg').textContent='Checking access key…';
+  try{
+    const d=await api({action:'redeem',code,expected_access_type:'android'});
+    localStorage.setItem(TOKEN,String(d.entitlement_token||''));
+    localStorage.setItem(META,JSON.stringify(d));
+    $('gate').style.display='none';
+    $('welcome').style.display='block';
+  }catch(e){
+    $('msg').textContent=String(e.message||e);
+  }finally{$('open').disabled=false}
+});
+$('enter').addEventListener('click',()=>{
+  const d=JSON.parse(localStorage.getItem(META)||'{}');
+  $('welcome').style.display='none';
+  $('success').style.display='block';
+  $('meta').innerHTML=
+    '<b>Type:</b> HedgeWitchery Android App<br>'+
+    '<b>Status:</b> REDEEMED<br>'+
+    '<b>Duration:</b> '+(d.duration_months==null?'Permanent':d.duration_months+' month'+(d.duration_months===1?'':'s'))+
+    (d.expires_at?'<br><b>Expires:</b> '+new Date(d.expires_at).toLocaleString():'');
+});
+})();
+</script>
+</body>
+</html>
