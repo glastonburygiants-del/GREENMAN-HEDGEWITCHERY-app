@@ -1,4 +1,4 @@
-name: Build Greenman EXP3 From Repaired FV3.5.2 Baseline
+name: Build HedgeWitchery EXP4 Customer Access Gate
 
 on:
   push:
@@ -46,7 +46,7 @@ on:
       - "tools/patch_fv3_sales_paid_confirmation.py"
       - "tools/patch_fv34_country_sales_gate.py"
       - "tools/patch_fv35_scribe_non_ogham_render.py"
-      - "tools/patch_exp_access_keys_v1.py"
+      - "tools/patch_customer_access_gate_v1.py"
       - "tools/greenman_release_keystore.b64"
   workflow_dispatch:
 
@@ -610,14 +610,18 @@ jobs:
           mv "$WORK/current-country-gate.html" "$WORK/current.html"
           node tools/verify_inline_scripts.js "$WORK/current.html"
 
-          # EXP3: Admin-only local access-key maker on the repaired baseline.
-          # No live Supabase/customer unlock changes.
-          python tools/patch_exp_access_keys_v1.py "$WORK/current.html" "$WORK/current-exp-access-v1.html"
-          mv "$WORK/current-exp-access-v1.html" "$WORK/current.html"
+          # EXP4: Live customer access keys share the existing Full gate.
+          # Lite, owner Full password and Master/Admin password remain unchanged.
+          # The private Key Maker stays in its own standalone APK.
+          python tools/patch_customer_access_gate_v1.py "$WORK/current.html" "$WORK/current-customer-access.html"
+          mv "$WORK/current-customer-access.html" "$WORK/current.html"
           node tools/verify_inline_scripts.js "$WORK/current.html"
-          grep -Fq 'gm-exp-access-keys-v1' "$WORK/current.html"
-          grep -Fq 'gm_exp_access_keys_v1' "$WORK/current.html"
-          grep -Fq 'Access Key Maker' "$WORK/current.html"
+          grep -Fq 'gm-customer-access-gate-v1' "$WORK/current.html"
+          grep -Fq 'greenman-access-redeem' "$WORK/current.html"
+          grep -Fq 'gm_access_entitlement_token_v1' "$WORK/current.html"
+          grep -Fq 'ENTER THE APOTHECARY' "$WORK/current.html"
+          grep -Fq 'Welcome to Greenman HedgeWitchery Apothecary.' "$WORK/current.html"
+          if grep -Fq 'gm-exp-access-keys-v1' "$WORK/current.html"; then exit 1; fi
 
           echo "WORK=$WORK" >> "$GITHUB_ENV"
 
@@ -757,10 +761,10 @@ jobs:
           # keystore - they match exactly, so this was never a signature
           # conflict. Bumping versionCode so this and future builds can
           # actually update the device's existing install.
-          sed -i 's/versionCode: 30/versionCode: 73/' "$WORK/decoded/apktool.yml"
-          sed -i 's/versionName: .*/versionName: EXP3/' "$WORK/decoded/apktool.yml"
+          sed -i 's/versionCode: 30/versionCode: 74/' "$WORK/decoded/apktool.yml"
+          sed -i 's/versionName: .*/versionName: EXP4/' "$WORK/decoded/apktool.yml"
 
-          # EXP3 safety: separate package, so stable Greenman is untouched.
+          # EXP4 safety: separate package, so the working HedgeWitchery app is untouched.
           python - "$WORK/decoded/apktool.yml" <<'PY'
           from pathlib import Path
           import re, sys
@@ -834,13 +838,13 @@ jobs:
           base64 --decode tools/greenman_release_keystore.b64 > "$HOME/.android/release.keystore"
           chmod 600 "$HOME/.android/release.keystore"
 
-          "$BT/apksigner" sign             --ks "$HOME/.android/release.keystore"             --ks-key-alias greenmanrelease2026             --ks-pass pass:greenmanhedgewitchery2026             --key-pass pass:greenmanhedgewitchery2026             --out "$RUNNER_TEMP/GREENMAN_HEDGEWITCHERY_EXPERIMENTAL_ACCESS_V3.apk"             "$WORK/aligned.apk"
+          "$BT/apksigner" sign             --ks "$HOME/.android/release.keystore"             --ks-key-alias greenmanrelease2026             --ks-pass pass:greenmanhedgewitchery2026             --key-pass pass:greenmanhedgewitchery2026             --out "$RUNNER_TEMP/GREENMAN_HEDGEWITCHERY_EXPERIMENTAL_ACCESS_V4.apk"             "$WORK/aligned.apk"
 
       - name: Verify V28-base APK
         shell: bash
         run: |
           set -euo pipefail
-          APK="$RUNNER_TEMP/GREENMAN_HEDGEWITCHERY_EXPERIMENTAL_ACCESS_V3.apk"
+          APK="$RUNNER_TEMP/GREENMAN_HEDGEWITCHERY_EXPERIMENTAL_ACCESS_V4.apk"
           BT="$ANDROID_HOME/build-tools/35.0.0"
 
           "$BT/apksigner" verify --verbose --print-certs "$APK" | tee "$WORK/apksigner.txt"
@@ -860,8 +864,8 @@ jobs:
           print('resources.arsc confirmed stored uncompressed')
           PY
 
-          grep -q "package: name='com.greenman.hedgewitchery.experimental' versionCode='73'" "$WORK/badging.txt"
-          grep -q "versionName='EXP3'" "$WORK/badging.txt"
+          grep -q "package: name='com.greenman.hedgewitchery.experimental' versionCode='74'" "$WORK/badging.txt"
+          grep -q "versionName='EXP4'" "$WORK/badging.txt"
           grep -q "uses-permission: name='android.permission.INTERNET'" "$WORK/badging.txt"
           unzip -p "$APK" assets/index.html > "$WORK/final-index.html"
           cmp "$WORK/final-index.html" "$WORK/current.html"
@@ -873,9 +877,12 @@ jobs:
           grep -Fq 'gm-country-first-install-script' "$WORK/final-index.html"
           grep -Fq 'gm_user_country_v1' "$WORK/final-index.html"
           grep -Fq 'Spell purchases are currently available for UK delivery only.' "$WORK/final-index.html"
-          grep -Fq 'gm-exp-access-keys-v1' "$WORK/final-index.html"
-          grep -Fq 'gm_exp_access_keys_v1' "$WORK/final-index.html"
-          grep -Fq 'Experimental local prototype.' "$WORK/final-index.html"
+          grep -Fq 'gm-customer-access-gate-v1' "$WORK/final-index.html"
+          grep -Fq 'greenman-access-redeem' "$WORK/final-index.html"
+          grep -Fq 'gm_access_entitlement_token_v1' "$WORK/final-index.html"
+          grep -Fq 'ENTER THE APOTHECARY' "$WORK/final-index.html"
+          grep -Fq 'Welcome to Greenman HedgeWitchery Apothecary.' "$WORK/final-index.html"
+          if grep -Fq 'gm-exp-access-keys-v1' "$WORK/final-index.html"; then exit 1; fi
 
           grep -Fq 'INKPOT V2.7.30: Ink Pot saves only an exact copy of the completed bound PDF; all chapter/page/spell filtering removed from this room.' "$WORK/final-index.html"
           grep -Fq 'CUPBOARD LAYOUT FIX V2.7.29: furniture order unchanged; join CSS is now correctly contained in style.' "$WORK/final-index.html"
@@ -1078,20 +1085,20 @@ jobs:
           # pile of "(1)", "(2)" ... "(1000)" duplicate files with no way to
           # tell them apart. Copy to a run-numbered filename right before
           # upload so every build's download is uniquely named on its own.
-          cp "$APK" "$RUNNER_TEMP/GREENMAN_HEDGEWITCHERY_EXPERIMENTAL_ACCESS_V3_run${{ github.run_number }}.apk"
+          cp "$APK" "$RUNNER_TEMP/GREENMAN_HEDGEWITCHERY_EXPERIMENTAL_ACCESS_V4_run${{ github.run_number }}.apk"
 
       - name: Upload V28-base APK
         uses: actions/upload-artifact@v4
         with:
-          name: GREENMAN-HEDGEWITCHERY-EXPERIMENTAL-ACCESS-V3-APK-run${{ github.run_number }}
-          path: ${{ runner.temp }}/GREENMAN_HEDGEWITCHERY_EXPERIMENTAL_ACCESS_V3_run${{ github.run_number }}.apk
+          name: GREENMAN-HEDGEWITCHERY-EXPERIMENTAL-ACCESS-V4-APK-run${{ github.run_number }}
+          path: ${{ runner.temp }}/GREENMAN_HEDGEWITCHERY_EXPERIMENTAL_ACCESS_V4_run${{ github.run_number }}.apk
           if-no-files-found: error
           retention-days: 30
 
       - name: Upload audit
         uses: actions/upload-artifact@v4
         with:
-          name: GREENMAN-HEDGEWITCHERY-EXPERIMENTAL-ACCESS-V3-AUDIT
+          name: GREENMAN-HEDGEWITCHERY-EXPERIMENTAL-ACCESS-V4-AUDIT
           path: |
             ${{ runner.temp }}/gm-v28-current/apksigner.txt
             ${{ runner.temp }}/gm-v28-current/badging.txt
