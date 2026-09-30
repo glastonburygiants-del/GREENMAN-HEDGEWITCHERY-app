@@ -1,1 +1,2 @@
 build standalone hedgewitchery key maker apk - delete fix v1.2
+V1.3 flexible durations + reusable promo counters
