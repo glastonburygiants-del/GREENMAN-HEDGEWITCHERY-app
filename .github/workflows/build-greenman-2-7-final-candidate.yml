@@ -1,0 +1,248 @@
+name: GREENMAN 2.7 FINAL CANDIDATE
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - clean-original-app-new-shell
+    paths:
+      - "GREENMAN_HEDGEWITCHERY_ANDROID_PROJECT_GATHER_FIXED*.zip"
+      - "tools/patch_supply_room.py"
+      - "tools/greenman_debug_keystore.b64"
+      - "clean_shell_v2/**"
+      - ".github/workflows/build-greenman-2-7-final-candidate.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  build-final-candidate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Check out isolated final-candidate branch
+        uses: actions/checkout@v4
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android platform and build tools
+        run: |
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager "platforms;android-35" "build-tools;35.0.0"
+
+      - name: Set up Gradle 8.9
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.9"
+
+      - name: Install stable Greenman signing key
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$HOME/.android"
+          base64 --decode "$GITHUB_WORKSPACE/tools/greenman_debug_keystore.b64" > "$HOME/.android/debug.keystore"
+          chmod 600 "$HOME/.android/debug.keystore"
+          keytool -list -keystore "$HOME/.android/debug.keystore" -storepass android -alias androiddebugkey >/dev/null
+
+      - name: Unpack original Gather-fixed Android project
+        shell: bash
+        run: |
+          set -euo pipefail
+          ZIP_FILE="$(find "$GITHUB_WORKSPACE" -maxdepth 1 -type f -name 'GREENMAN_HEDGEWITCHERY_ANDROID_PROJECT_GATHER_FIXED*.zip' -print -quit)"
+          test -s "$ZIP_FILE"
+          mkdir -p "$GITHUB_WORKSPACE/extracted"
+          unzip -q "$ZIP_FILE" -d "$GITHUB_WORKSPACE/extracted"
+          PROJECT_DIR="$(find "$GITHUB_WORKSPACE/extracted" -type f -name settings.gradle -printf '%h\n' | head -n 1)"
+          test -n "$PROJECT_DIR"
+          echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
+
+      - name: Apply proven Supply Cupboard room repair
+        shell: bash
+        run: |
+          set -euo pipefail
+          INDEX_FILE="$PROJECT_DIR/app/src/main/assets/index.html"
+          python "$GITHUB_WORKSPACE/tools/patch_supply_room.py" "$INDEX_FILE" "$INDEX_FILE"
+          echo "53224a35f792777ba70d2f13323d81f38a7037dadc9b2bb753b73157fee93cb2  $INDEX_FILE" | sha256sum -c -
+          grep -q "All items rendered" "$INDEX_FILE"
+
+      - name: Restore proven Summary fit and black-white print
+        shell: bash
+        run: |
+          set -euo pipefail
+          INDEX_FILE="$PROJECT_DIR/app/src/main/assets/index.html"
+          python "$GITHUB_WORKSPACE/clean_shell_v2/install_proven_summary_print.py" "$INDEX_FILE" "$INDEX_FILE"
+          echo "da7cdc5a815fc48879a48d0b044845000bbb27b5d831a723e5b587a7ee4418a1  $INDEX_FILE" | sha256sum -c -
+          grep -q "data-gm-summary2-fit" "$INDEX_FILE"
+
+      - name: Restore Greenman UI, fullscreen and Cupboard key fit
+        shell: bash
+        run: |
+          set -euo pipefail
+          INDEX_FILE="$PROJECT_DIR/app/src/main/assets/index.html"
+          python "$GITHUB_WORKSPACE/clean_shell_v2/install_ui_feedback_v2.py" "$INDEX_FILE" "$INDEX_FILE"
+          grep -q "Your Spell Is Gathered" "$INDEX_FILE"
+          grep -q "window.gmSetPrintStatus=function" "$INDEX_FILE"
+          grep -q "setTimeout(requestNativeImmersive,950)" "$INDEX_FILE"
+          grep -q "#gmCupboardKey{width:66px;height:66px" "$INDEX_FILE"
+          ! grep -q "setPrintStatus(" "$INDEX_FILE"
+
+      - name: Retain welcome mat and keyboard-safe Greenman Gate
+        shell: bash
+        run: |
+          set -euo pipefail
+          INDEX_FILE="$PROJECT_DIR/app/src/main/assets/index.html"
+          python "$GITHUB_WORKSPACE/clean_shell_v2/install_welcome_mat.py" "$INDEX_FILE" "$INDEX_FILE"
+          grep -q "scale(1.015,1.18)" "$INDEX_FILE"
+          grep -q "gm-keyboard-open" "$INDEX_FILE"
+          cp "$INDEX_FILE" "$RUNNER_TEMP/PRE_FINAL_INDEX.html"
+
+      - name: Install final BoS, Admin book printer and final tightening
+        shell: bash
+        run: |
+          set -euo pipefail
+          INDEX_FILE="$PROJECT_DIR/app/src/main/assets/index.html"
+          python "$GITHUB_WORKSPACE/clean_shell_v2/install_final_tightening.py" "$INDEX_FILE" "$INDEX_FILE"
+          cp "$INDEX_FILE" "$RUNNER_TEMP/EXPECTED_INDEX.html"
+          echo "40e34ca943c121b8b9602cf1fe73c93311eb3a56913fe484761da9bc60f5ddc5  $INDEX_FILE" | sha256sum -c -
+          grep -q "gm-final-book-owner-v1" "$INDEX_FILE"
+          grep -q "gm-admin-book-printer-v1" "$INDEX_FILE"
+          grep -q "gm-admin-master-book-owner-v1" "$INDEX_FILE"
+          grep -q "Greenman Book Printer" "$INDEX_FILE"
+          grep -q "Final identity owner" "$INDEX_FILE"
+          grep -q "if(g==='Sundries')renderSundries()" "$INDEX_FILE"
+          grep -q "Your record of spells cast and magic worked." "$INDEX_FILE"
+          grep -q "data:image/webp;base64," "$INDEX_FILE"
+          ! grep -q "gm-journal-bos-print-wait-patch-v4" "$INDEX_FILE"
+
+      - name: Prove databases unchanged and syntax-check embedded pages
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          import json,re,subprocess,sys,tempfile
+          before=Path("${RUNNER_TEMP}/PRE_FINAL_INDEX.html").read_text(encoding="utf-8")
+          after=Path("${RUNNER_TEMP}/EXPECTED_INDEX.html").read_text(encoding="utf-8")
+          def pages(s):
+              m='const PAGES = '; st=s.index(m)+len(m); return json.JSONDecoder().raw_decode(s[st:])[0]
+          a,b=pages(before),pages(after)
+          for key in ('home','journal','moon','numerology','planetTiming','planets'):
+              assert a[key]==b[key], f'unexpected page changed: {key}'
+          def assigned_json(page, marker):
+              i=page.index(marker)+len(marker)
+              return json.JSONDecoder().raw_decode(page[i:].lstrip())[0]
+          assert assigned_json(a['grimoire'],'const ITEMS =') == assigned_json(b['grimoire'],'const ITEMS ='), 'Grimoire ITEMS changed'
+          assert assigned_json(a['spellBuilder'],'window.GM_DATA =') == assigned_json(b['spellBuilder'],'window.GM_DATA ='), 'Spell Builder GM_DATA changed'
+          scripts=0
+          for page_name,html in b.items():
+              for n,js in enumerate(re.findall(r'<script(?:\s[^>]*)?>(.*?)</script>',html,re.S|re.I)):
+                  scripts+=1
+                  p=Path(tempfile.gettempdir())/f'gm_{page_name}_{n}.js'
+                  p.write_text(js,encoding='utf-8')
+                  r=subprocess.run(['node','--check',str(p)],capture_output=True,text=True)
+                  if r.returncode:
+                      print(r.stderr)
+                      raise SystemExit(f'JavaScript syntax failure: {page_name} script {n}')
+          print('Databases unchanged. Embedded scripts syntax checked:',scripts)
+          assert scripts==70, f'expected 70 embedded scripts, got {scripts}'
+          PY
+
+      - name: Install approved Greenman custom app icon
+        shell: bash
+        run: |
+          set -euo pipefail
+          python "$GITHUB_WORKSPACE/clean_shell_v2/install_custom_app_icon.py" "$PROJECT_DIR"
+          ICON_FILE="$PROJECT_DIR/app/src/main/res/drawable-nodpi/greenman_launcher_art.webp"
+          echo "0915a0ddfee14a7bbba4b998128b4da04d5aa139b0bcbcc81cba0253e8090dc1  $ICON_FILE" | sha256sum -c -
+
+      - name: Install the single-owner Android shell
+        shell: bash
+        run: |
+          set -euo pipefail
+          JAVA_FILE="$PROJECT_DIR/app/src/main/java/com/greenman/hedgewitchery/MainActivity.java"
+          cp "$GITHUB_WORKSPACE/clean_shell_v2/MainActivity.java" "$JAVA_FILE"
+          python "$GITHUB_WORKSPACE/clean_shell_v2/install_fullscreen_bridge.py" "$JAVA_FILE" "$JAVA_FILE"
+          echo "08f6e0919be07f805cdac350a2d16b549789037fde724d58760488fd8486cad3  $JAVA_FILE" | sha256sum -c -
+          test "$(grep -c 'public void printDocument' "$JAVA_FILE")" -eq 1
+          test "$(grep -c 'private void openPrintDocument' "$JAVA_FILE")" -eq 1
+          test "$(grep -c 'private void printWebViewDocument' "$JAVA_FILE")" -eq 1
+          ! grep -q "nativePrintHtml" "$JAVA_FILE"
+          ! grep -q "gmNativePrintHtml" "$JAVA_FILE"
+          grep -q 'MediaSize.ISO_A4' "$JAVA_FILE"
+
+      - name: Set final-candidate version
+        shell: bash
+        run: |
+          set -euo pipefail
+          sed -i -E 's/versionCode[[:space:]]+[0-9]+/versionCode 18/' "$PROJECT_DIR/app/build.gradle"
+          sed -i -E 's/versionName[[:space:]]+"[^"]+"/versionName "2.7-final-candidate"/' "$PROJECT_DIR/app/build.gradle"
+
+      - name: Build 2.7 final-candidate APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$PROJECT_DIR"
+          gradle :app:assembleDebug --no-daemon --stacktrace
+
+      - name: Verify finished APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK_FILE="$(find "$PROJECT_DIR/app/build/outputs/apk/debug" -type f -name 'app-debug.apk' -print -quit)"
+          test -s "$APK_FILE"
+          echo "APK_FILE=$APK_FILE" >> "$GITHUB_ENV"
+          unzip -p "$APK_FILE" assets/index.html > "$RUNNER_TEMP/apk-index.html"
+          cmp -s "$RUNNER_TEMP/EXPECTED_INDEX.html" "$RUNNER_TEMP/apk-index.html"
+          grep -q "gm-final-book-owner-v1" "$RUNNER_TEMP/apk-index.html"
+          grep -q "Greenman Book Printer" "$RUNNER_TEMP/apk-index.html"
+          grep -q "Final identity owner" "$RUNNER_TEMP/apk-index.html"
+          ! grep -q "gm-journal-bos-print-wait-patch-v4" "$RUNNER_TEMP/apk-index.html"
+          unzip -l "$APK_FILE" | grep -q 'greenman_launcher_art.*webp'
+          sha256sum "$APK_FILE" | tee "$RUNNER_TEMP/GREENMAN_2_7_APK_SHA256.txt"
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK_FILE" | tee "$RUNNER_TEMP/GREENMAN_2_7_BADGING.txt"
+          grep -q "package: name='com.greenman.hedgewitchery' versionCode='18'" "$RUNNER_TEMP/GREENMAN_2_7_BADGING.txt"
+          grep -q "application-label:'Greenman HedgeWitchery'" "$RUNNER_TEMP/GREENMAN_2_7_BADGING.txt"
+
+      - name: Package final-candidate source
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp "$PROJECT_DIR/app/src/main/assets/index.html" "$RUNNER_TEMP/GREENMAN_HEDGEWITCHERY_2_7_FINAL_CANDIDATE.html"
+          cp "$PROJECT_DIR/app/src/main/java/com/greenman/hedgewitchery/MainActivity.java" "$RUNNER_TEMP/MainActivity_SINGLE_PRINT_OWNER.java"
+          cd "$(dirname "$PROJECT_DIR")"
+          zip -qr "$RUNNER_TEMP/GREENMAN_HEDGEWITCHERY_2_7_FINAL_CANDIDATE_PROJECT.zip" "$(basename "$PROJECT_DIR")"
+
+      - name: Upload installable 2.7 final-candidate APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: GREENMAN-HEDGEWITCHERY-2-7-FINAL-CANDIDATE-APK
+          path: ${{ env.APK_FILE }}
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload 2.7 final-candidate source and audit
+        uses: actions/upload-artifact@v4
+        with:
+          name: GREENMAN-HEDGEWITCHERY-2-7-FINAL-CANDIDATE-SOURCE
+          path: |
+            ${{ runner.temp }}/GREENMAN_HEDGEWITCHERY_2_7_FINAL_CANDIDATE.html
+            ${{ runner.temp }}/MainActivity_SINGLE_PRINT_OWNER.java
+            ${{ runner.temp }}/GREENMAN_HEDGEWITCHERY_2_7_FINAL_CANDIDATE_PROJECT.zip
+            clean_shell_v2/install_final_tightening.py
+            clean_shell_v2/install_proven_summary_print.py
+            clean_shell_v2/install_ui_feedback_v2.py
+            clean_shell_v2/install_fullscreen_bridge.py
+            clean_shell_v2/install_welcome_mat.py
+            clean_shell_v2/install_custom_app_icon.py
+            ${{ runner.temp }}/GREENMAN_2_7_APK_SHA256.txt
+            ${{ runner.temp }}/GREENMAN_2_7_BADGING.txt
+          if-no-files-found: error
+          retention-days: 30
