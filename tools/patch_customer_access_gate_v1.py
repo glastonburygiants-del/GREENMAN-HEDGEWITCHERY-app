@@ -44,10 +44,10 @@ style = r"""
 """
 text = text[:head_end] + style + text[head_end:]
 
-gate_end = """</div>
+gate_end = '''</div>
 
-<div id="gmPrintFullscreenReturn""""
-welcome = """</div>
+<div id="gmPrintFullscreenReturn"'''
+welcome = '''</div>
 <div id="gmAccessWelcome" aria-modal="true" role="dialog">
   <div id="gmAccessWelcomeCard">
     <h2>Welcome to Greenman HedgeWitchery Apothecary.</h2>
@@ -57,7 +57,7 @@ welcome = """</div>
   </div>
 </div>
 
-<div id="gmPrintFullscreenReturn""""
+<div id="gmPrintFullscreenReturn"'''
 if text.count(gate_end) != 1:
     raise SystemExit(f"gate DOM anchor count {text.count(gate_end)}")
 text = text.replace(gate_end, welcome, 1)
