@@ -1,0 +1,151 @@
+name: Build Exact Current Instruction Pages APK
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  exact-current-apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out exact repair branch
+        uses: actions/checkout@v4
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android build tools and zstd
+        shell: bash
+        run: |
+          set -euo pipefail
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager "build-tools;35.0.0"
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq zstd
+
+      - name: Install stable Greenman signing key
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$HOME/.android"
+          base64 --decode "$GITHUB_WORKSPACE/tools/greenman_debug_keystore.b64" > "$HOME/.android/debug.keystore"
+          chmod 600 "$HOME/.android/debug.keystore"
+          keytool -list -keystore "$HOME/.android/debug.keystore" -storepass android -alias androiddebugkey >/dev/null
+
+      - name: Recreate verified donor index only
+        shell: bash
+        run: |
+          set -euo pipefail
+          ZIP_FILE="$(find "$GITHUB_WORKSPACE" -maxdepth 1 -type f -name 'GREENMAN_HEDGEWITCHERY_ANDROID_PROJECT_GATHER_FIXED*.zip' -print -quit)"
+          test -n "$ZIP_FILE"
+          mkdir -p "$RUNNER_TEMP/donor"
+          unzip -q "$ZIP_FILE" -d "$RUNNER_TEMP/donor"
+          PROJECT_DIR="$(find "$RUNNER_TEMP/donor" -type f -name settings.gradle -printf '%h\n' | head -n 1)"
+          test -n "$PROJECT_DIR"
+          INDEX_FILE="$PROJECT_DIR/app/src/main/assets/index.html"
+          JAVA_FILE="$PROJECT_DIR/app/src/main/java/com/greenman/hedgewitchery/MainActivity.java"
+          python "$GITHUB_WORKSPACE/tools/patch_supply_room.py" "$INDEX_FILE" "$INDEX_FILE"
+          python "$GITHUB_WORKSPACE/tools/patch_customer_print.py" "$INDEX_FILE" "$INDEX_FILE" "$JAVA_FILE" "$JAVA_FILE"
+          python "$GITHUB_WORKSPACE/tools/patch_lite_print_android.py" "$INDEX_FILE" "$INDEX_FILE"
+          python "$GITHUB_WORKSPACE/tools/patch_android_print_lifecycle.py" "$INDEX_FILE" "$INDEX_FILE" "$JAVA_FILE" "$JAVA_FILE"
+          python - "$INDEX_FILE" <<'PY'
+          from pathlib import Path
+          import sys
+          p=Path(sys.argv[1]); t=p.read_text(encoding='utf-8')
+          old='When you wish to keep the full working,'
+          new='When you wish to keep the full spell,'
+          if t.count(old)!=1: raise SystemExit('donor wording boundary mismatch')
+          p.write_text(t.replace(old,new,1),encoding='utf-8')
+          PY
+          echo "abf9cb3b472b1b6792d640377a1e9c7963176c32365b44970c094fe98608dd9d  $INDEX_FILE" | sha256sum -c -
+          cp "$INDEX_FILE" "$RUNNER_TEMP/DONOR_INDEX.html"
+
+      - name: Fetch exact current font files
+        shell: bash
+        run: |
+          set -euo pipefail
+          FONT_DIR="$RUNNER_TEMP/current-fonts"
+          mkdir -p "$FONT_DIR/licenses"
+          BASE="https://raw.githubusercontent.com/google/fonts/2d85e20401920891efb7cd6272d6339685df2820"
+          curl -fsSL "$BASE/ofl/cinzel/Cinzel%5Bwght%5D.ttf" -o "$FONT_DIR/Cinzel.ttf"
+          for f in Bold BoldItalic Italic Regular SemiBold SemiBoldItalic; do
+            curl -fsSL "$BASE/ofl/crimsontext/CrimsonText-${f}.ttf" -o "$FONT_DIR/CrimsonText-${f}.ttf"
+          done
+          curl -fsSL "$BASE/ofl/imfellenglish/IMFeENit28P.ttf" -o "$FONT_DIR/IMFellEnglish-Italic.ttf"
+          curl -fsSL "$BASE/ofl/imfellenglish/IMFeENrm28P.ttf" -o "$FONT_DIR/IMFellEnglish-Regular.ttf"
+          curl -fsSL "$BASE/ofl/cinzel/OFL.txt" -o "$FONT_DIR/licenses/cinzel-OFL.txt"
+          curl -fsSL "$BASE/ofl/crimsontext/OFL.txt" -o "$FONT_DIR/licenses/crimsontext-OFL.txt"
+          curl -fsSL "$BASE/ofl/imfellenglish/OFL.txt" -o "$FONT_DIR/licenses/imfellenglish-OFL.txt"
+
+      - name: Reconstruct exact current package and apply Git instruction surgery
+        shell: bash
+        run: |
+          set -euo pipefail
+          python "$GITHUB_WORKSPACE/tools/reconstruct_exact_current_apk.py" \
+            "$RUNNER_TEMP/DONOR_INDEX.html" \
+            "$GITHUB_WORKSPACE/tools/exact_current_payload" \
+            "$RUNNER_TEMP/current-fonts" \
+            "$RUNNER_TEMP/greenman-current-unsigned.apk"
+
+      - name: Align and sign exact current APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          BT="$ANDROID_HOME/build-tools/35.0.0"
+          "$BT/zipalign" -f 4 "$RUNNER_TEMP/greenman-current-unsigned.apk" "$RUNNER_TEMP/greenman-current-aligned.apk"
+          "$BT/apksigner" sign \
+            --ks "$HOME/.android/debug.keystore" \
+            --ks-key-alias androiddebugkey \
+            --ks-pass pass:android \
+            --key-pass pass:android \
+            --v1-signing-enabled false \
+            --v2-signing-enabled true \
+            --v3-signing-enabled false \
+            --out "$RUNNER_TEMP/GREENMAN_HEDGEWITCHERY_CURRENT_INSTRUCTION_PAGES_FIXED.apk" \
+            "$RUNNER_TEMP/greenman-current-aligned.apk"
+          "$BT/apksigner" verify --verbose --print-certs "$RUNNER_TEMP/GREENMAN_HEDGEWITCHERY_CURRENT_INSTRUCTION_PAGES_FIXED.apk"
+
+      - name: Verify protected app surfaces after signing
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK="$RUNNER_TEMP/GREENMAN_HEDGEWITCHERY_CURRENT_INSTRUCTION_PAGES_FIXED.apk"
+          CHECK="$RUNNER_TEMP/check"
+          mkdir -p "$CHECK"
+          unzip -q "$APK" 'assets/index.html' 'classes.dex' 'classes2.dex' 'AndroidManifest.xml' -d "$CHECK"
+          echo "d73707cc257c323e546b054dc5601a443dee649cf5d8d579d2b29b23a464bc64  $CHECK/assets/index.html" | sha256sum -c -
+          echo "704d95b77cbbff847bef9378c1a9626cd3020609742ac9f7e078f57f59e2a5eb  $CHECK/classes.dex" | sha256sum -c -
+          echo "970f30180df74964f2c01c8efa75db0ba1eaee6e480fd41a970ade8a29799149  $CHECK/classes2.dex" | sha256sum -c -
+          echo "bef31f278809f3775dacfc4a1ca424c26e850db812b24e7e2c5ab7d152455967  $CHECK/AndroidManifest.xml" | sha256sum -c -
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | tee "$RUNNER_TEMP/badging.txt"
+          grep -q "application-label:'Greenman HedgeWitchery'" "$RUNNER_TEMP/badging.txt"
+          sha256sum "$APK" | tee "$RUNNER_TEMP/final-apk-sha256.txt"
+
+      - name: Upload exact current instruction-page APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: GREENMAN-HEDGEWITCHERY-CURRENT-INSTRUCTION-PAGES-FIXED-APK
+          path: ${{ runner.temp }}/GREENMAN_HEDGEWITCHERY_CURRENT_INSTRUCTION_PAGES_FIXED.apk
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload exact-current audit
+        uses: actions/upload-artifact@v4
+        with:
+          name: GREENMAN-HEDGEWITCHERY-CURRENT-INSTRUCTION-PAGES-AUDIT
+          path: |
+            ${{ runner.temp }}/final-apk-sha256.txt
+            ${{ runner.temp }}/badging.txt
+          if-no-files-found: error
+          retention-days: 30
