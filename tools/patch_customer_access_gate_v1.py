@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 # EXP4 build trigger
+# EXP4R2 fresh-sign trigger
 """Wire live customer GM access keys into the existing HedgeWitchery Full gate.
 
 Preserves:
