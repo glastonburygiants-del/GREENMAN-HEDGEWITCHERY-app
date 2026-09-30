@@ -32,7 +32,7 @@ body{
   box-shadow:0 0 0 4px #39240c,0 9px 20px rgba(0,0,0,.33)
 }
 .card h2{margin:0 0 12px;color:#205a23;font-size:clamp(22px,5vw,30px);text-transform:uppercase}
-.grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
 label{display:block;font-weight:700;margin-bottom:6px;color:#463214}
 input,select{
   width:100%;min-height:46px;border:2px solid #9c792c;border-radius:8px;
@@ -83,15 +83,26 @@ button:disabled{opacity:.45}
         <select id="type">
           <option value="web">HedgeWitchery Web App</option>
           <option value="android">HedgeWitchery Android App</option>
+          <option value="both">Web + Android</option>
+        </select>
+      </div>
+      <div>
+        <label for="kind">Key Type</label>
+        <select id="kind">
+          <option value="single">Single-use key</option>
+          <option value="promo">Promo code · reusable</option>
         </select>
       </div>
       <div>
         <label for="duration">Duration</label>
         <select id="duration">
-          <option value="1">1 month</option>
-          <option value="3">3 months</option>
-          <option value="6">6 months</option>
-          <option value="12">12 months</option>
+          <option value="1h">1 hour</option>
+          <option value="1d">1 day</option>
+          <option value="1w">1 week</option>
+          <option value="1m">1 month</option>
+          <option value="3m">3 months</option>
+          <option value="6m">6 months</option>
+          <option value="1y">1 year</option>
           <option value="permanent">Permanent</option>
         </select>
       </div>
@@ -143,6 +154,7 @@ button:disabled{opacity:.45}
   let filter="ALL";
 
   const type=document.getElementById("type");
+  const kind=document.getElementById("kind");
   const duration=document.getElementById("duration");
   const note=document.getElementById("note");
   const generateBtn=document.getElementById("generateBtn");
@@ -214,7 +226,16 @@ button:disabled{opacity:.45}
   }
 
   function durationText(r){
+    const code=String(r.duration_code||"");
+    const labels={"1h":"1 hour","1d":"1 day","1w":"1 week","1m":"1 month","3m":"3 months","6m":"6 months","1y":"1 year","permanent":"Permanent"};
+    if(labels[code])return labels[code];
     return r.duration_months==null?"Permanent":r.duration_months+" month"+(r.duration_months===1?"":"s");
+  }
+
+  function accessText(r){
+    if(r.access_type==="web")return "HedgeWitchery Web App";
+    if(r.access_type==="android")return "HedgeWitchery Android App";
+    return "Web + Android";
   }
 
   function render(){
@@ -228,12 +249,16 @@ button:disabled{opacity:.45}
     keyList.innerHTML=view.map(r=>{
       const full=known[r.id]||"";
       const shown=full||r.masked_code;
+      const promo=r.key_kind==="promo";
+      const badgeText=promo&&r.status==="UNUSED"?"ACTIVE":r.status;
+      const useText=promo?('<br><b>Promo code • Used '+Number(r.redemption_count||0)+' time'+(Number(r.redemption_count||0)===1?'':'s')+'</b>'):('<br>Single-use key • Used '+Number(r.redemption_count||0)+' time'+(Number(r.redemption_count||0)===1?'':'s'));
       return '<article class="keyitem">'+
-        '<div class="keytop"><div class="keycode">'+esc(shown)+'</div><div class="badge '+esc(r.status)+'">'+esc(r.status)+'</div></div>'+
+        '<div class="keytop"><div class="keycode">'+esc(shown)+'</div><div class="badge '+esc(r.status)+'">'+esc(badgeText)+'</div></div>'+
         '<div class="meta">'+
-          (r.access_type==="web"?"HedgeWitchery Web App":"HedgeWitchery Android App")+' • '+durationText(r)+' • '+new Date(r.created_at).toLocaleString()+
+          accessText(r)+' • '+durationText(r)+' • '+new Date(r.created_at).toLocaleString()+
+          useText+
           (r.note?'<br>Note: '+esc(r.note):'')+
-          (r.expires_at?'<br>Expires: '+new Date(r.expires_at).toLocaleString():'')+
+          (r.expires_at?'<br>Latest single-use expiry: '+new Date(r.expires_at).toLocaleString():'')+
           (!full?'<br><em>Masked record only on this device.</em>':'')+
         '</div>'+
         '<div class="row">'+
@@ -251,15 +276,6 @@ button:disabled{opacity:.45}
     render();
   }
 
-  type.addEventListener("change",()=>{
-    if(type.value==="android"){
-      duration.value="permanent";
-      duration.disabled=true;
-    }else{
-      duration.disabled=false;
-    }
-  });
-
   generateBtn.addEventListener("click",async()=>{
     showStatus("",true);
     generateBtn.disabled=true;
@@ -267,7 +283,8 @@ button:disabled{opacity:.45}
       const d=await api({
         action:"generate",
         access_type:type.value,
-        duration:type.value==="android"?"permanent":duration.value,
+        key_kind:kind.value,
+        duration:duration.value,
         note:note.value.trim()
       });
       generatedCode.textContent=d.code;
