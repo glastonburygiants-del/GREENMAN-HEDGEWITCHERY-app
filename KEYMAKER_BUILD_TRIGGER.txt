@@ -1,1 +1,1 @@
-build standalone hedgewitchery key maker apk - retry 3
+build standalone hedgewitchery key maker apk - delete feature v1.1
