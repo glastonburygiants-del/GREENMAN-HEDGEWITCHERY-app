@@ -179,6 +179,12 @@ button:disabled{opacity:.45}
     localStorage.setItem(LOCAL_CODES,JSON.stringify(m));
   }
 
+  function removeLocalCode(id){
+    const m=localCodes();
+    delete m[id];
+    localStorage.setItem(LOCAL_CODES,JSON.stringify(m));
+  }
+
   function esc(v){
     return String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
   }
@@ -233,6 +239,7 @@ button:disabled{opacity:.45}
         '<div class="row">'+
           (full?'<button class="secondary copy" data-code="'+esc(full)+'">COPY</button>':'')+
           '<button class="danger revoke" data-id="'+esc(r.id)+'" '+(r.status!=="UNUSED"?"disabled":"")+'>REVOKE</button>'+
+          '<button class="danger delete" data-id="'+esc(r.id)+'" data-status="'+esc(r.status)+'">DELETE</button>'+
         '</div>'+
       '</article>';
     }).join("");
@@ -290,6 +297,29 @@ button:disabled{opacity:.45}
       await copyText(copy.dataset.code||"");
       return;
     }
+    const del=e.target.closest(".delete");
+    if(del){
+      const warning=del.dataset.status==="REDEEMED"
+        ? "Delete this key completely from the Key Maker and Supabase? This will also remove its redeemed entitlement and can stop that access. This cannot be undone."
+        : "Delete this key completely from the Key Maker and Supabase? This cannot be undone.";
+      if(!confirm(warning)) return;
+
+      del.disabled=true;
+      showStatus("",true);
+      try{
+        await api({action:"delete",id:del.dataset.id});
+        removeLocalCode(del.dataset.id);
+        generated.style.display="none";
+        generatedCode.textContent="";
+        await load();
+        showStatus("Key deleted from the Key Maker and Supabase.",true);
+      }catch(err){
+        showStatus(String(err.message||err),false);
+        del.disabled=false;
+      }
+      return;
+    }
+
     const revoke=e.target.closest(".revoke");
     if(!revoke)return;
 
