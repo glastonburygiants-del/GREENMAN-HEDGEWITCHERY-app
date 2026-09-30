@@ -1,0 +1,26 @@
+plugins {
+    id 'com.android.application'
+}
+
+def keyMakerToken = (project.findProperty("keymakerToken") ?: "").toString()
+def escapedKeyMakerToken = keyMakerToken
+        .replace("\\", "\\\\")
+        .replace('"', '\\"')
+
+android {
+    namespace 'com.greenman.hedgewitchery.keymaker'
+    compileSdk 35
+
+    defaultConfig {
+        applicationId "com.greenman.hedgewitchery.keymaker"
+        minSdk 24
+        targetSdk 35
+        versionCode 1
+        versionName "1.0"
+        buildConfigField "String", "KEYMAKER_DEVICE_TOKEN", "\"" + escapedKeyMakerToken + "\""
+    }
+
+    buildFeatures {
+        buildConfig true
+    }
+}
