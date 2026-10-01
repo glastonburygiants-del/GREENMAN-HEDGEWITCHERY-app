@@ -1,1 +1,2 @@
 build separate full hedgewitchery access-gate test apk
+clean-full-app-play-protect-repair
