@@ -1075,18 +1075,21 @@ jobs:
 
           sha256sum "$APK" | tee "$WORK/final-apk-sha256.txt"
 
-          # User feedback: every run's artifact and APK had the exact same
-          # name, so a phone downloading build after build ends up with a
-          # pile of "(1)", "(2)" ... "(1000)" duplicate files with no way to
-          # tell them apart. Copy to a run-numbered filename right before
-          # upload so every build's download is uniquely named on its own.
-          cp "$APK" "$RUNNER_TEMP/GREENMAN_HEDGEWITCHERY_APOTHECARY_CLEAN1_run${{ github.run_number }}.apk"
+          # Download package: wrap the APK in a normal ZIP so the browser
+          # downloads a .zip file rather than a bare .apk. The APK itself is
+          # unchanged and still verified above before packaging.
+          APK_NAME="GREENMAN_HEDGEWITCHERY_APOTHECARY_CLEAN1_run${{ github.run_number }}.apk"
+          ZIP_NAME="GREENMAN_HEDGEWITCHERY_APOTHECARY_CLEAN1_run${{ github.run_number }}.zip"
+          cp "$APK" "$RUNNER_TEMP/$APK_NAME"
+          cd "$RUNNER_TEMP"
+          zip -q "$ZIP_NAME" "$APK_NAME"
+          unzip -t "$ZIP_NAME" >/dev/null
 
-      - name: Upload V28-base APK
+      - name: Upload clean app ZIP
         uses: actions/upload-artifact@v4
         with:
-          name: GREENMAN-HEDGEWITCHERY-APOTHECARY-CLEAN1-APK-run${{ github.run_number }}
-          path: ${{ runner.temp }}/GREENMAN_HEDGEWITCHERY_APOTHECARY_CLEAN1_run${{ github.run_number }}.apk
+          name: GREENMAN-HEDGEWITCHERY-APOTHECARY-CLEAN1-ZIP-run${{ github.run_number }}
+          path: ${{ runner.temp }}/GREENMAN_HEDGEWITCHERY_APOTHECARY_CLEAN1_run${{ github.run_number }}.zip
           if-no-files-found: error
           retention-days: 30
 
