@@ -8,7 +8,7 @@ if len(sys.argv) != 2:
 
 path = Path(sys.argv[1])
 old = "com.greenman.hedgewitchery"
-new = "com.greenman.hedgewitchery.fullaccesstest"
+new = "com.greenman.hedgewitchery.apothecary"
 android = "http://schemas.android.com/apk/res/android"
 A = "{" + android + "}"
 
@@ -55,7 +55,7 @@ for elem in root.iter():
 app = root.find("application")
 if app is None:
     raise SystemExit("application element missing")
-app.set(A + "label", "Greenman HedgeWitchery Apothecary TEST")
+app.set(A + "label", "Greenman HedgeWitchery Apothecary CLEAN")
 
 tree.write(path, encoding="utf-8", xml_declaration=True)
 
@@ -68,5 +68,5 @@ if "ScribePdfService" in text:
 if "android.permission.FOREGROUND_SERVICE" in text:
     raise SystemExit("unexpected FOREGROUND_SERVICE present")
 
-print(f"separate full-test package: {new}")
+print(f"clean full-app package: {new}")
 print("native component classes remain in com.greenman.hedgewitchery")
