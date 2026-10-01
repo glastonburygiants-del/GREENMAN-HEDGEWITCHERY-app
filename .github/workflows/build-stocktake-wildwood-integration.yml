@@ -66,8 +66,12 @@ jobs:
             -o "$WORK/apktool.jar" \
             https://github.com/iBotPeaches/Apktool/releases/download/v2.11.1/apktool_2.11.1.jar
 
-          python tools/patch_stocktake_v7_connections.py \
+          python tools/normalize_stocktake_v6_for_v7.py \
             stocktake/GREENMAN_HEDGEWITCHERY_APOTHECARY_STOCKTAKE_V6.html \
+            "$WORK/stocktake-v6-normalized.html"
+
+          python tools/patch_stocktake_v7_connections.py \
+            "$WORK/stocktake-v6-normalized.html" \
             "$WORK/stocktake-v7.html"
 
           node tools/verify_inline_scripts.js "$WORK/stocktake-v7.html"
