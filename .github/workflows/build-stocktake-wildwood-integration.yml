@@ -67,7 +67,7 @@ jobs:
             https://github.com/iBotPeaches/Apktool/releases/download/v2.11.1/apktool_2.11.1.jar
 
           python tools/normalize_stocktake_v6_for_v7.py \
-            stocktake/GREENMAN_HEDGEWITCHERY_APOTHECARY_STOCKTAKE_V6.html \
+            stocktake/GREENMAN_HEDGEWITCHERY_APOTHECARY_STOCKTAKE_CORRECT_V8.html \
             "$WORK/stocktake-v6-normalized.html"
 
           python tools/patch_stocktake_v7_connections.py \
@@ -162,8 +162,8 @@ jobs:
           from pathlib import Path
           import re,sys
           p=Path(sys.argv[1]);s=p.read_text()
-          s=re.sub(r'(?m)^  versionCode:.*$', '  versionCode: 74', s)
-          s=re.sub(r'(?m)^  versionName:.*$', '  versionName: FV3.5.2-STOCK-BRIDGE', s)
+          s=re.sub(r'(?m)^  versionCode:.*$', '  versionCode: 75', s)
+          s=re.sub(r'(?m)^  versionName:.*$', '  versionName: FV3.5.2-STOCK-BRIDGE-V8', s)
           p.write_text(s)
           PY
 
@@ -200,8 +200,8 @@ jobs:
           from pathlib import Path
           import re,sys
           p=Path(sys.argv[1]);s=p.read_text()
-          s=re.sub(r'(?m)^  versionCode:.*$', '  versionCode: 1', s)
-          s=re.sub(r'(?m)^  versionName:.*$', '  versionName: STOCKTAKE-1.0', s)
+          s=re.sub(r'(?m)^  versionCode:.*$', '  versionCode: 2', s)
+          s=re.sub(r'(?m)^  versionName:.*$', '  versionName: STOCKTAKE-V8-CONNECTED', s)
           p.write_text(s)
           PY
 
@@ -249,7 +249,7 @@ jobs:
             --ks-key-alias greenmanrelease2026 \
             --ks-pass "pass:$SIGN_PASS" \
             --key-pass "pass:$SIGN_PASS" \
-            --out "$RUNNER_TEMP/GREENMAN_HEDGEWITCHERY_APOTHECARY_STOCKTAKE_run${{ github.run_number }}.apk" \
+            --out "$RUNNER_TEMP/GREENMAN_HEDGEWITCHERY_APOTHECARY_STOCKTAKE_V8_CONNECTED_run${{ github.run_number }}.apk" \
             "$WORK/stock-aligned.apk"
 
       - name: Verify packages bridge and signatures
@@ -258,17 +258,17 @@ jobs:
           set -euo pipefail
           BT="$ANDROID_HOME/build-tools/35.0.0"
           MAIN="$RUNNER_TEMP/GREENMAN_HEDGEWITCHERY_APOTHECARY_STOCK_BRIDGE_run${{ github.run_number }}.apk"
-          STOCK="$RUNNER_TEMP/GREENMAN_HEDGEWITCHERY_APOTHECARY_STOCKTAKE_run${{ github.run_number }}.apk"
+          STOCK="$RUNNER_TEMP/GREENMAN_HEDGEWITCHERY_APOTHECARY_STOCKTAKE_V8_CONNECTED_run${{ github.run_number }}.apk"
 
           "$BT/apksigner" verify --verbose --print-certs "$MAIN" | tee "$WORK/main-sign.txt"
           "$BT/apksigner" verify --verbose --print-certs "$STOCK" | tee "$WORK/stock-sign.txt"
           "$BT/aapt" dump badging "$MAIN" | tee "$WORK/main-badging.txt"
           "$BT/aapt" dump badging "$STOCK" | tee "$WORK/stock-badging.txt"
 
-          grep -q "package: name='com.greenman.hedgewitchery' versionCode='74'" "$WORK/main-badging.txt"
-          grep -q "versionName='FV3.5.2-STOCK-BRIDGE'" "$WORK/main-badging.txt"
-          grep -q "package: name='com.greenman.hedgewitchery.stocktake' versionCode='1'" "$WORK/stock-badging.txt"
-          grep -q "versionName='STOCKTAKE-1.0'" "$WORK/stock-badging.txt"
+          grep -q "package: name='com.greenman.hedgewitchery' versionCode='75'" "$WORK/main-badging.txt"
+          grep -q "versionName='FV3.5.2-STOCK-BRIDGE-V8'" "$WORK/main-badging.txt"
+          grep -q "package: name='com.greenman.hedgewitchery.stocktake' versionCode='2'" "$WORK/stock-badging.txt"
+          grep -q "versionName='STOCKTAKE-V8-CONNECTED'" "$WORK/stock-badging.txt"
           grep -q "application-label:'Greenman HedgeWitchery Apothecary Stocktake'" "$WORK/stock-badging.txt"
 
           MAIN_CERT="$(grep -m1 'Signer #1 certificate SHA-256 digest:' "$WORK/main-sign.txt" | sed 's/.*digest: //')"
@@ -311,8 +311,8 @@ jobs:
       - name: Upload standalone Stocktake APK
         uses: actions/upload-artifact@v4
         with:
-          name: GREENMAN-HEDGEWITCHERY-APOTHECARY-STOCKTAKE-run${{ github.run_number }}
-          path: ${{ runner.temp }}/GREENMAN_HEDGEWITCHERY_APOTHECARY_STOCKTAKE_run${{ github.run_number }}.apk
+          name: GREENMAN-HEDGEWITCHERY-APOTHECARY-STOCKTAKE-V8-CONNECTED-run${{ github.run_number }}
+          path: ${{ runner.temp }}/GREENMAN_HEDGEWITCHERY_APOTHECARY_STOCKTAKE_V8_CONNECTED_run${{ github.run_number }}.apk
           if-no-files-found: error
           retention-days: 30
 
