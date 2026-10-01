@@ -1,9 +1,9 @@
-name: Build HedgeWitchery Web App V1
+name: Build HedgeWitchery Web App V2 Sync
 
 on:
   push:
     branches:
-      - webapp/full-hedgewitchery-v1
+      - webapp/full-hedgewitchery-v2-sync
     paths:
       - ".github/workflows/build-v24-bind-storage-apk.yml"
       - "current-build-20260907/**"
@@ -50,7 +50,10 @@ on:
       - "tools/patch_customer_access_gate_v1.py"
       - "tools/patch_manifest_separate_full_test.py"
       - "tools/patch_web_app_v1.py"
-      - "WEBAPP_BUILD_TRIGGER.txt"
+      - "tools/patch_web_v2_shell.py"
+      - "webapp/v2-account-sync.js"
+      - "webapp/v2-account-sync.css"
+      - "WEBAPP_V2_BUILD_TRIGGER.txt"
   workflow_dispatch:
 
 permissions:
@@ -625,29 +628,46 @@ jobs:
 
           echo "WORK=$WORK" >> "$GITHUB_ENV"
 
-      - name: Build browser Web App package
+      - name: Build browser Web App V2 package
         shell: bash
         run: |
           set -euo pipefail
 
-          python tools/patch_web_app_v1.py "$WORK/current.html" "$WORK/web-index.html"
+          python tools/patch_web_app_v1.py "$WORK/current.html" "$WORK/web-v1.html"
+          python tools/patch_web_v2_shell.py "$WORK/web-v1.html" "$WORK/web-index.html"
+
           node tools/verify_inline_scripts.js "$WORK/web-index.html"
+          node --check webapp/v2-account-sync.js
 
           grep -Fq "expected_access_type:'web'" "$WORK/web-index.html"
           grep -Fq 'greenman-web-access-paypal-create' "$WORK/web-index.html"
-          grep -Fq 'greenman-web-access-paypal-claim' "$WORK/web-index.html"
           grep -Fq '1 MONTH · £5.99' "$WORK/web-index.html"
           grep -Fq '1 YEAR · £49.99' "$WORK/web-index.html"
+          grep -Fq 'SEND LOGIN CODE' "$WORK/web-index.html"
+          grep -Fq 'gmWebLoginEmail' "$WORK/web-index.html"
+          grep -Fq 'v2-account-sync.js' "$WORK/web-index.html"
+          grep -Fq 'v2-account-sync.css' "$WORK/web-index.html"
+          grep -Fq 'greenman-web-login' webapp/v2-account-sync.js
+          grep -Fq 'greenman-web-account-status' webapp/v2-account-sync.js
+          grep -Fq 'greenman-web-user-sync' webapp/v2-account-sync.js
+          grep -Fq 'gm_journal_entries' webapp/v2-account-sync.js
+          grep -Fq 'gm_scribe_books_v1' webapp/v2-account-sync.js
+          grep -Fq 'gm_scribe_bos_books_v1' webapp/v2-account-sync.js
+          grep -Fq 'gm_bos_castings' webapp/v2-account-sync.js
+          grep -Fq 'SYNC NOW' webapp/v2-account-sync.js
           grep -Fq 'EXPORT BACKUP' "$WORK/web-index.html"
           grep -Fq 'IMPORT BACKUP' "$WORK/web-index.html"
+
           if grep -Fq "expected_access_type:'android'" "$WORK/web-index.html"; then
             echo "Android customer access route survived in Web App build"
             exit 1
           fi
 
-          PKG="$RUNNER_TEMP/hedgewitchery-web-app-v1"
+          PKG="$RUNNER_TEMP/hedgewitchery-web-app-v2"
           mkdir -p "$PKG/fonts"
           cp "$WORK/web-index.html" "$PKG/index.html"
+          cp webapp/v2-account-sync.js "$PKG/v2-account-sync.js"
+          cp webapp/v2-account-sync.css "$PKG/v2-account-sync.css"
 
           BASE="$GITHUB_WORKSPACE/GREENMAN_HEDGEWITCHERY.apk"
           for room in greenman_bower.html greenman_scribe.html greenman_treehouse.html; do
@@ -671,33 +691,35 @@ jobs:
 
           cat > "$PKG/WEBAPP_BUILD_INFO.txt" <<EOF
           Greenman HedgeWitchery Apothecary
-          HedgeWitchery Web App V1
+          HedgeWitchery Web App V2 Account + Sync
           Branch: ${GITHUB_REF_NAME}
           Commit: ${GITHUB_SHA}
           Payment environment: PayPal sandbox
           Web access: monthly £5.99 / yearly £49.99
-          Access keys: Web / promo keys via shared Supabase entitlement system
-          Backup: local Export / Import JSON; access credentials excluded
+          Login: email one-time code
+          Multi-device: subscription/access follows Web App account
+          Synced user work: Book of Shadows/Journal, castings, Scribe books, BoS Scribe books and selected saved user data
+          Backup: local Export / Import JSON; login/access credentials excluded
           EOF
 
           cd "$PKG"
-          zip -qr "$RUNNER_TEMP/GREENMAN_HEDGEWITCHERY_WEB_APP_V1_run${{ github.run_number }}.zip" .
+          zip -qr "$RUNNER_TEMP/GREENMAN_HEDGEWITCHERY_WEB_APP_V2_SYNC_run${{ github.run_number }}.zip" .
           cd "$GITHUB_WORKSPACE"
 
-          sha256sum "$RUNNER_TEMP/GREENMAN_HEDGEWITCHERY_WEB_APP_V1_run${{ github.run_number }}.zip" | tee "$WORK/webapp-sha256.txt"
+          sha256sum "$RUNNER_TEMP/GREENMAN_HEDGEWITCHERY_WEB_APP_V2_SYNC_run${{ github.run_number }}.zip" | tee "$WORK/webapp-v2-sha256.txt"
 
-      - name: Upload HedgeWitchery Web App V1
+      - name: Upload HedgeWitchery Web App V2
         uses: actions/upload-artifact@v4
         with:
-          name: GREENMAN-HEDGEWITCHERY-WEB-APP-V1-run${{ github.run_number }}
-          path: ${{ runner.temp }}/GREENMAN_HEDGEWITCHERY_WEB_APP_V1_run${{ github.run_number }}.zip
+          name: GREENMAN-HEDGEWITCHERY-WEB-APP-V2-SYNC-run${{ github.run_number }}
+          path: ${{ runner.temp }}/GREENMAN_HEDGEWITCHERY_WEB_APP_V2_SYNC_run${{ github.run_number }}.zip
           if-no-files-found: error
           retention-days: 30
 
-      - name: Upload Web App audit
+      - name: Upload Web App V2 audit
         uses: actions/upload-artifact@v4
         with:
-          name: GREENMAN-HEDGEWITCHERY-WEB-APP-V1-AUDIT
-          path: ${{ runner.temp }}/gm-v28-current/webapp-sha256.txt
+          name: GREENMAN-HEDGEWITCHERY-WEB-APP-V2-SYNC-AUDIT
+          path: ${{ runner.temp }}/gm-v28-current/webapp-v2-sha256.txt
           if-no-files-found: error
           retention-days: 30
