@@ -1,0 +1,15 @@
+#gmWebLoginBox{margin:8px 0 15px;padding:13px;border:1px solid #b8964a;border-radius:10px;background:rgba(255,250,235,.72);text-align:left}
+#gmWebLoginBox label{display:block;margin:0 0 5px;font-size:12px;font-weight:700;color:#5f4318}
+#gmWebLoginBox input{width:100%;min-height:44px;border:2px solid #9c792c;border-radius:8px;background:#fffdf7;color:#25170b;padding:9px 10px;font:15px Georgia,serif;box-sizing:border-box}
+.gm-web-login-row{display:grid;grid-template-columns:1fr auto;gap:7px;margin-top:7px}
+.gm-web-login-btn{min-height:42px;border:2px solid #173e19;border-radius:8px;background:linear-gradient(#3d7c40,#225b26);color:#fff4d0;padding:8px 11px;font:700 13px Georgia,serif;cursor:pointer}
+.gm-web-login-btn.secondary{border-color:#8c6a20;background:#fff9e7;color:#3c2a12}
+#gmWebSignedIn{display:none;margin:8px 0 12px;padding:10px 12px;border:1px solid #7d9b63;border-radius:9px;background:#eef5df;color:#29411d;font-size:13px;line-height:1.4;text-align:left}
+#gmWebSignedIn.open{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+#gmWebAccessChoices{display:none}
+#gmWebAccessChoices.open{display:block}
+#gmWebLoginMsg{min-height:18px;margin-top:7px;font-size:12px;color:#7a2b1f}
+#gmWebLoginMsg.good{color:#245a27}
+.gm-web-sync-line{margin-top:7px;font-size:11px;color:#735a2e}
+.gm-web-sync-line.good{color:#2d5b2b}
+@media(max-width:520px){.gm-web-login-row{grid-template-columns:1fr}.gm-web-login-row button{width:100%}}
