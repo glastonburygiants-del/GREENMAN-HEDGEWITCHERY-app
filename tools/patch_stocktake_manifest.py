@@ -37,12 +37,24 @@ ensure_use("android.permission.INTERNET")
 # Intentionally request the NORMAL app's signature permission, not the stocktake package version.
 ensure_use(bridge)
 
+# Android 11+ package visibility: explicitly declare the provider authority the Stocktake talks to.
+queries=root.find("queries")
+if queries is None:
+    queries=ET.Element("queries")
+    # queries belongs before application.
+    app_pos=list(root).index(root.find("application")) if root.find("application") is not None else len(list(root))
+    root.insert(app_pos,queries)
+if not any(x.tag.split("}")[-1]=="provider" and x.get(A+"authorities")=="com.greenman.hedgewitchery.stockbridge" for x in queries):
+    q=ET.Element("provider")
+    q.set(A+"authorities","com.greenman.hedgewitchery.stockbridge")
+    queries.append(q)
+
 app=root.find("application")
 if app is None: raise SystemExit("application missing")
 app.set(A+"label","Greenman HedgeWitchery Apothecary Stocktake")
 
 tree.write(p,encoding="utf-8",xml_declaration=True)
 s=p.read_text(encoding="utf-8")
-for marker in (f'package="{new}"',bridge,"android.permission.INTERNET","Greenman HedgeWitchery Apothecary Stocktake"):
+for marker in (f'package="{new}"',bridge,"android.permission.INTERNET","com.greenman.hedgewitchery.stockbridge","Greenman HedgeWitchery Apothecary Stocktake"):
     if marker not in s: raise SystemExit("missing stocktake manifest marker: "+marker)
 print("configured standalone Stocktake package and protected Wildwood bridge permission")
