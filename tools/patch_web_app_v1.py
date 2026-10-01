@@ -22,7 +22,9 @@ text=text.replace("expected_access_type:'android'", "expected_access_type:'web'"
 text=text.replace("data.access_type||'android'", "data.access_type||'web'")
 text=text.replace("d.access_type||'android'", "d.access_type||'web'")
 
-style_anchor='</style>\\n</head>'
+head_end=text.find("</head>")
+if head_end < 0:
+    raise SystemExit("outer </head> not found")
 web_style=r'''<style id="gm-web-app-access-v1-style">
 #gmOpenFullFloat{display:none!important}
 #gmWebAccessScreen{position:fixed;inset:0;z-index:2147483300;display:none;align-items:center;justify-content:center;overflow:auto;background:linear-gradient(180deg,rgba(10,22,10,.97),rgba(30,16,6,.98));padding:18px;box-sizing:border-box}
@@ -46,9 +48,7 @@ web_style=r'''<style id="gm-web-app-access-v1-style">
 @media(max-width:520px){.gm-web-pay-grid{grid-template-columns:1fr}}
 </style>
 '''
-if text.count(style_anchor) < 1:
-    raise SystemExit('head style anchor missing')
-text=text.replace(style_anchor, web_style+style_anchor, 1)
+text=text[:head_end] + web_style + text[head_end:]
 
 markup_anchor='''<div id="gmAccessWelcome" aria-modal="true" role="dialog">
   <div id="gmAccessWelcomeCard">
