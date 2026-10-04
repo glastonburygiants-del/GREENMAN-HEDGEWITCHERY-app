@@ -670,21 +670,13 @@ jobs:
           # tools/patch_immersive_mode_order.py for the full trace.
           python tools/patch_immersive_mode_order.py             "$WORK/decoded/smali_classes2/com/greenman/hedgewitchery/MainActivity.smali"
 
-          # The FV3.1 Journal sales patch added a checkout button that sets
-          # window.top.location.href to a PayPal approval URL, but
-          # MainActivity$LocalAssetWebViewClient.shouldOverrideUrlLoading()
-          # only allows navigation whose host is exactly "greenman.local" -
-          # every other host (including paypal.com) returns true (meaning
-          # "handled") but takes no further action, so the checkout button
-          # silently did nothing. This is also the safer fix for the
-          # separate Play Protect "harmful app" classification: an app that
-          # quietly redirects its own embedded WebView to a payment page
-          # reads as a phishing pattern, whereas handing the URL to the
-          # device's real browser via a normal external Intent does not.
-          # Only *.paypal.com is allowed through this way; every other
-          # external host remains blocked exactly as before.
+          # Payment pages must leave the embedded WebView and open in the
+          # device browser. Keep that allowlist deliberately narrow for the
+          # Play Protect-safe payment flow: PayPal plus the exact Greenman
+          # Supabase project host used by the card checkout page.
           python tools/patch_paypal_external_browser.py             "$WORK/decoded/smali_classes2/com/greenman/hedgewitchery/MainActivity\$LocalAssetWebViewClient.smali"
           grep -Fq 'android.intent.action.VIEW' "$WORK/decoded/smali_classes2/com/greenman/hedgewitchery/MainActivity\$LocalAssetWebViewClient.smali"
+          grep -Fq 'zzfgufuyetybxaeidcxu.supabase.co' "$WORK/decoded/smali_classes2/com/greenman/hedgewitchery/MainActivity\$LocalAssetWebViewClient.smali"
 
           # Real-device report: tapping Checkout showed "Failed to fetch"
           # on a confirmed-solid Wi-Fi connection, and a direct Supabase
