@@ -47,6 +47,7 @@ on:
       - "tools/patch_fv34_country_sales_gate.py"
       - "tools/patch_fv35_scribe_non_ogham_render.py"
       - "tools/patch_customer_access_gate_v1.py"
+      - "tools/patch_fv39_shop_prices_delivery.py"
       - "tools/greenman_release_keystore.b64"
   workflow_dispatch:
 
@@ -622,6 +623,18 @@ jobs:
           grep -Fq 'ENTER THE APOTHECARY' "$WORK/current.html"
           grep -Fq 'Welcome to Greenman HedgeWitchery Apothecary.' "$WORK/current.html"
           if grep -Fq 'gm-exp-access-keys-v1' "$WORK/current.html"; then exit 1; fi
+
+          # FV3.9: agreed spell-kit prices on Book of Shadows entries,
+          # full basket pricing, and Royal Mail Tracked 48/24 delivery.
+          python tools/patch_fv39_shop_prices_delivery.py "$WORK/current.html" "$WORK/current-shop-prices-delivery.html"
+          mv "$WORK/current-shop-prices-delivery.html" "$WORK/current.html"
+          node tools/verify_inline_scripts.js "$WORK/current.html"
+          grep -Fq 'Handful:2300' "$WORK/current.html"
+          grep -Fq 'Weaving:2700' "$WORK/current.html"
+          grep -Fq "'Full Grove':3000" "$WORK/current.html"
+          grep -Fq 'Royal Mail Tracked 48 with Signature' "$WORK/current.html"
+          grep -Fq 'Royal Mail Tracked 24 with Signature' "$WORK/current.html"
+          grep -Fq 'Choose Tracked 24 or Tracked 48 delivery before checkout.' "$WORK/current.html"
 
           echo "WORK=$WORK" >> "$GITHUB_ENV"
 
