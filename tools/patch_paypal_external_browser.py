@@ -15,12 +15,14 @@ own embedded WebView to a payment page as a phishing-pattern red flag.
 The recommended, safer pattern is to hand payment URLs to the device's own
 browser via a normal external Intent instead of navigating in-app.
 
-Fix: when the navigation host isn't greenman.local, check whether it ends
-with "paypal.com" (covers both live www.paypal.com and PayPal Sandbox's
-www.sandbox.paypal.com); if so, launch it via Intent.ACTION_VIEW so it
-opens in the device's real browser, then still return true (this WebView
-has handled it, by handing it off externally). Every other external host
-keeps the original behavior: silently blocked, unchanged.
+Fix: when the navigation host isn't greenman.local, allow only known payment
+hosts to leave the app through Intent.ACTION_VIEW:
+- *.paypal.com
+- this project's exact Supabase host, zzfgufuyetybxaeidcxu.supabase.co
+
+This lets the new Greenman card checkout page open in the device's real browser
+without weakening the WebView allowlist generally. Every other external host
+remains silently blocked exactly as before.
 """
 from pathlib import Path
 import sys
@@ -114,8 +116,17 @@ replacement = (
     "\n"
     "    move-result v3\n"
     "\n"
+    "    if-nez v3, :launch_external\n"
+    "\n"
+    "    const-string v3, \"zzfgufuyetybxaeidcxu.supabase.co\"\n"
+    "\n"
+    "    invoke-virtual {v3, v2}, Ljava/lang/String;->equalsIgnoreCase(Ljava/lang/String;)Z\n"
+    "\n"
+    "    move-result v3\n"
+    "\n"
     "    if-eqz v3, :cond_1\n"
     "\n"
+    "    :launch_external\n"
     "    new-instance v3, Landroid/content/Intent;\n"
     "\n"
     "    const-string v4, \"android.intent.action.VIEW\"\n"
@@ -142,4 +153,4 @@ if text == original:
     raise SystemExit('no change applied')
 
 target.write_text(text, encoding='utf-8')
-print('shouldOverrideUrlLoading now routes *.paypal.com navigation to an external browser Intent; all other external hosts remain blocked exactly as before')
+print('shouldOverrideUrlLoading now routes *.paypal.com and the exact Greenman Supabase project host to the external browser; all other external hosts remain blocked')
