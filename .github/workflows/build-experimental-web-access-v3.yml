@@ -48,6 +48,7 @@ on:
       - "tools/patch_fv35_scribe_non_ogham_render.py"
       - "tools/patch_customer_access_gate_v1.py"
       - "tools/patch_fv39_shop_prices_delivery.py"
+      - "tools/patch_fv40_shop_website_checkout.py"
       - "tools/greenman_release_keystore.b64"
   workflow_dispatch:
 
@@ -636,6 +637,17 @@ jobs:
           grep -Fq 'Royal Mail Tracked 24 with Signature' "$WORK/current.html"
           grep -Fq 'Choose Tracked 24 or Tracked 48 delivery before checkout.' "$WORK/current.html"
 
+          # FV4.0: basket now lives on the BoS front page and Android gives
+          # a clear handoff notice before opening the website spell checkout.
+          python tools/patch_fv40_shop_website_checkout.py "$WORK/current.html" "$WORK/current-shop-website-checkout.html"
+          mv "$WORK/current-shop-website-checkout.html" "$WORK/current.html"
+          node tools/verify_inline_scripts.js "$WORK/current.html"
+          grep -Fq "checkout_source:'android'" "$WORK/current.html"
+          grep -Fq 'spell_category:e.category' "$WORK/current.html"
+          grep -Fq 'CONTINUE TO PAYMENT' "$WORK/current.html"
+          grep -Fq 'You’ll now be taken to the Greenman HedgeWitchery Apothecary website to complete your secure payment.' "$WORK/current.html"
+          grep -Fq 'gmContinueWebsiteCheckoutV40' "$WORK/current.html"
+
           echo "WORK=$WORK" >> "$GITHUB_ENV"
 
       - name: Restore exact V28 native files
@@ -673,10 +685,11 @@ jobs:
           # Payment pages must leave the embedded WebView and open in the
           # device browser. Keep that allowlist deliberately narrow for the
           # Play Protect-safe payment flow: PayPal plus the exact Greenman
-          # Supabase project host used by the card checkout page.
+          # Supabase project host and the public Greenman website checkout.
           python tools/patch_paypal_external_browser.py             "$WORK/decoded/smali_classes2/com/greenman/hedgewitchery/MainActivity\$LocalAssetWebViewClient.smali"
           grep -Fq 'android.intent.action.VIEW' "$WORK/decoded/smali_classes2/com/greenman/hedgewitchery/MainActivity\$LocalAssetWebViewClient.smali"
           grep -Fq 'zzfgufuyetybxaeidcxu.supabase.co' "$WORK/decoded/smali_classes2/com/greenman/hedgewitchery/MainActivity\$LocalAssetWebViewClient.smali"
+          grep -Fq 'greenmanhedgewitchery.co.uk' "$WORK/decoded/smali_classes2/com/greenman/hedgewitchery/MainActivity\$LocalAssetWebViewClient.smali"
 
           # Real-device report: tapping Checkout showed "Failed to fetch"
           # on a confirmed-solid Wi-Fi connection, and a direct Supabase
