@@ -18,7 +18,7 @@ browser via a normal external Intent instead of navigating in-app.
 Fix: when the navigation host isn't greenman.local, allow only known payment
 hosts to leave the app through Intent.ACTION_VIEW:
 - *.paypal.com
-- this project's exact Supabase host, zzfgufuyetybxaeidcxu.supabase.co
+- this project's exact Supabase host, zzfgufuyetybxaeidcxu.supabase.co\n- the public checkout host, greenmanhedgewitchery.co.uk
 
 This lets the new Greenman card checkout page open in the device's real browser
 without weakening the WebView allowlist generally. Every other external host
@@ -124,6 +124,14 @@ replacement = (
     "\n"
     "    move-result v3\n"
     "\n"
+    "    if-nez v3, :launch_external\n"
+    "\n"
+    "    const-string v3, \"greenmanhedgewitchery.co.uk\"\n"
+    "\n"
+    "    invoke-virtual {v3, v2}, Ljava/lang/String;->equalsIgnoreCase(Ljava/lang/String;)Z\n"
+    "\n"
+    "    move-result v3\n"
+    "\n"
     "    if-eqz v3, :cond_1\n"
     "\n"
     "    :launch_external\n"
@@ -153,4 +161,4 @@ if text == original:
     raise SystemExit('no change applied')
 
 target.write_text(text, encoding='utf-8')
-print('shouldOverrideUrlLoading now routes *.paypal.com and the exact Greenman Supabase project host to the external browser; all other external hosts remain blocked')
+print('shouldOverrideUrlLoading now routes *.paypal.com, the exact Greenman Supabase project host, and greenmanhedgewitchery.co.uk to the external browser; all other external hosts remain blocked')
