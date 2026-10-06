@@ -1,9 +1,9 @@
-name: Build Stocktake V8 Safe Cloud Sync
+name: Build Stocktake V9 Back Office
 
 on:
   push:
     branches:
-      - integration/stocktake-v8-cloud-stall-safe
+      - integration/stocktake-v9-backoffice
   workflow_dispatch:
 
 permissions:
@@ -110,6 +110,10 @@ jobs:
           grep -Fq 'gm-stocktake-v8-cloud-connections' "$WORK/stocktake-v8-safe.html"
           grep -Fq 'GM_STOCKTAKE_STALL_SYNC' "$WORK/stocktake-v8-safe.html"
           grep -Fq 'GM_STOCKTAKE_SYNC_ONLINE' "$WORK/stocktake-v8-safe.html"
+          grep -Fq 'PRINT ADDRESS LABEL' "$WORK/stocktake-v8-safe.html"
+          grep -Fq 'RESTOCK ALL WILDWOOD TO 7' "$WORK/stocktake-v8-safe.html"
+          grep -Fq 'Subscriber spell-kit discount' "$WORK/stocktake-v8-safe.html"
+          grep -Fq 'gmBackRefresh' "$WORK/stocktake-v8-safe.html"
 
           if grep -Eq 'WildwoodBridge|GMStockBridge|WILDWOOD_STOCK_BRIDGE|WildwoodStockProvider' "$WORK/main-safe-index.html" "$WORK/stocktake-v8-safe.html"; then
             echo "Native bridge marker leaked into safe build"
@@ -161,8 +165,8 @@ jobs:
           from pathlib import Path
           import re,sys
           p=Path(sys.argv[1]);s=p.read_text()
-          s=re.sub(r'(?m)^  versionCode:.*$', '  versionCode: 3', s)
-          s=re.sub(r'(?m)^  versionName:.*$', '  versionName: STOCKTAKE-V8-SAFE-SYNC', s)
+          s=re.sub(r'(?m)^  versionCode:.*$', '  versionCode: 4', s)
+          s=re.sub(r'(?m)^  versionName:.*$', '  versionName: STOCKTAKE-V9-BACKOFFICE', s)
           p.write_text(s)
           PY
 
@@ -211,7 +215,7 @@ jobs:
             --ks-key-alias greenmanrelease2026 \
             --ks-pass "pass:$SIGN_PASS" \
             --key-pass "pass:$SIGN_PASS" \
-            --out "$RUNNER_TEMP/HEDGEWITCHERY_STOCKTAKE_V8_SAFE_SYNC_run${{ github.run_number }}.apk" \
+            --out "$RUNNER_TEMP/HEDGEWITCHERY_STOCKTAKE_V9_BACKOFFICE_run${{ github.run_number }}.apk" \
             "$WORK/stock-aligned.apk"
 
       - name: Verify native footprint stays clean
@@ -229,7 +233,7 @@ jobs:
 
           grep -q "package: name='com.greenman.hedgewitchery' versionCode='90'" "$WORK/main-badging.txt"
           grep -q "versionName='FV3.5.4-STALL-SYNC'" "$WORK/main-badging.txt"
-          grep -q "package: name='com.greenman.hedgewitchery.stocktake' versionCode='3'" "$WORK/stock-badging.txt"
+          grep -q "package: name='com.greenman.hedgewitchery.stocktake' versionCode='4'" "$WORK/stock-badging.txt"
 
           grep -q 'Signer #1 certificate SHA-256 digest: 3ffb1aea27cf9c3ec0ff8a0e6242e1f0118dd4869bfd0430ecdd9fdbba5f460e' "$WORK/main-sign.txt"
           MAIN_CERT="$(grep -m1 'Signer #1 certificate SHA-256 digest:' "$WORK/main-sign.txt" | sed 's/.*digest: //')"
@@ -272,7 +276,7 @@ jobs:
       - name: Upload safe corrected Stocktake V8
         uses: actions/upload-artifact@v4
         with:
-          name: HEDGEWITCHERY-STOCKTAKE-V8-SAFE-SYNC-run${{ github.run_number }}
+          name: HEDGEWITCHERY-STOCKTAKE-V9-BACKOFFICE-run${{ github.run_number }}
           path: ${{ runner.temp }}/HEDGEWITCHERY_STOCKTAKE_V8_SAFE_SYNC_run${{ github.run_number }}.apk
           if-no-files-found: error
           retention-days: 30
