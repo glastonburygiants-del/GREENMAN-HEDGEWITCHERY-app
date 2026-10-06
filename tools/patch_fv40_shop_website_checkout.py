@@ -130,6 +130,31 @@ if journal == original:
 
 encoded = json.dumps(journal, ensure_ascii=False).replace("</script>", "<\\/script>")
 patched = outer[:key_at] + encoded + outer[key_at+used:]
+
+# Wildwood stock remains a separate, manually controlled pool.
+# Zero stays zero until the user changes it or explicitly presses RESTOCK ALL TO 7.
+admin_at = patched.index('"admin":', pages_at) + len('"admin":')
+admin, admin_used = json.JSONDecoder().raw_decode(patched[admin_at:])
+admin_start = "function startQty(group){return (group==='Herbs'||group==='Crystals'||group==='Oils'||group==='Runes')?7:21}"
+if admin.count(admin_start) != 1:
+    raise SystemExit(f"Wildwood startQty anchor count {admin.count(admin_start)}")
+admin = admin.replace(admin_start, "function startQty(group){return 7}", 1)
+stock_buttons = '<div class="button-row"><button class="btn" onclick="resetCurrentGroup()">Reset Group to Start Qty</button><button class="btn green" onclick="saveStockNow()">Save Stock List</button></div>'
+stock_buttons_new = '<div class="button-row"><button class="btn" onclick="resetCurrentGroup()">Reset Group to 7</button><button class="btn green" onclick="restockAllWildwoodTo7()">RESTOCK ALL TO 7</button><button class="btn green" onclick="saveStockNow()">Save Stock List</button></div>'
+if admin.count(stock_buttons) != 1:
+    raise SystemExit(f"Wildwood stock button anchor count {admin.count(stock_buttons)}")
+admin = admin.replace(stock_buttons, stock_buttons_new, 1)
+reset_anchor = "function resetCurrentGroup(){gmGreenmanConfirm('Reset '+currentStockGroup+' to starting quantities?',function(){const s=stock();(STOCK_MASTER[currentStockGroup]||[]).forEach(n=>s[currentStockGroup][n]=startQty(currentStockGroup));saveStock(s);renderStock();renderLowStock();toast('Group reset')},'Reset','Cancel')}"
+restock_fn = reset_anchor + "\nfunction restockAllWildwoodTo7(){gmGreenmanConfirm('Restock every Wildwood item to 7? This is a manual Stall restock and does not take stock automatically from Online.',function(){const s=stock();Object.keys(STOCK_MASTER).forEach(g=>{s[g]=s[g]||{};(STOCK_MASTER[g]||[]).forEach(n=>s[g][n]=7)});saveStock(s);renderAll();toast('Wildwood stock restocked to 7')},'Restock all to 7','Cancel')}"
+if admin.count(reset_anchor) != 1:
+    raise SystemExit(f"Wildwood reset function anchor count {admin.count(reset_anchor)}")
+admin = admin.replace(reset_anchor, restock_fn, 1)
+for marker in ("RESTOCK ALL TO 7","function restockAllWildwoodTo7","function startQty(group){return 7}"):
+    if marker not in admin:
+        raise SystemExit("missing Admin marker: " + marker)
+admin_encoded = json.dumps(admin, ensure_ascii=False).replace("</script>", "<\\/script>")
+patched = patched[:admin_at] + admin_encoded + patched[admin_at+admin_used:]
+
 out.write_text(patched, encoding="utf-8")
 print(f"wrote {out} bytes={len(patched)}")
-print("FV4.0: BoS-front basket + spell category + Android website-checkout handoff message.")
+print("FV4.1: BoS-front checkout + Online stock delay warning + manual Wildwood restock-to-7.")
