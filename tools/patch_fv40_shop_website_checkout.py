@@ -41,6 +41,38 @@ if journal.count(payload_old) != 1:
     raise SystemExit(f"gmSalePayload anchor count {journal.count(payload_old)}")
 journal = journal.replace(payload_old, payload_new, 1)
 
+
+add_old = "function gmAddSpellToBasket(id){if(!gmShopCountryEligible())return;const e=readLS(LS_ENTRIES,[]).find(x=>x.entryId===id);if(!e)return;const a=gmReadBasket(),p=gmSalePayload(e),found=a.find(x=>x.journal_entry_id===p.journal_entry_id);if(found)found.quantity=Number(found.quantity||1)+1;else a.push(Object.assign({quantity:1},p));gmWriteBasket(a);try{parent.gmTabletDiagnosticsV1&&parent.gmTabletDiagnosticsV1.add('ACTION','Journal Sales','Spell kit added to basket',{spell_level:p.spell_level,method:p.method},'',false);}catch(_gmDiagErr){}toast('Added to basket');}"
+add_new = r'''const GM_SHOP_STOCK_STATUS='https://zzfgufuyetybxaeidcxu.supabase.co/functions/v1/shop-stock-status';
+function gmAddSpellToBasketNow(e,p){
+ const a=gmReadBasket(),found=a.find(x=>x.journal_entry_id===p.journal_entry_id);
+ if(found)found.quantity=Number(found.quantity||1)+1;else a.push(Object.assign({quantity:1},p));
+ gmWriteBasket(a);
+ try{parent.gmTabletDiagnosticsV1&&parent.gmTabletDiagnosticsV1.add('ACTION','Journal Sales','Spell kit added to basket',{spell_level:p.spell_level,method:p.method},'',false);}catch(_gmDiagErr){}
+ toast('Added to basket');
+}
+gmAddSpellToBasket=async function(id){
+ if(!gmShopCountryEligible())return;
+ const e=readLS(LS_ENTRIES,[]).find(x=>x.entryId===id);if(!e)return;
+ const p=gmSalePayload(e);
+ try{
+   const d=await gmShopPost(GM_SHOP_STOCK_STATUS,{spell:Object.assign({quantity:1},p)});
+   if(d.stock_delay){
+     const ov=gmShopOverlay(),card=qs('#gmShopCard');
+     const missing=(d.shortages||[]).map(x=>esc(x.item_name||'')).filter(Boolean);
+     card.innerHTML='<h2>A longer walk through the Wildwood</h2><p style="line-height:1.55">Greenman must venture deeper into the darkest reaches of the Wildwood to gather part of your spell. Your spell can still be ordered, but it may take a little longer to prepare while the missing ingredients are gathered.</p>'+(missing.length?'<p class="gm-shop-note">Waiting to be gathered: '+missing.join(', ')+'</p>':'')+'<div class="gm-shop-actions"><button class="btn btn-outline" onclick="gmCloseShop()">WAIT FOR RESTOCK</button><button class="btn btn-gold" onclick="gmConfirmDelayedSpell()">BUY IT NOW</button></div>';
+     window.gmConfirmDelayedSpell=function(){gmAddSpellToBasketNow(e,p);gmCloseShop();};
+     ov.classList.add('show');return;
+   }
+ }catch(err){
+   try{parent.gmTabletDiagnosticsV1&&parent.gmTabletDiagnosticsV1.add('CONSOLE ERROR','Journal Sales','Stock delay check unavailable',{error:String(err&&err.message||err)},'',false);}catch(_gmDiagErr){}
+ }
+ gmAddSpellToBasketNow(e,p);
+};'''
+if journal.count(add_old) != 1:
+    raise SystemExit(f"gmAddSpellToBasket anchor count {journal.count(add_old)}")
+journal = journal.replace(add_old, add_new, 1)
+
 start = journal.index('gmCheckoutBasket=async function(){')
 end = journal.index('\n\nfunction gmWildwoodStart(id,kind){', start)
 replacement = r'''gmCheckoutBasket=async function(){
@@ -81,6 +113,10 @@ for marker in (
     "CONTINUE TO PAYMENT",
     "You’ll now be taken to the Greenman HedgeWitchery Apothecary website",
     "gmContinueWebsiteCheckoutV40",
+    "GM_SHOP_STOCK_STATUS",
+    "WAIT FOR RESTOCK",
+    "BUY IT NOW",
+    "darkest reaches of the Wildwood",
     "gm_greenman_pending_order_v1",
 ):
     if marker not in journal:
