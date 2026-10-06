@@ -37,6 +37,29 @@ td b{color:var(--green)}
 .small{font-size:10px;color:var(--muted)}
 .supplier a{color:var(--green);font-weight:bold;text-decoration:none}
 @media(max-width:700px){.valueTotals{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+.backoffice{display:none;overflow:auto;height:100%;padding:8px;max-width:1180px;margin:auto;width:100%}
+.backoffice.on{display:block}
+.bohead{position:sticky;top:0;background:var(--bg);padding:3px 0 8px;z-index:5}
+.bohead h2{font-size:18px;color:var(--green);margin:0 0 6px}
+.bocards{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;margin-bottom:8px}
+.bocard{background:var(--paper);border:1px solid var(--line);border-radius:9px;padding:9px}
+.bocard span{display:block;font-size:10px;color:var(--muted)}
+.bocard strong{display:block;color:var(--green);font-size:18px;margin-top:2px}
+.boorder{background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:10px;margin:8px 0}
+.boorder.waiting{border-left:6px solid #9a642c}
+.boorder.dispatched{border-left:6px solid var(--green)}
+.borow{display:flex;gap:7px;flex-wrap:wrap;align-items:center;margin-top:7px}
+.borow button,.borow select,.borow input,.boaction{min-height:38px;border:1px solid var(--line);border-radius:8px;background:#fffaf0;padding:7px 9px;font:700 11px Georgia,serif}
+.borow button.primary,.boaction.primary{background:var(--green);color:#fff;border-color:var(--green)}
+.borow input{font-family:Arial,sans-serif;min-width:180px}
+.boaddress{line-height:1.45;margin:6px 0}
+.bonote{font-size:11px;color:var(--muted);line-height:1.4}
+.bowarn{background:#fff0d8;border:1px solid #cfaa62;border-radius:8px;padding:7px;margin-top:7px;font-size:11px}
+.discountbox{background:var(--paper);border:2px solid var(--green);border-radius:10px;padding:10px;margin-bottom:9px}
+.discountbox input{width:100px;height:38px;border:1px solid var(--line);border-radius:7px;padding:6px}
+#gmPrintFrame{position:fixed;left:-10000px;top:0;width:57mm;height:90mm;border:0}
+@media(max-width:700px){.bocards{grid-template-columns:repeat(2,minmax(0,1fr))}.borow>*{flex:1 1 140px}}
 </style></head><body>
 <div id="outer">
  <div class="outerbar">
@@ -47,7 +70,10 @@ td b{color:var(--green)}
    <button data-page="oils">Oils</button>
    <button data-page="candles">Candles</button>
    <button data-page="rest">Runes & Kit</button>
-   <button data-page="summary">Summary</button>
+   <button data-page="summary">Stock Summary</button>
+   <button data-page="sales">Sales</button>
+   <button data-page="orders">Orders</button>
+   <button data-page="subscribers">Subscribers</button>
   </div>
  </div>
  <div class="framewrap">
@@ -57,13 +83,29 @@ td b{color:var(--green)}
   <iframe id="f-candles"></iframe>
   <iframe id="f-rest"></iframe>
   <section id="summary">
-   <div class="sumhead"><h2>Stock Summary</h2><div class="sumfilters" id="sumfilters"></div></div>
+   <div class="sumhead"><h2>Stock Summary</h2><div class="sumfilters" id="sumfilters"></div><div class="borow"><button id="gmRestock7" class="primary" type="button">RESTOCK ALL WILDWOOD TO 7</button><span class="bonote">Only moves stock when you press it. Wildwood never refills itself.</span></div></div>
    <div id="valueTotals" class="valueTotals"></div>
    <div class="tablewrap"><table><thead><tr>
     <th>Item</th><th>Section</th><th>Stock in hand</th><th>Stall stock</th>
     <th>Online stock</th><th>Online spells</th><th>Cost per spell</th><th>Stock value</th><th>Supplier</th>
    </tr></thead><tbody id="sumrows"></tbody></table></div>
   </section>
+  <section id="sales" class="backoffice">
+   <div class="bohead"><h2>Sales, Costs & Profit</h2><div class="borow"><button class="primary" onclick="gmBackRefresh(true)">REFRESH SALES</button></div></div>
+   <div id="gmSalesCards" class="bocards"></div>
+   <div id="gmSalesBody"></div>
+  </section>
+  <section id="orders" class="backoffice">
+   <div class="bohead"><h2>Orders</h2><div class="borow"><button class="primary" onclick="gmBackRefresh(true)">REFRESH ORDERS</button></div></div>
+   <div id="gmOrdersBody"></div>
+  </section>
+  <section id="subscribers" class="backoffice">
+   <div class="bohead"><h2>Subscribers</h2><div class="borow"><button class="primary" onclick="gmBackRefresh(true)">REFRESH SUBSCRIBERS</button></div></div>
+   <div class="discountbox"><b>Subscriber spell-kit discount</b><p class="bonote">Variable setting. Leave blank or set 0 to turn the discount off until you decide the amount.</p><div class="borow"><input id="gmDiscountPct" type="number" min="0" max="99.99" step="0.25" placeholder="%"><button class="primary" onclick="gmSaveDiscount()">SAVE DISCOUNT</button><span id="gmDiscountState" class="bonote"></span></div></div>
+   <div id="gmSubscriberCards" class="bocards"></div>
+   <div id="gmSubscribersBody"></div>
+  </section>
+  <iframe id="gmPrintFrame" title="57 mm address label"></iframe>
  </div>
 </div>
 <script>
@@ -130,10 +172,11 @@ document.querySelectorAll('.outertabs button').forEach(b=>b.onclick=()=>show(b.d
 function show(p){
  current=p;
  document.querySelectorAll('.outertabs button').forEach(b=>b.classList.toggle('on',b.dataset.page===p));
- document.querySelectorAll('iframe').forEach(f=>f.classList.remove('on'));
- document.getElementById('summary').classList.remove('on');
- if(p==='summary'){document.getElementById('summary').classList.add('on');renderSummary();}
- else document.getElementById('f-'+p).classList.add('on');
+ document.querySelectorAll('iframe[id^="f-"]').forEach(f=>f.classList.remove('on'));
+ document.querySelectorAll('#summary,.backoffice').forEach(x=>x.classList.remove('on'));
+ if(p==='summary'){document.getElementById('summary').classList.add('on');renderSummary();return;}
+ if(p==='sales'||p==='orders'||p==='subscribers'){document.getElementById(p).classList.add('on');setTimeout(()=>gmBackRefresh(false),0);return;}
+ const f=document.getElementById('f-'+p);if(f)f.classList.add('on');
 }
 
 function collectBase(){
@@ -226,6 +269,19 @@ function collectBase(){
      });
    });
  }
+ for(const row of out){
+   let have=true;
+   try{
+     if(row.section==='Herb')have=!!frameApi('herbs').get(row.name).have;
+     else if(row.section==='Crystal')have=!!frameApi('crystals').get(row.name).have;
+     else if(row.section==='Oil')have=!!frameApi('oils').get(row.name).have;
+     else if(row.section==='Candle')have=!!frameApi('candles').get(row.name).have;
+     else if(row.section==='Rune')have=!!frameApi('rest').getRune(row.name).have;
+     else if(row.section==='Kit')have=!!frameApi('rest').getItem(String(row.id).replace(/^K:/,'')).have;
+   }catch(e){}
+   row.have=have;
+   if(!have)row.total=0;
+ }
  return out;
 }
 
@@ -233,45 +289,34 @@ function applyIngredientSplit(row){
  if(!Number.isFinite(row.per)||row.per<=0){
    row.stall=NaN;row.online=row.total;row.onlineSpells=NaN;return row;
  }
- const available=Math.floor(row.total/row.per+1e-9);
- const target=Math.max(0,Math.min(7,available));
  const rec=split[row.id]||{};
  let fw=findWild(row.group,row.aliases);
-
- // First use: establish a seven-spell Wildwood pool, but never restore a pool already below 7.
- if(!fw){
-   setWild(row.group,row.aliases,target);fw=findWild(row.group,row.aliases);
- }else if(fw.value>7){
-   setWild(row.group,row.aliases,target);fw=findWild(row.group,row.aliases);
- }
- let stallSpells=fw?Math.min(target,Math.max(0,fw.value)):target;
+ let stallSpells=fw?Math.max(0,Number(fw.value)||0):0;
+ const maxPhysical=Math.max(0,Math.floor(row.total/row.per+1e-9));
+ stallSpells=Math.min(stallSpells,maxPhysical);
 
  if(rec.lastTotal==null){
    rec.lastTotal=row.total;rec.lastWild=stallSpells;rec.online=Math.max(0,row.total-stallSpells*row.per);
+ }else if(Math.abs(row.total-Number(rec.lastTotal||0))>1e-7 && !syncBusy){
+   // A physical stocktake/restock changes Online only. Wildwood is never auto-refilled.
+   rec.online=Math.max(0,row.total-stallSpells*row.per);
+   rec.lastTotal=row.total;rec.lastWild=stallSpells;
+ }else if(wildwoodMode() && stallSpells<Number(rec.lastWild||0) && !syncBusy){
+   // A Stall sale consumes physical stock but never borrows from Online.
+   const used=(Number(rec.lastWild||0)-stallSpells)*row.per;
+   const newTotal=Math.max(0,row.total-used);
+   syncBusy=true;try{row.setTotal(newTotal)}finally{syncBusy=false}
+   row.total=newTotal;rec.lastTotal=newTotal;rec.lastWild=stallSpells;
+ }else if(stallSpells>Number(rec.lastWild||0) && !syncBusy){
+   // A manual Stall increase is an explicit transfer; reduce Online, never automatic.
+   rec.online=Math.max(0,row.total-stallSpells*row.per);
+   rec.lastTotal=row.total;rec.lastWild=stallSpells;
  }else{
-   // Manual stocktake change/restock: split again with seven portions to Stall first.
-   if(Math.abs(row.total-rec.lastTotal)>1e-7 && !syncBusy){
-     const reset=Math.max(0,Math.min(7,Math.floor(row.total/row.per+1e-9)));
-     setWild(row.group,row.aliases,reset);stallSpells=reset;
-     rec.online=Math.max(0,row.total-reset*row.per);
-     rec.lastWild=reset;rec.lastTotal=row.total;
-   }
-   // Wildwood local stock decrease: reduce physical stock by exactly the same used amount.
-   else if(wildwoodMode() && stallSpells<Number(rec.lastWild||0) && !syncBusy){
-     const used=(Number(rec.lastWild||0)-stallSpells)*row.per;
-     const newTotal=Math.max(0,row.total-used);
-     syncBusy=true;try{row.setTotal(newTotal)}finally{syncBusy=false}
-     row.total=newTotal;rec.lastTotal=newTotal;rec.lastWild=stallSpells;
-     // rec.online deliberately stays unchanged.
-   }
-   else{
-     rec.lastWild=stallSpells;rec.lastTotal=row.total;
-     if(!Number.isFinite(Number(rec.online)))rec.online=Math.max(0,row.total-stallSpells*row.per);
-   }
+   rec.lastWild=stallSpells;rec.lastTotal=row.total;
+   if(!Number.isFinite(Number(rec.online)))rec.online=Math.max(0,row.total-stallSpells*row.per);
  }
  split[row.id]=rec;saveSplit();
- row.stallSpells=stallSpells;
- row.stall=stallSpells*row.per;
+ row.stallSpells=stallSpells;row.stall=stallSpells*row.per;
  row.online=Math.max(0,Number(rec.online));
  row.onlineSpells=Math.floor(row.online/row.per+1e-9);
  if(row.section==='Crystal'&&Number.isFinite(row.avg)){
@@ -285,17 +330,19 @@ function applyKitSplit(row){
  if(!Number.isFinite(row.per)||row.per<=0){
    row.stall=NaN;row.online=NaN;row.onlineSpells=NaN;return row;
  }
- const target=Math.max(0,Math.min(7,Math.floor(row.total/row.per+1e-9)));
+ const maxPhysical=Math.max(0,Math.floor(row.total/row.per+1e-9));
+ let stallSpells=Math.max(0,Math.min(Number(rec.stallSpells||0),maxPhysical));
  if(rec.lastTotal==null){
-   rec.stallSpells=target;rec.online=Math.max(0,row.total-target*row.per);rec.lastTotal=row.total;
- }else if(Math.abs(row.total-rec.lastTotal)>1e-7 && !syncBusy){
-   // Manual stocktake edit/restock resets this local Stall reserve to seven.
-   rec.stallSpells=target;rec.online=Math.max(0,row.total-target*row.per);rec.lastTotal=row.total;
+   rec.online=Math.max(0,row.total-stallSpells*row.per);rec.lastTotal=row.total;
+ }else if(Math.abs(row.total-Number(rec.lastTotal||0))>1e-7&&!syncBusy){
+   // Restock/correction changes Online only; do not refill the Stall reserve.
+   rec.online=Math.max(0,row.total-stallSpells*row.per);rec.lastTotal=row.total;
  }
- const stallSpells=Math.max(0,Math.min(Number(rec.stallSpells||0),Math.floor(row.total/row.per+1e-9)));
  rec.stallSpells=stallSpells;split[row.id]=rec;saveSplit();
- row.stallSpells=stallSpells;row.stall=stallSpells*row.per;row.online=Math.max(0,Number(rec.online||0));
- row.onlineSpells=Math.floor(row.online/row.per+1e-9);return row;
+ row.stallSpells=stallSpells;row.stall=stallSpells*row.per;
+ row.online=Math.max(0,Number(rec.online||0));
+ row.onlineSpells=Math.floor(row.online/row.per+1e-9);
+ return row;
 }
 
 function collect(){
@@ -380,8 +427,8 @@ function renderSummary(){
 window.GM_STOCKTAKE_ONLINE_EXPORT=function(){
  return collect().map(r=>({
    stock_id:r.id,item:r.name,section:r.section,
-   online_amount:Number.isFinite(r.online)?r.online:null,
-   unit:r.unit,online_spells:Number.isFinite(r.onlineSpells)?r.onlineSpells:null,
+   online_amount:r.have===false?0:(Number.isFinite(r.online)?r.online:null),
+   unit:r.unit,online_spells:r.have===false?0:(Number.isFinite(r.onlineSpells)?r.onlineSpells:null),
    cost_per_spell:Number.isFinite(r.cost)?r.cost:null,
    stock_value:Number.isFinite(r.value)?r.value:null,
    aliases:r.aliases||[]
@@ -395,6 +442,137 @@ window.GM_STOCKTAKE_STALL_EXPORT=function(){
    unit:r.unit,aliases:r.aliases||[]
  }));
 };
+
+
+let gmBackData=null,gmBackBusy=false;
+function gmE(v){return String(v==null?'':v).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]})}
+function gmP(p){return '£'+((Number(p)||0)/100).toFixed(2)}
+function gmDate(v){if(!v)return '—';try{return new Date(v).toLocaleString()}catch(e){return String(v)}}
+function gmAddr(o){const a=o&&o.shipping_address||{};return [a.address_line_1,a.address_line_2,a.admin_area_2,a.admin_area_1,a.postal_code].filter(Boolean).map(gmE).join('<br>')}
+function gmOrderItems(id){return gmBackData?(gmBackData.order_items||[]).filter(x=>String(x.order_id)===String(id)):[]}
+function gmOrderBacks(id){return gmBackData?(gmBackData.backorders||[]).filter(x=>String(x.order_id)===String(id)&&x.status!=='cancelled'&&x.status!=='fulfilled'):[]}
+
+function gmRestockAllWildwoodTo7(){
+ const rows=collectBase();
+ for(const row of rows){
+   if(!Number.isFinite(row.per)||row.per<=0)continue;
+   const n=Math.max(0,Math.min(7,Math.floor(row.total/row.per+1e-9)));
+   if(row.kind==='ingredient'){
+     setWild(row.group,row.aliases,n);
+     const rec=split[row.id]||{};rec.lastWild=n;rec.lastTotal=row.total;rec.online=Math.max(0,row.total-n*row.per);split[row.id]=rec;
+   }else{
+     const rec=split[row.id]||{};rec.stallSpells=n;rec.lastTotal=row.total;rec.online=Math.max(0,row.total-n*row.per);split[row.id]=rec;
+   }
+ }
+ saveSplit();renderSummary();gmMsg('Wildwood was restocked to 7 where physical stock allows. Online stock was not used automatically.',false);
+ try{if(localStorage.getItem(GM_DEVICE_KEY))gmStallCloudSync(false)}catch(e){}
+}
+document.getElementById('gmRestock7').onclick=gmRestockAllWildwoodTo7;
+
+async function gmBackRefresh(force){
+ if(gmBackBusy)return;
+ if(gmBackData&&!force){gmRenderBack();return}
+ gmBackBusy=true;gmMsg('Loading private back-office…',false);
+ try{gmBackData=await gmApi('dashboard',{},true);gmRenderBack();gmMsg('Back-office loaded.',false)}
+ catch(e){gmMsg(String(e.message||e),true)}
+ finally{gmBackBusy=false}
+}
+function gmRenderBack(){gmRenderSales();gmRenderOrders();gmRenderSubscribers()}
+
+function gmRenderSales(){
+ if(!gmBackData)return;
+ const orders=(gmBackData.orders||[]).filter(o=>o.payment_status==='paid');
+ const now=new Date(),monthStart=new Date(now.getFullYear(),now.getMonth(),1).getTime(),todayStart=new Date(now.getFullYear(),now.getMonth(),now.getDate()).getTime();
+ const calc=function(rows){
+   return {
+    count:rows.length,
+    revenue:rows.reduce((n,o)=>n+Number(o.total_pence||0),0),
+    itemCost:rows.reduce((n,o)=>n+Number(o.item_cost_snapshot_pence||0),0),
+    fees:rows.reduce((n,o)=>n+Number(o.payment_fee_pence||0),0),
+    postage:rows.reduce((n,o)=>n+Number(o.postage_cost_pence||0),0),
+    profit:rows.reduce((n,o)=>n+Number(o.profit_snapshot_pence||0),0),
+    incomplete:rows.filter(o=>!o.cost_snapshot_complete).length
+   };
+ };
+ const day=calc(orders.filter(o=>Date.parse(o.created_at)>=todayStart));
+ const month=calc(orders.filter(o=>Date.parse(o.created_at)>=monthStart));
+ const all=calc(orders);
+ const sp=(gmBackData.subscription_payments||[]).filter(x=>x.status==='COMPLETED');
+ const subIncome=sp.reduce((n,x)=>n+Number(x.amount_pence||0),0);
+ document.getElementById('gmSalesCards').innerHTML=
+   '<div class="bocard"><span>Today · sales</span><strong>'+day.count+'</strong><span>'+gmP(day.revenue)+'</span></div>'+
+   '<div class="bocard"><span>This month · revenue</span><strong>'+gmP(month.revenue)+'</strong><span>'+month.count+' paid orders</span></div>'+
+   '<div class="bocard"><span>This month · known profit</span><strong>'+gmP(month.profit)+'</strong><span>'+(month.incomplete?month.incomplete+' order(s) need full costs':'cost snapshots complete')+'</span></div>'+
+   '<div class="bocard"><span>Subscription income</span><strong>'+gmP(subIncome)+'</strong><span>'+sp.length+' confirmed payment(s)</span></div>';
+ document.getElementById('gmSalesBody').innerHTML=
+   '<div class="tablewrap"><table><thead><tr><th>Period</th><th>Orders</th><th>Revenue</th><th>Item cost</th><th>Postage cost</th><th>Payment fees</th><th>Known profit</th><th>Incomplete costs</th></tr></thead><tbody>'+
+   [['Today',day],['This month',month],['All time',all]].map(function(x){const z=x[1];return '<tr><td><b>'+x[0]+'</b></td><td>'+z.count+'</td><td>'+gmP(z.revenue)+'</td><td>'+gmP(z.itemCost)+'</td><td>'+gmP(z.postage)+'</td><td>'+gmP(z.fees)+'</td><td>'+gmP(z.profit)+'</td><td>'+z.incomplete+'</td></tr>'}).join('')+
+   '</tbody></table></div>';
+}
+function gmBackorderText(o){
+ const backs=gmOrderBacks(o.id);if(!backs.length)return '';
+ const items=gmOrderItems(o.id);
+ const names=backs.map(function(b){const it=items.find(x=>Number(x.stock_item_id)===Number(b.stock_item_id));return (it&&it.item_name?it.item_name:'Stock item')+' · '+Number(b.quantity_needed||0)+' '+gmE(b.unit||'')}).join('<br>');
+ return '<div class="bowarn"><b>Waiting for stock</b><br>'+names+'</div>';
+}
+function gmRenderOrders(){
+ if(!gmBackData)return;
+ const orders=gmBackData.orders||[];
+ const body=document.getElementById('gmOrdersBody');
+ if(!orders.length){body.innerHTML='<p class="bonote">No orders yet.</p>';return}
+ body.innerHTML=orders.map(function(o){
+   const st=String(o.fulfilment_status||'new'),paid=o.payment_status==='paid';
+   const cost=o.cost_snapshot_complete?gmP(o.item_cost_snapshot_pence):'incomplete';
+   const profit=o.cost_snapshot_complete?gmP(o.profit_snapshot_pence):'incomplete';
+   const addr='<div class="boaddress"><b>'+gmE(o.shipping_name||'')+'</b><br>'+gmAddr(o)+'</div>';
+   const tracking=o.tracking_number?'<div class="bonote"><b>'+gmE(o.tracking_service||'')+'</b> · '+gmE(o.tracking_number)+'</div>':'';
+   const controls=paid&&st!=='dispatched'
+    ?'<div class="borow"><button onclick="gmSetOrderStatus(\''+o.id+'\',\'gathering\')">GATHERING</button><button onclick="gmSetOrderStatus(\''+o.id+'\',\'ready_to_post\')">READY TO POST</button><button onclick="gmPrintAddressLabel(\''+o.id+'\')">PRINT ADDRESS LABEL</button></div>'+
+     '<div class="borow"><select id="svc-'+o.id+'"><option>Royal Mail Tracked 48 with Signature</option><option>Royal Mail Tracked 24 with Signature</option></select><input id="trk-'+o.id+'" placeholder="Tracking number"><button class="primary" onclick="gmDispatchOrder(\''+o.id+'\')">MARK AS POSTED + SEND EMAIL</button></div>'
+    :'<div class="borow">'+(paid?'<button onclick="gmPrintAddressLabel(\''+o.id+'\')">PRINT ADDRESS LABEL</button>':'')+'</div>';
+   return '<div class="boorder '+(st==='waiting_for_stock'?'waiting ':st==='dispatched'?'dispatched ':'')+'"><div><b>'+gmE(o.spell_name||'Spell order')+'</b> · '+gmP(o.total_pence)+' · '+gmE(o.payment_status||'')+'</div><div class="bonote">Order '+gmE(o.id)+' · '+gmDate(o.created_at)+' · <b>'+gmE(st.replaceAll('_',' '))+'</b></div>'+addr+gmBackorderText(o)+tracking+'<div class="bonote">Item cost: '+cost+' · Payment fee: '+gmP(o.payment_fee_pence)+' · Postage cost: '+gmP(o.postage_cost_pence)+' · Profit: '+profit+'</div>'+controls+'</div>';
+ }).join('');
+}
+async function gmSetOrderStatus(id,status){
+ try{await gmApi('set_order_status',{order_id:id,status:status},true);await gmBackRefresh(true)}
+ catch(e){gmMsg(String(e.message||e),true)}
+}
+async function gmDispatchOrder(id){
+ const service=document.getElementById('svc-'+id).value,tracking=document.getElementById('trk-'+id).value.trim();
+ if(!tracking){gmMsg('Enter the Royal Mail tracking number first.',true);return}
+ try{
+   const d=await gmApi('dispatch_order',{order_id:id,tracking_service:service,tracking_number:tracking},true);
+   gmMsg(d.email&&d.email.sent?'Order marked posted and dispatch email sent.':'Order marked posted. The customer email needs checking.',!(d.email&&d.email.sent));
+   await gmBackRefresh(true);
+ }catch(e){gmMsg(String(e.message||e),true)}
+}
+function gmPrintAddressLabel(id){
+ if(!gmBackData)return;
+ const o=(gmBackData.orders||[]).find(x=>String(x.id)===String(id));if(!o)return;
+ const a=o.shipping_address||{};
+ const lines=[a.address_line_1,a.address_line_2,a.admin_area_2,a.admin_area_1].filter(Boolean);
+ const postcode=String(a.postal_code||'').toUpperCase();
+ const doc=document.getElementById('gmPrintFrame').contentDocument;
+ const html='<!doctype html><html><head><meta charset="utf-8"><style>@page{size:57mm 90mm;margin:0}*{box-sizing:border-box}html,body{margin:0;padding:0;width:57mm;background:#fff;color:#000;font-family:Arial,sans-serif}.label{width:57mm;min-height:70mm;padding:4mm 3mm}.name{font-size:15pt;font-weight:700;margin-bottom:4mm}.line{font-size:12pt;line-height:1.35;margin:1mm 0}.postcode{font-size:18pt;font-weight:800;letter-spacing:.5mm;margin-top:4mm}.ref{font-size:7pt;margin-top:7mm;border-top:.3mm solid #000;padding-top:2mm}</style></head><body><div class="label"><div class="name">'+gmE(o.shipping_name||'')+'</div>'+lines.map(function(x){return '<div class="line">'+gmE(x)+'</div>'}).join('')+'<div class="postcode">'+gmE(postcode)+'</div><div class="ref">Greenman HedgeWitchery · '+gmE(String(o.id).slice(0,8).toUpperCase())+'</div></div></body></html>';
+ doc.open();doc.write(html);doc.close();
+ setTimeout(function(){document.getElementById('gmPrintFrame').contentWindow.focus();document.getElementById('gmPrintFrame').contentWindow.print()},120);
+}
+function gmRenderSubscribers(){
+ if(!gmBackData)return;
+ const subs=gmBackData.subscriptions||[],pay=gmBackData.subscription_payments||[],now=Date.now();
+ const active=subs.filter(x=>x.paid_until&&Date.parse(x.paid_until)>now);
+ const income=pay.filter(x=>x.status==='COMPLETED').reduce((n,x)=>n+Number(x.amount_pence||0),0);
+ document.getElementById('gmSubscriberCards').innerHTML='<div class="bocard"><span>Active subscribers</span><strong>'+active.length+'</strong></div><div class="bocard"><span>Monthly</span><strong>'+active.filter(x=>x.plan_code==='monthly').length+'</strong></div><div class="bocard"><span>Yearly</span><strong>'+active.filter(x=>x.plan_code==='yearly').length+'</strong></div><div class="bocard"><span>Confirmed subscription income</span><strong>'+gmP(income)+'</strong></div>';
+ const st=gmBackData.settings||{},pct=st.subscriber_spell_discount_enabled?Number(st.subscriber_spell_discount_percent||0):0;
+ document.getElementById('gmDiscountPct').value=pct||'';
+ document.getElementById('gmDiscountState').textContent=pct?'Current spell-kit discount: '+pct+'%':'Spell-kit discount is currently OFF';
+ document.getElementById('gmSubscribersBody').innerHTML='<div class="tablewrap"><table><thead><tr><th>Email</th><th>Plan</th><th>Status</th><th>Paid until</th><th>Payments</th><th>Income</th></tr></thead><tbody>'+subs.map(function(x){const ps=pay.filter(p=>String(p.subscription_id)===String(x.id)&&p.status==='COMPLETED');return '<tr><td>'+gmE(x.email||x.user_id)+'</td><td>'+gmE(x.plan_code||'')+'</td><td>'+gmE(x.status||'')+'</td><td>'+gmDate(x.paid_until)+'</td><td>'+ps.length+'</td><td>'+gmP(ps.reduce((n,p)=>n+Number(p.amount_pence||0),0))+'</td></tr>'}).join('')+'</tbody></table></div>';
+}
+async function gmSaveDiscount(){
+ const raw=document.getElementById('gmDiscountPct').value.trim();
+ try{await gmApi('set_discount',{percent:raw===''?null:Number(raw)},true);await gmBackRefresh(true);gmMsg(raw&&Number(raw)>0?'Subscriber spell discount saved.':'Subscriber spell discount switched off.',false)}
+ catch(e){gmMsg(String(e.message||e),true)}
+}
 
 setInterval(()=>{if(current==='summary')renderSummary();else if(wildwoodMode()){processNewWildwoodLogs();collect();}},1400);
 </script></body></html>
