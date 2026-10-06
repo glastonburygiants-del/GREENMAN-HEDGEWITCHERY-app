@@ -224,7 +224,7 @@ jobs:
           set -euo pipefail
           BT="$ANDROID_HOME/build-tools/35.0.0"
           MAIN="$RUNNER_TEMP/HEDGEWITCHERY_ANDROID_FV3_5_4_STALL_SYNC_run${{ github.run_number }}.apk"
-          STOCK="$RUNNER_TEMP/HEDGEWITCHERY_STOCKTAKE_V8_SAFE_SYNC_run${{ github.run_number }}.apk"
+          STOCK="$RUNNER_TEMP/HEDGEWITCHERY_STOCKTAKE_V9_BACKOFFICE_run${{ github.run_number }}.apk"
 
           "$BT/apksigner" verify --verbose --print-certs "$MAIN" | tee "$WORK/main-sign.txt"
           "$BT/apksigner" verify --verbose --print-certs "$STOCK" | tee "$WORK/stock-sign.txt"
@@ -277,7 +277,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: HEDGEWITCHERY-STOCKTAKE-V9-BACKOFFICE-run${{ github.run_number }}
-          path: ${{ runner.temp }}/HEDGEWITCHERY_STOCKTAKE_V8_SAFE_SYNC_run${{ github.run_number }}.apk
+          path: ${{ runner.temp }}/HEDGEWITCHERY_STOCKTAKE_V9_BACKOFFICE_run${{ github.run_number }}.apk
           if-no-files-found: error
           retention-days: 30
 
