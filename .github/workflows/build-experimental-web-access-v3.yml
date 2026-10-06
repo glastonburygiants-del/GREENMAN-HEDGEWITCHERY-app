@@ -3,7 +3,7 @@ name: Build HedgeWitchery EXP4R2 Fresh-Signed Access Gate
 on:
   push:
     branches:
-      - experimental/web-access-v2
+      - experimental/web-access-v3-stock-delay
     paths:
       - ".github/workflows/build-experimental-web-access-v3.yml"
       - "current-build-20260907/**"
@@ -647,6 +647,10 @@ jobs:
           grep -Fq 'CONTINUE TO PAYMENT' "$WORK/current.html"
           grep -Fq 'You’ll now be taken to the Greenman HedgeWitchery Apothecary website to complete your secure payment.' "$WORK/current.html"
           grep -Fq 'gmContinueWebsiteCheckoutV40' "$WORK/current.html"
+          grep -Fq 'GM_SHOP_STOCK_STATUS' "$WORK/current.html"
+          grep -Fq 'WAIT FOR RESTOCK' "$WORK/current.html"
+          grep -Fq 'BUY IT NOW' "$WORK/current.html"
+          grep -Fq 'darkest reaches of the Wildwood' "$WORK/current.html"
 
           echo "WORK=$WORK" >> "$GITHUB_ENV"
 
