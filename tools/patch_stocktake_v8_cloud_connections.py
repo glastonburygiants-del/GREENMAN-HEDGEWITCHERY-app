@@ -29,10 +29,10 @@ if text.count(head_anchor)!=1:
     raise SystemExit(f"outer style/head anchor count: {text.count(head_anchor)}")
 text=text.replace(head_anchor,"</style>"+css+"</head><body>",1)
 
-tabs_anchor='''    <button data-page="summary">Summary</button>
+tabs_anchor='''    <button data-page="subscribers">Subscribers</button>
    </div>
   </div>'''
-connect_markup='''    <button data-page="summary">Summary</button>
+connect_markup='''    <button data-page="subscribers">Subscribers</button>
    </div>
    <div class="gm-connect" aria-label="Stock connections">
     <span id="gmStallState" class="state">Stall stock not connected</span>
