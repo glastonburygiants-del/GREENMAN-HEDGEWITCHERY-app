@@ -25,9 +25,12 @@ css=r'''
 </style>
 '''
 head_anchor="</style></head><body>"
-if text.count(head_anchor)!=1:
-    raise SystemExit(f"outer style/head anchor count: {text.count(head_anchor)}")
-text=text.replace(head_anchor,"</style>"+css+"</head><body>",1)
+head_pos=text.find(head_anchor)
+if head_pos<0:
+    raise SystemExit("outer style/head anchor missing")
+# V9 includes a literal miniature HTML document inside the 57 mm label printer
+# JavaScript, so only patch the first page-level </style></head><body>.
+text=text[:head_pos]+"</style>"+css+"</head><body>"+text[head_pos+len(head_anchor):]
 
 tabs_anchor='''    <button data-page="subscribers">Subscribers</button>
    </div>
