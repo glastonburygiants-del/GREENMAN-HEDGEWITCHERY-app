@@ -58,7 +58,7 @@ td b{color:var(--green)}
 .bowarn{background:#fff0d8;border:1px solid #cfaa62;border-radius:8px;padding:7px;margin-top:7px;font-size:11px}
 .discountbox{background:var(--paper);border:2px solid var(--green);border-radius:10px;padding:10px;margin-bottom:9px}
 .discountbox input{width:100px;height:38px;border:1px solid var(--line);border-radius:7px;padding:6px}
-#gmPrintFrame{position:fixed;left:-10000px;top:0;width:57mm;height:90mm;border:0}
+#gmPrintFrame{display:block!important;position:fixed;left:-10000px;top:0;width:57mm;height:90mm;border:0}
 @media(max-width:700px){.bocards{grid-template-columns:repeat(2,minmax(0,1fr))}.borow>*{flex:1 1 140px}}
 </style></head><body>
 <div id="outer">
@@ -543,6 +543,7 @@ async function gmDispatchOrder(id){
  try{
    const d=await gmApi('dispatch_order',{order_id:id,tracking_service:service,tracking_number:tracking},true);
    gmMsg(d.email&&d.email.sent?'Order marked posted and dispatch email sent.':'Order marked posted. The customer email needs checking.',!(d.email&&d.email.sent));
+   try{const cloud=await gmApi('pull',{},true);gmApplyOnline(cloud.items||[])}catch(_e){}
    await gmBackRefresh(true);
  }catch(e){gmMsg(String(e.message||e),true)}
 }
