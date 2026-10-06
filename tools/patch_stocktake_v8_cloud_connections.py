@@ -212,7 +212,8 @@ function gmLocalAliases(row){
    'K:mailer':['Outer Mailer / Parcel Pack'],
    'K:jar':['Spell Jar'],
    'K:bag':['Charm Bag'],
-   'K:charcoal':['Charcoal Portion']
+   'K:charcoal':['Charcoal Portion','Charcoal Disc','Charcoal discs'],
+   'K:dish':['Incense Plate','Crystal Witch trinket dishes']
  };
  return a.concat(extra[row.id]||[]);
 }
@@ -237,9 +238,12 @@ function gmApplyOnline(items){
  const rows=collect();let matched=0;
  for(const row of rows){
    const remote=gmFindRemote(row,items);if(!remote)continue;
-   const q=Number(remote.stock_quantity);if(!Number.isFinite(q)||q<0)continue;
-   const rec=split[row.id]||{},stall=Number.isFinite(row.stall)?row.stall:0,wanted=stall+q;
-   rec.online=q;
+   const available=Number(remote.stock_quantity);
+   const reserved=Math.max(0,Number(remote.reserved_quantity)||0);
+   const physical=Number.isFinite(Number(remote.physical_online_quantity))?Number(remote.physical_online_quantity):available+reserved;
+   if(!Number.isFinite(physical)||physical<0)continue;
+   const rec=split[row.id]||{},stall=Number.isFinite(row.stall)?row.stall:0,wanted=stall+physical;
+   rec.online=physical;rec.onlineAvailable=Math.max(0,available);rec.onlineReserved=reserved;
    syncBusy=true;try{row.setTotal(wanted)}finally{syncBusy=false}
    rec.lastTotal=wanted;if(Number.isFinite(row.stallSpells))rec.lastWild=row.stallSpells;
    split[row.id]=rec;matched++;
@@ -280,7 +284,7 @@ async function gmOnlineSync(){
    for(const l of local){
      if(l.online_amount==null||!Number.isFinite(Number(l.online_amount)))continue;
      const row=rows.find(x=>x.id===l.stock_id),remote=row&&gmFindRemote(row,first.items||[]);if(!remote)continue;
-     const lv=Number(l.online_amount),rv=Number(remote.stock_quantity),old=Number(last[l.stock_id]);
+     const lv=Number(l.online_amount),rv=Number.isFinite(Number(remote.physical_online_quantity))?Number(remote.physical_online_quantity):(Number(remote.stock_quantity)||0)+(Number(remote.reserved_quantity)||0),old=Number(last[l.stock_id]);
      const haveOld=Number.isFinite(old),lc=!haveOld||Math.abs(lv-old)>1e-7,rc=!haveOld||Math.abs(rv-old)>1e-7;
      if(lc&&!rc)push.push(l);else if(lc&&rc&&Math.abs(lv-rv)>1e-7)conflicts.push(l.stock_id);
    }
