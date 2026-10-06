@@ -205,7 +205,7 @@ function collectBase(){
     id:'C:'+o.name,section:'Crystal',name:o.name,group:'Crystals',aliases:aliases(o.name,'Crystal'),
     total:Number.isFinite(total)?total:0,per:1,unit:'each',
     stockExtra:Number.isFinite(weight)?Q(weight,'g'):'',
-    avg:avg,cost:z&&Number.isFinite(z.costUsedNow)?z.costUsedNow:NaN,
+    avg:avg,cost:z&&Number.isFinite(z.costEach)?z.costEach:NaN,
     value:z&&Number.isFinite(z.currentStockValue)?z.currentStockValue:NaN,
     supplier:sup,setTotal:v=>c.setTotal(o.name,v),kind:'ingredient'
   });
