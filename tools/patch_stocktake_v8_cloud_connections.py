@@ -32,21 +32,21 @@ if head_pos<0:
 # JavaScript, so only patch the first page-level </style></head><body>.
 text=text[:head_pos]+"</style>"+css+"</head><body>"+text[head_pos+len(head_anchor):]
 
-tabs_anchor='''    <button data-page="subscribers">Subscribers</button>
-   </div>
-  </div>'''
-connect_markup='''    <button data-page="subscribers">Subscribers</button>
-   </div>
-   <div class="gm-connect" aria-label="Stock connections">
-    <span id="gmStallState" class="state">Stall stock not connected</span>
-    <button id="gmStallSync" type="button">CONNECT / SYNC STALL</button>
-    <span id="gmOnlineState" class="state">Online stock not set up</span>
-    <button id="gmOnlineSend" type="button">SEND THIS STOCKTAKE ONLINE</button>
-    <button id="gmOnlineLoad" type="button">LOAD ONLINE STOCK</button>
-    <button id="gmOnlineSync" class="primary" type="button" hidden>SYNC ONLINE</button>
-    <span id="gmConnectMsg" aria-live="polite"></span>
-   </div>
-  </div>'''
+tabs_anchor='''   <button data-page="subscribers">Subscribers</button>
+  </div>
+ </div>'''
+connect_markup='''   <button data-page="subscribers">Subscribers</button>
+  </div>
+  <div class="gm-connect" aria-label="Stock connections">
+   <span id="gmStallState" class="state">Stall stock not connected</span>
+   <button id="gmStallSync" type="button">CONNECT / SYNC STALL</button>
+   <span id="gmOnlineState" class="state">Online stock not set up</span>
+   <button id="gmOnlineSend" type="button">SEND THIS STOCKTAKE ONLINE</button>
+   <button id="gmOnlineLoad" type="button">LOAD ONLINE STOCK</button>
+   <button id="gmOnlineSync" class="primary" type="button" hidden>SYNC ONLINE</button>
+   <span id="gmConnectMsg" aria-live="polite"></span>
+  </div>
+ </div>'''
 if text.count(tabs_anchor)!=1:
     raise SystemExit(f"outer tabs anchor count: {text.count(tabs_anchor)}")
 text=text.replace(tabs_anchor,connect_markup,1)
