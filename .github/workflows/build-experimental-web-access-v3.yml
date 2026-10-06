@@ -651,6 +651,8 @@ jobs:
           grep -Fq 'WAIT FOR RESTOCK' "$WORK/current.html"
           grep -Fq 'BUY IT NOW' "$WORK/current.html"
           grep -Fq 'darkest reaches of the Wildwood' "$WORK/current.html"
+          grep -Fq 'RESTOCK ALL TO 7' "$WORK/current.html"
+          grep -Fq 'function restockAllWildwoodTo7' "$WORK/current.html"
 
           echo "WORK=$WORK" >> "$GITHUB_ENV"
 
