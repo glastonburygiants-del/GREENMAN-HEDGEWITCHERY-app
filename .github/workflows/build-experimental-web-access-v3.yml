@@ -1,55 +1,6 @@
-name: Build HedgeWitchery EXP4R2 Fresh-Signed Access Gate
+name: LEGACY - Repacked Main APK
 
 on:
-  push:
-    branches:
-      - experimental/web-access-v3-stock-delay
-    paths:
-      - ".github/workflows/build-experimental-web-access-v3.yml"
-      - "current-build-20260907/**"
-      - "tools/patch_inkpot_cupboard_final.py"
-      - "tools/patch_v2729_hotfix.py"
-      - "tools/patch_v2730_hotfix.py"
-      - "tools/patch_v2731_cleanup.py"
-      - "tools/patch_v2732_security.py.zst"
-      - "tools/patch_v2733_recovery.py.zst"
-      - "tools/patch_v2734_scribe_ui_print.py.zst"
-      - "tools/patch_v2735_bos_zoom_contents.py.zst"
-      - "tools/patch_v2736_select_everything.py.zst"
-      - "tools/patch_v2737_home_contents.py.zst"
-      - "tools/patch_fv3_tablet_home.py"
-      - "tools/patch_fv3_followup_home_childsafe_fullwidth.py"
-      - "tools/restore_fv3_scribe_direct_compact.part*.b64"
-      - "tools/verify_inline_scripts.js"
-      - "tools/patch_v2738_cupboard_inkpot_ui_fix.py"
-      - "tools/patch_bos_reopen_binding_guard.py"
-      - "tools/patch_lazy_load_scribe.py"
-      - "tools/patch_showpage_duplicate_nav_guard.py"
-      - "tools/patch_bos_restore_reflow.py"
-      - "tools/force_resources_arsc_stored.py"
-      - "tools/patch_immersive_mode_order.py"
-      - "tools/patch_paypal_external_browser.py"
-      - "tools/patch_supabase_fetch_allowlist.py"
-      - "tools/patch_spellbuilder_deities_undefined.py"
-      - "tools/patch_v33_button_ux_fixes.py"
-      - "tools/patch_v34_revert_taphighlight_except_drawers.py"
-      - "tools/patch_v35_daily_room_hard_unload.py"
-      - "tools/patch_v36_bos_art_cache_escape.py"
-      - "tools/patch_v37_bos_ux_printspell_page100.py"
-      - "tools/patch_v38_chapter_openers_one_page.py.zlib.b64"
-      - "tools/patch_fv3_journal_sales.py.zlib.b64"
-      - "tools/patch_fv3_sales_herbcount_gate.py"
-      - "tools/patch_fv3_sales_diagnostics.py"
-      - "tools/patch_fv3_sales_error_and_basket_clear.py"
-      - "tools/patch_fv3_sales_purchased_badge.py"
-      - "tools/patch_fv3_sales_rerender_entries.py"
-      - "tools/patch_fv3_sales_paid_confirmation.py"
-      - "tools/patch_fv34_country_sales_gate.py"
-      - "tools/patch_fv35_scribe_non_ogham_render.py"
-      - "tools/patch_customer_access_gate_v1.py"
-      - "tools/patch_fv39_shop_prices_delivery.py"
-      - "tools/patch_fv40_shop_website_checkout.py"
-      - "tools/greenman_release_keystore.b64"
   workflow_dispatch:
 
 permissions:
