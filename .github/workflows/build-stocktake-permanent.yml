@@ -9,6 +9,7 @@ on:
       - 'stocktake-android/**'
       - 'tools/normalize_stocktake_v6_for_v7.py'
       - 'tools/patch_stocktake_v8_cloud_connections.py'
+      - 'tools/patch_stocktake_v10_4_packing_bridge.py'
       - '.github/workflows/build-stocktake-permanent.yml'
   workflow_dispatch:
 
@@ -44,6 +45,10 @@ jobs:
 
           python tools/patch_stocktake_v8_cloud_connections.py \
             "$RUNNER_TEMP/stocktake-normalized.html" \
+            "$RUNNER_TEMP/stocktake-cloud.html"
+
+          python tools/patch_stocktake_v10_4_packing_bridge.py \
+            "$RUNNER_TEMP/stocktake-cloud.html" \
             stocktake-android/app/src/main/assets/index.html
 
           python - stocktake-android/app/src/main/assets/index.html <<'PY'
@@ -62,6 +67,9 @@ jobs:
               "Subscriber spell-kit discount",
               "gmUpdateCountText",
               "Online stock updated",
+              "Packing Desk",
+              "DELETE ORDER",
+              "SYNC WILDWOOD WITH APP",
           ]:
               if marker not in s:
                   raise SystemExit("missing "+marker)
