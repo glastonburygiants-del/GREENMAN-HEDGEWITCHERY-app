@@ -1,4 +1,4 @@
-name: Build Stocktake V9 Install Safe
+name: Build Stocktake V9 Proven Identity
 
 on:
   push:
@@ -31,13 +31,13 @@ jobs:
           yes | sdkmanager --licenses >/dev/null || true
           sdkmanager "build-tools;35.0.0"
 
-      - name: Download proven Stocktake shell
+      - name: Download exact previously working Stocktake APK
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
           set -euo pipefail
-          WORK="$RUNNER_TEMP/stock-v9-install-safe"
+          WORK="$RUNNER_TEMP/stock-v9-proven"
           mkdir -p "$WORK/base"
           gh run download 36887499810 \
             --repo "$GITHUB_REPOSITORY" \
@@ -48,7 +48,7 @@ jobs:
           cp "$BASE" "$WORK/base.apk"
           echo "WORK=$WORK" >> "$GITHUB_ENV"
 
-      - name: Prepare V9 HTML
+      - name: Prepare V9 HTML only
         shell: bash
         run: |
           set -euo pipefail
@@ -74,50 +74,34 @@ jobs:
                   raise SystemExit('missing '+marker)
           scripts=re.findall(r'<script(?:\s[^>]*)?>(.*?)</script>',html,re.I|re.S)
           for i,script in enumerate(scripts):
-              p=pathlib.Path(tempfile.gettempdir())/f'v9-install-safe-{i}.js'
+              p=pathlib.Path(tempfile.gettempdir())/f'v9-proven-{i}.js'
               p.write_text(script,encoding='utf-8')
               subprocess.run(['node','--check',str(p)],check=True)
           print('V9 HTML syntax verified')
           PY
 
-      - name: Rebuild under fresh package
+      - name: Preserve proven APK and replace only assets index
         shell: bash
         run: |
           set -euo pipefail
-          curl -L --fail --show-error --silent \
-            -o "$WORK/apktool.jar" \
-            https://github.com/iBotPeaches/Apktool/releases/download/v2.11.1/apktool_2.11.1.jar
-
-          java -jar "$WORK/apktool.jar" d -f "$WORK/base.apk" -o "$WORK/decoded"
-          cp "$WORK/index.html" "$WORK/decoded/assets/index.html"
-
-          python - "$WORK/decoded/AndroidManifest.xml" "$WORK/decoded/apktool.yml" <<'PY'
-          from pathlib import Path
-          import re,sys
-
-          man=Path(sys.argv[1])
-          yml=Path(sys.argv[2])
-
-          m=man.read_text()
-          old='package="com.greenman.hedgewitchery.stocktake"'
-          new='package="com.greenman.hedgewitchery.stocktake.v9"'
-          if old not in m:
-              raise SystemExit('expected Stocktake package not found')
-          man.write_text(m.replace(old,new,1))
-
-          y=yml.read_text()
-          y=re.sub(r'(?m)^  versionCode:.*$', '  versionCode: 1', y)
-          y=re.sub(r'(?m)^  versionName:.*$', '  versionName: STOCKTAKE-V9-FRESH', y)
-          yml.write_text(y)
+          python - "$WORK/base.apk" "$WORK/index.html" "$WORK/unsigned.apk" <<'PY'
+          import sys,zipfile
+          src,html,out=sys.argv[1:]
+          new_html=open(html,'rb').read()
+          with zipfile.ZipFile(src,'r') as zin, zipfile.ZipFile(out,'w') as zout:
+              for info in zin.infolist():
+                  if info.filename.startswith('META-INF/'):
+                      continue
+                  if info.filename=='assets/index.html':
+                      zout.writestr(info,new_html)
+                  else:
+                      zout.writestr(info,zin.read(info.filename))
           PY
-
-          java -jar "$WORK/apktool.jar" b "$WORK/decoded" -o "$WORK/unsigned.apk"
-          python tools/force_resources_arsc_stored.py "$WORK/unsigned.apk"
 
           BT="$ANDROID_HOME/build-tools/35.0.0"
           "$BT/zipalign" -p -f 4 "$WORK/unsigned.apk" "$WORK/aligned.apk"
 
-      - name: Sign and verify
+      - name: Re-sign with the exact proven certificate
         shell: bash
         run: |
           set -euo pipefail
@@ -137,13 +121,9 @@ jobs:
           PY
           )"
 
-          OUT="$RUNNER_TEMP/GREENMAN_STOCKTAKE_V9_FRESH_INSTALL.apk"
+          OUT="$RUNNER_TEMP/GREENMAN_STOCKTAKE_V9_PROVEN_IDENTITY.apk"
 
           "$BT/apksigner" sign \
-            --min-sdk-version 24 \
-            --v1-signing-enabled false \
-            --v2-signing-enabled true \
-            --v3-signing-enabled false \
             --ks "$HOME/.android/release.keystore" \
             --ks-key-alias greenmanrelease2026 \
             --ks-pass "pass:$SIGN_PASS" \
@@ -154,18 +134,19 @@ jobs:
           "$BT/apksigner" verify --verbose --print-certs "$OUT" | tee "$WORK/sign.txt"
           "$BT/aapt" dump badging "$OUT" | tee "$WORK/badging.txt"
 
-          grep -q "package: name='com.greenman.hedgewitchery.stocktake.v9'" "$WORK/badging.txt"
+          grep -q "package: name='com.greenman.hedgewitchery.stocktake' versionCode='3'" "$WORK/badging.txt"
+          grep -q "versionName='STOCKTAKE-V8-SAFE-SYNC'" "$WORK/badging.txt"
           grep -q "application-label:'Greenman HedgeWitchery Apothecary Stocktake'" "$WORK/badging.txt"
-          grep -q 'Verified using v2 scheme (APK Signature Scheme v2): true' "$WORK/sign.txt"
-          grep -q 'Verified using v3 scheme (APK Signature Scheme v3): false' "$WORK/sign.txt"
+          grep -q 'Signer #1 certificate SHA-256 digest: 3ffb1aea27cf9c3ec0ff8a0e6242e1f0118dd4869bfd0430ecdd9fdbba5f460e' "$WORK/sign.txt"
           unzip -p "$OUT" assets/index.html | grep -Fq 'PRINT ADDRESS LABEL'
+          unzip -p "$OUT" assets/index.html | grep -Fq 'gmBackRefresh'
 
           sha256sum "$OUT" | tee "$WORK/sha256.txt"
 
-      - name: Upload Stocktake V9 fresh install
+      - name: Upload proven-identity Stocktake
         uses: actions/upload-artifact@v4
         with:
-          name: GREENMAN-STOCKTAKE-V9-FRESH-INSTALL
-          path: ${{ runner.temp }}/GREENMAN_STOCKTAKE_V9_FRESH_INSTALL.apk
+          name: GREENMAN-STOCKTAKE-V9-PROVEN-IDENTITY
+          path: ${{ runner.temp }}/GREENMAN_STOCKTAKE_V9_PROVEN_IDENTITY.apk
           if-no-files-found: error
           retention-days: 30
