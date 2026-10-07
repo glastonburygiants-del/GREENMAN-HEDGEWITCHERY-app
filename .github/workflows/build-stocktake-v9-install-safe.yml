@@ -143,7 +143,7 @@ jobs:
             --min-sdk-version 24 \
             --v1-signing-enabled false \
             --v2-signing-enabled true \
-            --v3-signing-enabled true \
+            --v3-signing-enabled false \
             --ks "$HOME/.android/release.keystore" \
             --ks-key-alias greenmanrelease2026 \
             --ks-pass "pass:$SIGN_PASS" \
@@ -157,7 +157,7 @@ jobs:
           grep -q "package: name='com.greenman.hedgewitchery.stocktake.v9'" "$WORK/badging.txt"
           grep -q "application-label:'Greenman HedgeWitchery Apothecary Stocktake'" "$WORK/badging.txt"
           grep -q 'Verified using v2 scheme (APK Signature Scheme v2): true' "$WORK/sign.txt"
-          grep -q 'Verified using v3 scheme (APK Signature Scheme v3): true' "$WORK/sign.txt"
+          grep -q 'Verified using v3 scheme (APK Signature Scheme v3): false' "$WORK/sign.txt"
           unzip -p "$OUT" assets/index.html | grep -Fq 'PRINT ADDRESS LABEL'
 
           sha256sum "$OUT" | tee "$WORK/sha256.txt"
