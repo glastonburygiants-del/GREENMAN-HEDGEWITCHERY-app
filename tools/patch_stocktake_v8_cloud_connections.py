@@ -237,6 +237,29 @@ function gmOnlineSnapshot(){
  }
  return snap;
 }
+function gmPhysicalOnline(remote){
+ if(!remote)return NaN;
+ const physical=Number(remote.physical_online_quantity);
+ if(Number.isFinite(physical))return physical;
+ return (Number(remote.stock_quantity)||0)+(Number(remote.reserved_quantity)||0);
+}
+function gmChangedOnlineRows(local,rows,remoteItems){
+ const out=[];
+ for(const l of local||[]){
+   if(l.online_amount==null||!Number.isFinite(Number(l.online_amount)))continue;
+   const row=(rows||[]).find(x=>x.id===l.stock_id),remote=row&&gmFindRemote(row,remoteItems||[]);
+   if(!remote)continue;
+   const lv=Number(l.online_amount),rv=gmPhysicalOnline(remote);
+   if(Number.isFinite(rv)&&Math.abs(lv-rv)>1e-7)out.push(l);
+ }
+ return out;
+}
+function gmUpdateCountText(changed){
+ const counts={Herb:0,Crystal:0,Oil:0,Candle:0,Rune:0,Kit:0};
+ for(const r of changed||[]){if(Object.prototype.hasOwnProperty.call(counts,r.section))counts[r.section]++}
+ const total=(changed||[]).length;
+ return total+' item'+(total===1?'':'s')+' changed · Herbs '+counts.Herb+' · Crystals '+counts.Crystal+' · Oils '+counts.Oil+' · Candles '+counts.Candle+' · Runes '+counts.Rune+' · Kit '+counts.Kit;
+}
 function gmApplyOnline(items){
  const rows=collect();let matched=0;
  for(const row of rows){
@@ -257,15 +280,17 @@ function gmApplyOnline(items){
  return matched;
 }
 async function gmOnlineSend(){
- gmMsg('Sending corrected V8 Online stock…',false);
+ gmMsg('Sending this Stocktake Online…',false);
  try{
-   const rows=window.GM_STOCKTAKE_ONLINE_EXPORT().filter(r=>r.online_amount!=null&&Number.isFinite(Number(r.online_amount)));
-   const pushed=await gmApi('push',{items:rows},true);
+   const local=window.GM_STOCKTAKE_ONLINE_EXPORT().filter(r=>r.online_amount!=null&&Number.isFinite(Number(r.online_amount)));
+   const collected=collect(),before=await gmApi('pull',{},true);
+   const changed=gmChangedOnlineRows(local,collected,before.items||[]);
+   const pushed=await gmApi('push',{items:local},true);
    const pulled=await gmApi('pull',{},true);
    gmApplyOnline(pulled.items||[]);
    gmSaveMeta(GM_ONLINE_META,{snapshot:gmOnlineSnapshot(),server_time:pulled.server_time});
    const missed=(pushed.unmatched||[]).length+(pushed.ambiguous||[]).length+(pushed.invalid||[]).length;
-   gmMsg('Online stock connected'+(missed?' · '+missed+' unmatched item'+(missed===1?'':'s')+' left unchanged':''),false);
+   gmMsg('Online stock updated · '+gmUpdateCountText(changed)+(missed?' · '+missed+' unmatched item'+(missed===1?'':'s')+' left unchanged':''),false);
    gmUpdateUi();
  }catch(e){gmMsg(String(e.message||e),true)}
 }
@@ -287,14 +312,14 @@ async function gmOnlineSync(){
    for(const l of local){
      if(l.online_amount==null||!Number.isFinite(Number(l.online_amount)))continue;
      const row=rows.find(x=>x.id===l.stock_id),remote=row&&gmFindRemote(row,first.items||[]);if(!remote)continue;
-     const lv=Number(l.online_amount),rv=Number.isFinite(Number(remote.physical_online_quantity))?Number(remote.physical_online_quantity):(Number(remote.stock_quantity)||0)+(Number(remote.reserved_quantity)||0),old=Number(last[l.stock_id]);
+     const lv=Number(l.online_amount),rv=gmPhysicalOnline(remote),old=Number(last[l.stock_id]);
      const haveOld=Number.isFinite(old),lc=!haveOld||Math.abs(lv-old)>1e-7,rc=!haveOld||Math.abs(rv-old)>1e-7;
      if(lc&&!rc)push.push(l);else if(lc&&rc&&Math.abs(lv-rv)>1e-7)conflicts.push(l.stock_id);
    }
    if(push.length)await gmApi('push',{items:push},true);
    const finalPull=await gmApi('pull',{},true);gmApplyOnline(finalPull.items||[]);
    gmSaveMeta(GM_ONLINE_META,{snapshot:gmOnlineSnapshot(),server_time:finalPull.server_time});
-   gmMsg('Online stock synced'+(conflicts.length?' · '+conflicts.length+' simultaneous change'+(conflicts.length===1?'':'s')+' kept at the Online value':''),false);
+   gmMsg('Online stock updated · '+gmUpdateCountText(push)+(conflicts.length?' · '+conflicts.length+' simultaneous change'+(conflicts.length===1?'':'s')+' kept at the Online value':''),false);
  }catch(e){gmMsg(String(e.message||e),true)}
 }
 function gmUpdateUi(){
