@@ -707,15 +707,7 @@ jobs:
           base64 --decode "$GITHUB_WORKSPACE/tools/greenman_release_keystore.b64" > "$HOME/.android/release.keystore"
           chmod 600 "$HOME/.android/release.keystore"
 
-          SIGN_PASS="$(python - <<'PY'
-          import pathlib,re
-          s=pathlib.Path('.github/workflows/build-full-access-gate-test-apk.yml').read_text()
-          m=re.search(r'--ks-pass pass:([^\s\\]+)',s)
-          if not m:
-              raise SystemExit('signing password source not found')
-          print(m.group(1))
-          PY
-          )"
+          SIGN_PASS='greenmanhedgewitchery2026'
 
           UNSIGNED="$(find "$PROJECT_DIR/app/build/outputs/apk/release" -type f -name '*unsigned.apk' -print -quit)"
           test -n "$UNSIGNED"
