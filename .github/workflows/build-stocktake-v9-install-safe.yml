@@ -79,25 +79,132 @@ jobs:
           print('V9 HTML syntax verified')
           PY
 
-      - name: Replace only the HTML inside proven APK
+      - name: Rebuild proven shell under a fresh Stocktake package
         shell: bash
         run: |
           set -euo pipefail
-          python - "$WORK/base.apk" "$WORK/index.html" "$WORK/unsigned.apk" <<'PY'
-          import sys,zipfile
-          src,html,out=sys.argv[1:]
-          data=open(html,'rb').read()
-          with zipfile.ZipFile(src,'r') as zin, zipfile.ZipFile(out,'w') as zout:
-              for info in zin.infolist():
-                  if info.filename=='assets/index.html' or info.filename.startswith('META-INF/'):
-                      continue
-                  payload=zin.read(info.filename)
-                  zout.writestr(info,payload)
-              base=zin.getinfo('assets/index.html')
-              base.filename='assets/index.html'
-              zout.writestr(base,data)
+          curl -L --fail --show-error --silent \
+            -o "$WORK/apktool.jar" \
+            https://github.com/iBotPeaches/Apktool/releases/download/v2.11.1/apktool_2.11.1.jar
+
+          java -jar "$WORK/apktool.jar" d -f "$WORK/base.apk" -o "$WORK/decoded"
+          cp "$WORK/index.html" "$WORK/decoded/assets/index.html"
+
+          python - "$WORK/decoded/AndroidManifest.xml" "$WORK/decoded/apktool.yml" <<'PY'
+          from pathlib import Path
+          import re,sys
+          man=Path(sys.argv[1]); yml=Path(sys.argv[2])
+          m=man.read_text()
+          old='package="com.greenman.hedgewitchery.stocktake"'
+          new='package="com.greenman.hedgewitchery.stocktake.v9"'
+          if old not in m:
+              raise SystemExit('expected Stocktake package not found')
+          m=m.replace(old,new,1)
+          man.write_text(m)
+
+          y=yml.read_text()
+          y=re.sub(r'(?m)^  versionCode:.*
+      - name: Sign for maximum Android compatibility
+        shell: bash
+        run: |
+          set -euo pipefail
+          BT="$ANDROID_HOME/build-tools/35.0.0"
+          mkdir -p "$HOME/.android"
+          base64 --decode tools/greenman_release_keystore.b64 > "$HOME/.android/release.keystore"
+          chmod 600 "$HOME/.android/release.keystore"
+
+          SIGN_PASS="$(python - <<'PY'
+          import pathlib,re
+          s=pathlib.Path('.github/workflows/build-full-access-gate-test-apk.yml').read_text()
+          m=re.search(r'--ks-pass pass:([^\s\\]+)',s)
+          if not m: raise SystemExit('signing password source not found')
+          print(m.group(1))
+          PY
+          )"
+
+          OUT="$RUNNER_TEMP/GREENMAN_STOCKTAKE_V9_INSTALL_SAFE.apk"
+          "$BT/apksigner" sign \
+            --min-sdk-version 24 \
+            --v1-signing-enabled false \
+            --v2-signing-enabled true \
+            --v3-signing-enabled true \
+            --ks "$HOME/.android/release.keystore" \
+            --ks-key-alias greenmanrelease2026 \
+            --ks-pass "pass:$SIGN_PASS" \
+            --key-pass "pass:$SIGN_PASS" \
+            --out "$OUT" \
+            "$WORK/aligned.apk"
+
+          "$BT/apksigner" verify --verbose --print-certs "$OUT" | tee "$WORK/sign.txt"
+          "$BT/aapt" dump badging "$OUT" | tee "$WORK/badging.txt"
+          grep -q "package: name='com.greenman.hedgewitchery.stocktake.v9'" "$WORK/badging.txt"
+          grep -q "application-label:'Greenman HedgeWitchery Apothecary Stocktake'" "$WORK/badging.txt"
+          grep -q 'Verified using v2 scheme (APK Signature Scheme v2): true' "$WORK/sign.txt"
+          grep -q 'Verified using v3 scheme (APK Signature Scheme v3): true' "$WORK/sign.txt"
+          unzip -p "$OUT" assets/index.html | grep -Fq 'PRINT ADDRESS LABEL'
+          sha256sum "$OUT" | tee "$WORK/sha256.txt"
+
+      - name: Upload install-safe Stocktake
+        uses: actions/upload-artifact@v4
+        with:
+          name: GREENMAN-STOCKTAKE-V9-INSTALL-SAFE
+          path: ${{ runner.temp }}/GREENMAN_STOCKTAKE_V9_INSTALL_SAFE.apk
+          if-no-files-found: error
+          retention-days: 30
+, '  versionCode: 1', y)
+          y=re.sub(r'(?m)^  versionName:.*
+      - name: Sign for maximum Android compatibility
+        shell: bash
+        run: |
+          set -euo pipefail
+          BT="$ANDROID_HOME/build-tools/35.0.0"
+          mkdir -p "$HOME/.android"
+          base64 --decode tools/greenman_release_keystore.b64 > "$HOME/.android/release.keystore"
+          chmod 600 "$HOME/.android/release.keystore"
+
+          SIGN_PASS="$(python - <<'PY'
+          import pathlib,re
+          s=pathlib.Path('.github/workflows/build-full-access-gate-test-apk.yml').read_text()
+          m=re.search(r'--ks-pass pass:([^\s\\]+)',s)
+          if not m: raise SystemExit('signing password source not found')
+          print(m.group(1))
+          PY
+          )"
+
+          OUT="$RUNNER_TEMP/GREENMAN_STOCKTAKE_V9_INSTALL_SAFE.apk"
+          "$BT/apksigner" sign \
+            --v1-signing-enabled true \
+            --v2-signing-enabled true \
+            --v3-signing-enabled true \
+            --ks "$HOME/.android/release.keystore" \
+            --ks-key-alias greenmanrelease2026 \
+            --ks-pass "pass:$SIGN_PASS" \
+            --key-pass "pass:$SIGN_PASS" \
+            --out "$OUT" \
+            "$WORK/aligned.apk"
+
+          "$BT/apksigner" verify --verbose --print-certs "$OUT" | tee "$WORK/sign.txt"
+          "$BT/aapt" dump badging "$OUT" | tee "$WORK/badging.txt"
+          grep -q "package: name='com.greenman.hedgewitchery.stocktake'" "$WORK/badging.txt"
+          grep -q "application-label:'Greenman HedgeWitchery Apothecary Stocktake'" "$WORK/badging.txt"
+          grep -q 'Verified using v2 scheme (APK Signature Scheme v2): true' "$WORK/sign.txt"
+          grep -q 'Verified using v3 scheme (APK Signature Scheme v3): true' "$WORK/sign.txt"
+          unzip -p "$OUT" assets/index.html | grep -Fq 'PRINT ADDRESS LABEL'
+          sha256sum "$OUT" | tee "$WORK/sha256.txt"
+
+      - name: Upload install-safe Stocktake
+        uses: actions/upload-artifact@v4
+        with:
+          name: GREENMAN-STOCKTAKE-V9-INSTALL-SAFE
+          path: ${{ runner.temp }}/GREENMAN_STOCKTAKE_V9_INSTALL_SAFE.apk
+          if-no-files-found: error
+          retention-days: 30
+, '  versionName: STOCKTAKE-V9-FRESH', y)
+          yml.write_text(y)
           PY
 
+          java -jar "$WORK/apktool.jar" b "$WORK/decoded" -o "$WORK/unsigned.apk"
+          python tools/force_resources_arsc_stored.py "$WORK/unsigned.apk"
           BT="$ANDROID_HOME/build-tools/35.0.0"
           "$BT/zipalign" -p -f 4 "$WORK/unsigned.apk" "$WORK/aligned.apk"
 
