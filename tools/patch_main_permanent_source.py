@@ -63,6 +63,13 @@ if 'android:name="com.greenman.hedgewitchery.WildwoodBridgeProvider"' not in man
         "Wildwood provider",
     )
 
+# Use the exact established Greenman app artwork, not the placeholder source-shell icon.
+manifest, icon_n = re.subn(r'android:icon="[^"]+"', 'android:icon="@drawable/greenman_launcher_art"', manifest, count=1)
+if icon_n != 1:
+    raise SystemExit("launcher icon manifest attribute not found exactly once")
+if 'android:roundIcon=' in manifest:
+    manifest = re.sub(r'android:roundIcon="[^"]+"', 'android:roundIcon="@drawable/greenman_launcher_art"', manifest, count=1)
+
 strings, n = re.subn(
     r'(<string\s+name="app_name"[^>]*>).*?(</string>)',
     r'\1Greenman HedgeWitchery Apothecary\2',
@@ -187,6 +194,8 @@ if 'android.permission.INTERNET' not in manifest:
     raise SystemExit("INTERNET permission missing after patch")
 if 'WildwoodBridgeProvider' not in manifest or 'permission.WILDWOOD_BRIDGE' not in manifest:
     raise SystemExit("Wildwood bridge manifest wiring missing after patch")
+if 'android:icon="@drawable/greenman_launcher_art"' not in manifest:
+    raise SystemExit("Greenman launcher art is not wired as the app icon")
 if 'com.greenman.hedgewitchery.apothecary' not in gradle:
     raise SystemExit("permanent applicationId missing after patch")
 
