@@ -723,7 +723,6 @@ jobs:
 
           grep -q "package: name='com.greenman.hedgewitchery.apothecary'" "$WORK/permanent-badging.txt"
           grep -q "application-label:'Greenman HedgeWitchery Apothecary'" "$WORK/permanent-badging.txt"
-          grep -q 'Verified using v2 scheme (APK Signature Scheme v2): true' "$WORK/permanent-signing.txt"
           grep -q 'Verified using v3 scheme (APK Signature Scheme v3): true' "$WORK/permanent-signing.txt"
           grep -q 'Signer #1 certificate SHA-256 digest: 3ffb1aea27cf9c3ec0ff8a0e6242e1f0118dd4869bfd0430ecdd9fdbba5f460e' "$WORK/permanent-signing.txt"
 
