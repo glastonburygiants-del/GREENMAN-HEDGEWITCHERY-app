@@ -51,6 +51,9 @@ on:
       - "tools/patch_fv40_shop_website_checkout.py"
       - "tools/greenman_release_keystore.b64"
       - "tools/patch_main_permanent_source.py"
+      - "tools/patch_main_wildwood_same_device.py"
+      - "current-build-20260907/WildwoodBridge.java"
+      - "current-build-20260907/WildwoodBridgeProvider.java"
       - "GREENMAN_HEDGEWITCHERY_ANDROID_PROJECT_GATHER_FIXED*.zip"
   workflow_dispatch:
 
@@ -675,8 +678,13 @@ jobs:
           test -n "$PROJECT_DIR"
           echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
 
+          python "$GITHUB_WORKSPACE/tools/patch_main_wildwood_same_device.py"             "$WORK/current.html" "$WORK/current-wildwood.html"
+          mv "$WORK/current-wildwood.html" "$WORK/current.html"
+
           cp "$WORK/current.html" "$PROJECT_DIR/app/src/main/assets/index.html"
           cp "$GITHUB_WORKSPACE/current-build-20260907/BoundBookStore.java"             "$PROJECT_DIR/app/src/main/java/com/greenman/hedgewitchery/BoundBookStore.java"
+          cp "$GITHUB_WORKSPACE/current-build-20260907/WildwoodBridge.java"             "$PROJECT_DIR/app/src/main/java/com/greenman/hedgewitchery/WildwoodBridge.java"
+          cp "$GITHUB_WORKSPACE/current-build-20260907/WildwoodBridgeProvider.java"             "$PROJECT_DIR/app/src/main/java/com/greenman/hedgewitchery/WildwoodBridgeProvider.java"
 
           python "$GITHUB_WORKSPACE/tools/patch_main_permanent_source.py"             "$PROJECT_DIR/app/src/main/java/com/greenman/hedgewitchery/MainActivity.java"             "$PROJECT_DIR/app/src/main/AndroidManifest.xml"             "$PROJECT_DIR/app/build.gradle"             "$PROJECT_DIR/app/src/main/res/values/strings.xml"             "$GITHUB_RUN_NUMBER"
 
@@ -688,6 +696,9 @@ jobs:
           grep -Fq 'greenman-access-redeem' "$PROJECT_DIR/app/src/main/assets/index.html"
           grep -Fq 'gm_access_entitlement_token_v1' "$PROJECT_DIR/app/src/main/assets/index.html"
           grep -Fq 'GreenmanFiles' "$PROJECT_DIR/app/src/main/java/com/greenman/hedgewitchery/MainActivity.java"
+          grep -Fq 'GreenmanWildwood' "$PROJECT_DIR/app/src/main/java/com/greenman/hedgewitchery/MainActivity.java"
+          grep -Fq 'gm-wildwood-native-bridge-v1' "$PROJECT_DIR/app/src/main/assets/index.html"
+          grep -Fq 'WildwoodBridgeProvider' "$PROJECT_DIR/app/src/main/AndroidManifest.xml"
           grep -Fq 'android.permission.INTERNET' "$PROJECT_DIR/app/src/main/AndroidManifest.xml"
           grep -Fq 'com.greenman.hedgewitchery.apothecary' "$PROJECT_DIR/app/build.gradle"
 
