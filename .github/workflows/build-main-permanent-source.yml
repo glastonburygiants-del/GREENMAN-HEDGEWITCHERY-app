@@ -780,7 +780,9 @@ jobs:
           unzip -l "$OUT" | grep -Fq 'assets/greenman_scribe.html'
           unzip -l "$OUT" | grep -Fq 'assets/greenman_bower.html'
           unzip -l "$OUT" | grep -Fq 'assets/greenman_treehouse.html'
-          unzip -l "$OUT" | grep -Fq 'res/drawable-nodpi/greenman_launcher_art.webp'
+          ICON_APK_PATH="$(sed -n "s/^application-icon-160:'\([^']*\)'.*/\1/p" "$WORK/permanent-badging.txt" | head -n1)"
+          test -n "$ICON_APK_PATH"
+          test "$(unzip -p "$OUT" "$ICON_APK_PATH" | wc -c)" -gt 20000
           test "$(stat -c%s "$OUT")" -gt 13000000
           sha256sum "$OUT" | tee "$WORK/permanent-sha256.txt"
 
