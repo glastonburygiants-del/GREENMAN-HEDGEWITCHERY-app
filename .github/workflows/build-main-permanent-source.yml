@@ -689,10 +689,17 @@ jobs:
             unzip -p "$BASE_APK" "assets/$asset" > "$PROJECT_DIR/app/src/main/assets/$asset"
             test -s "$PROJECT_DIR/app/src/main/assets/$asset"
           done
-          unzip -Z1 "$BASE_APK" | grep '^assets/fonts/.' | grep -v '/
-            dest="$PROJECT_DIR/app/src/main/$entry"
-            mkdir -p "$(dirname "$dest")"
-            unzip -p "$BASE_APK" "$entry" > "$dest"
+          unzip -Z1 "$BASE_APK" | while IFS= read -r entry; do
+            case "$entry" in
+              assets/fonts/*/)
+                continue
+                ;;
+              assets/fonts/*)
+                dest="$PROJECT_DIR/app/src/main/$entry"
+                mkdir -p "$(dirname "$dest")"
+                unzip -p "$BASE_APK" "$entry" > "$dest"
+                ;;
+            esac
           done
           unzip -p "$BASE_APK" "res/drawable-nodpi/greenman_launcher_art.webp" > "$PROJECT_DIR/app/src/main/res/drawable-nodpi/greenman_launcher_art.webp"
 
