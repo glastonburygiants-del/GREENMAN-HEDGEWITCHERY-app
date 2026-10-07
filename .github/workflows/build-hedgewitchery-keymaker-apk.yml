@@ -1,4 +1,4 @@
-name: Build HedgeWitchery Key Maker APK
+name: Build Clean HedgeWitchery Key Maker APK
 
 on:
   workflow_dispatch:
@@ -7,6 +7,9 @@ on:
       - standalone/hedgewitchery-key-maker
     paths:
       - "KEYMAKER_BUILD_TRIGGER.txt"
+      - "keymaker-android/**"
+      - ".github/workflows/build-hedgewitchery-keymaker-apk.yml"
+      - "tools/greenman_release_keystore.b64"
 
 permissions:
   contents: read
@@ -55,40 +58,80 @@ jobs:
             exit 1
           fi
 
-      - name: Install stable test signing key
-        shell: bash
-        run: |
-          set -euo pipefail
-          mkdir -p "$HOME/.android"
-          base64 --decode "$GITHUB_WORKSPACE/tools/greenman_debug_keystore.b64" > "$HOME/.android/debug.keystore"
-          chmod 600 "$HOME/.android/debug.keystore"
-          keytool -list -keystore "$HOME/.android/debug.keystore" -storepass android -alias androiddebugkey >/dev/null
-
-      - name: Build standalone Key Maker APK
+      - name: Build clean release APK from source
         env:
           KEYMAKER_TOKEN: ${{ secrets.GREENMAN_KEYMAKER_DEVICE_TOKEN }}
         shell: bash
         run: |
           set -euo pipefail
           cd "$GITHUB_WORKSPACE/keymaker-android"
-          gradle :app:assembleDebug --no-daemon --stacktrace -PkeymakerToken="$KEYMAKER_TOKEN"
+          gradle :app:assembleRelease --no-daemon --stacktrace -PkeymakerToken="$KEYMAKER_TOKEN"
 
-      - name: Verify standalone APK
+      - name: Sign with permanent Greenman release key
         shell: bash
         run: |
           set -euo pipefail
-          APK="$GITHUB_WORKSPACE/keymaker-android/app/build/outputs/apk/debug/app-debug.apk"
-          test -s "$APK"
-          echo "APK_FILE=$APK" >> "$GITHUB_ENV"
-          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | tee "$RUNNER_TEMP/keymaker_badging.txt"
-          grep -q "package: name='com.greenman.hedgewitchery.keymaker'" "$RUNNER_TEMP/keymaker_badging.txt"
-          grep -q "application-label:'Greenman HedgeWitchery Apothecary Key Maker'" "$RUNNER_TEMP/keymaker_badging.txt"
-          sha256sum "$APK"
+          BT="$ANDROID_HOME/build-tools/35.0.0"
+          mkdir -p "$HOME/.android"
+          base64 --decode "$GITHUB_WORKSPACE/tools/greenman_release_keystore.b64" > "$HOME/.android/release.keystore"
+          chmod 600 "$HOME/.android/release.keystore"
 
-      - name: Upload HedgeWitchery Key Maker APK
+          SIGN_PASS='greenmanhedgewitchery2026'
+
+          UNSIGNED="$GITHUB_WORKSPACE/keymaker-android/app/build/outputs/apk/release/app-release-unsigned.apk"
+          ALIGNED="$RUNNER_TEMP/keymaker-aligned.apk"
+          OUT="$RUNNER_TEMP/GREENMAN_HEDGEWITCHERY_KEY_MAKER_V1_4_CLEAN.apk"
+
+          test -s "$UNSIGNED"
+          "$BT/zipalign" -p -f 4 "$UNSIGNED" "$ALIGNED"
+          "$BT/apksigner" sign \
+            --min-sdk-version 24 \
+            --v1-signing-enabled true \
+            --v2-signing-enabled true \
+            --v3-signing-enabled true \
+            --ks "$HOME/.android/release.keystore" \
+            --ks-key-alias greenmanrelease2026 \
+            --ks-pass "pass:$SIGN_PASS" \
+            --key-pass "pass:$SIGN_PASS" \
+            --out "$OUT" \
+            "$ALIGNED"
+
+          "$BT/apksigner" verify --verbose --print-certs "$OUT" | tee "$RUNNER_TEMP/keymaker-signing.txt"
+          "$BT/aapt" dump badging "$OUT" | tee "$RUNNER_TEMP/keymaker-badging.txt"
+          "$BT/zipalign" -c -v 4 "$OUT" >/dev/null
+
+          grep -q "package: name='com.greenman.hedgewitchery.keymaker'" "$RUNNER_TEMP/keymaker-badging.txt"
+          grep -q "versionCode='5'" "$RUNNER_TEMP/keymaker-badging.txt"
+          grep -q "versionName='1.4'" "$RUNNER_TEMP/keymaker-badging.txt"
+          grep -q "application-label:'Greenman HedgeWitchery Apothecary Key Maker'" "$RUNNER_TEMP/keymaker-badging.txt"
+          grep -q 'Verified using v2 scheme (APK Signature Scheme v2): true' "$RUNNER_TEMP/keymaker-signing.txt"
+          grep -q 'Verified using v3 scheme (APK Signature Scheme v3): true' "$RUNNER_TEMP/keymaker-signing.txt"
+          grep -q 'Signer #1 certificate SHA-256 digest: 3ffb1aea27cf9c3ec0ff8a0e6242e1f0118dd4869bfd0430ecdd9fdbba5f460e' "$RUNNER_TEMP/keymaker-signing.txt"
+
+          unzip -p "$OUT" assets/index.html > "$RUNNER_TEMP/keymaker-index.html"
+          grep -Fq '<option value="both">Web + Android</option>' "$RUNNER_TEMP/keymaker-index.html"
+          grep -Fq '<option value="promo">Promo code · reusable</option>' "$RUNNER_TEMP/keymaker-index.html"
+          grep -Fq '<option value="1h">1 hour</option>' "$RUNNER_TEMP/keymaker-index.html"
+          grep -Fq '<option value="1d">1 day</option>' "$RUNNER_TEMP/keymaker-index.html"
+          grep -Fq '<option value="1w">1 week</option>' "$RUNNER_TEMP/keymaker-index.html"
+          grep -Fq '<option value="1m">1 month</option>' "$RUNNER_TEMP/keymaker-index.html"
+          sha256sum "$OUT" | tee "$RUNNER_TEMP/keymaker-sha256.txt"
+
+      - name: Upload clean Key Maker APK
         uses: actions/upload-artifact@v4
         with:
-          name: GREENMAN-HEDGEWITCHERY-APOTHECARY-KEY-MAKER-APK
-          path: ${{ env.APK_FILE }}
+          name: GREENMAN-HEDGEWITCHERY-KEY-MAKER-V1-4-CLEAN-run${{ github.run_number }}
+          path: ${{ runner.temp }}/GREENMAN_HEDGEWITCHERY_KEY_MAKER_V1_4_CLEAN.apk
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload build audit
+        uses: actions/upload-artifact@v4
+        with:
+          name: GREENMAN-HEDGEWITCHERY-KEY-MAKER-V1-4-CLEAN-AUDIT-run${{ github.run_number }}
+          path: |
+            ${{ runner.temp }}/keymaker-signing.txt
+            ${{ runner.temp }}/keymaker-badging.txt
+            ${{ runner.temp }}/keymaker-sha256.txt
           if-no-files-found: error
           retention-days: 30
