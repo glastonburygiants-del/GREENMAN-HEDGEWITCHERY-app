@@ -80,7 +80,7 @@ anchor='</body>'
 pos=text.rfind(anchor)
 if pos<0:
     raise SystemExit("closing body anchor not found")
-text=text[:pos]+script+'::GM::'+text[pos:]
+text=text[:pos]+script+'\n'+text[pos:]
 for marker in ['gm-wildwood-native-bridge-v1','gm_admin_stock_v1','gm_stock_deduction_log','GreenmanWildwood','gmOpenStocktake']:
     if marker not in text:
         raise SystemExit('missing '+marker)
