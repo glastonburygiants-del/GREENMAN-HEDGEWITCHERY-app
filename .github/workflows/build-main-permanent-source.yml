@@ -699,7 +699,14 @@ jobs:
                 ;;
             esac
           done
-          unzip -p "$BASE_APK" "res/drawable-nodpi/greenman_launcher_art.webp" > "$PROJECT_DIR/app/src/main/res/drawable-nodpi/greenman_launcher_art.webp"
+          # The launcher art is a compiled Android resource in the base APK.
+          # Decode only to recover that source image, then compile the final APK normally with Gradle.
+          curl -L --fail --show-error --silent -o "$WORK/apktool-icon.jar" https://github.com/iBotPeaches/Apktool/releases/download/v2.11.1/apktool_2.11.1.jar
+          java -jar "$WORK/apktool-icon.jar" d -f "$BASE_APK" -o "$WORK/icon-source" >/dev/null
+          ICON_SRC="$(find "$WORK/icon-source/res" -type f -name 'greenman_launcher_art.webp' -print -quit)"
+          test -n "$ICON_SRC"
+          cp "$ICON_SRC" "$PROJECT_DIR/app/src/main/res/drawable-nodpi/greenman_launcher_art.webp"
+
           test "$(stat -c%s "$PROJECT_DIR/app/src/main/assets/greenman_scribe.html")" -gt 8000000
           test "$(stat -c%s "$PROJECT_DIR/app/src/main/assets/greenman_bower.html")" -gt 1500000
           test "$(stat -c%s "$PROJECT_DIR/app/src/main/assets/greenman_treehouse.html")" -gt 700000
