@@ -681,6 +681,27 @@ jobs:
           python "$GITHUB_WORKSPACE/tools/patch_main_wildwood_same_device.py"             "$WORK/current.html" "$WORK/current-wildwood.html"
           mv "$WORK/current-wildwood.html" "$WORK/current.html"
 
+          # Restore the full app's external rooms, writing fonts and established launcher art.
+          # These were present in the known-good V28 APK but the first clean shell only copied index.html.
+          BASE_APK="$GITHUB_WORKSPACE/GREENMAN_HEDGEWITCHERY.apk"
+          mkdir -p "$PROJECT_DIR/app/src/main/assets" "$PROJECT_DIR/app/src/main/res/drawable-nodpi"
+          for asset in greenman_scribe.html greenman_bower.html greenman_treehouse.html; do
+            unzip -p "$BASE_APK" "assets/$asset" > "$PROJECT_DIR/app/src/main/assets/$asset"
+            test -s "$PROJECT_DIR/app/src/main/assets/$asset"
+          done
+          unzip -Z1 "$BASE_APK" | grep '^assets/fonts/' | while IFS= read -r entry; do
+            dest="$PROJECT_DIR/app/src/main/$entry"
+            mkdir -p "$(dirname "$dest")"
+            unzip -p "$BASE_APK" "$entry" > "$dest"
+          done
+          unzip -p "$BASE_APK" "res/drawable-nodpi/greenman_launcher_art.webp" > "$PROJECT_DIR/app/src/main/res/drawable-nodpi/greenman_launcher_art.webp"
+
+          test "$(stat -c%s "$PROJECT_DIR/app/src/main/assets/greenman_scribe.html")" -gt 8000000
+          test "$(stat -c%s "$PROJECT_DIR/app/src/main/assets/greenman_bower.html")" -gt 1500000
+          test "$(stat -c%s "$PROJECT_DIR/app/src/main/assets/greenman_treehouse.html")" -gt 700000
+          test "$(stat -c%s "$PROJECT_DIR/app/src/main/res/drawable-nodpi/greenman_launcher_art.webp")" -gt 20000
+          test "$(find "$PROJECT_DIR/app/src/main/assets/fonts" -type f | wc -l)" -ge 10
+
           cp "$WORK/current.html" "$PROJECT_DIR/app/src/main/assets/index.html"
           cp "$GITHUB_WORKSPACE/current-build-20260907/BoundBookStore.java"             "$PROJECT_DIR/app/src/main/java/com/greenman/hedgewitchery/BoundBookStore.java"
           cp "$GITHUB_WORKSPACE/current-build-20260907/WildwoodBridge.java"             "$PROJECT_DIR/app/src/main/java/com/greenman/hedgewitchery/WildwoodBridge.java"
@@ -699,6 +720,11 @@ jobs:
           grep -Fq 'GreenmanWildwood' "$PROJECT_DIR/app/src/main/java/com/greenman/hedgewitchery/MainActivity.java"
           grep -Fq 'gm-wildwood-native-bridge-v1' "$PROJECT_DIR/app/src/main/assets/index.html"
           grep -Fq 'WildwoodBridgeProvider' "$PROJECT_DIR/app/src/main/AndroidManifest.xml"
+          grep -Fq 'android:icon="@drawable/greenman_launcher_art"' "$PROJECT_DIR/app/src/main/AndroidManifest.xml"
+          test -s "$PROJECT_DIR/app/src/main/assets/greenman_scribe.html"
+          test -s "$PROJECT_DIR/app/src/main/assets/greenman_bower.html"
+          test -s "$PROJECT_DIR/app/src/main/assets/greenman_treehouse.html"
+          test -s "$PROJECT_DIR/app/src/main/res/drawable-nodpi/greenman_launcher_art.webp"
           grep -Fq 'android.permission.INTERNET' "$PROJECT_DIR/app/src/main/AndroidManifest.xml"
           grep -Fq 'com.greenman.hedgewitchery.apothecary' "$PROJECT_DIR/app/build.gradle"
 
@@ -740,6 +766,11 @@ jobs:
           unzip -p "$OUT" assets/index.html > "$WORK/permanent-index.html"
           cmp "$WORK/permanent-index.html" "$WORK/current.html"
           node tools/verify_inline_scripts.js "$WORK/permanent-index.html"
+          unzip -l "$OUT" | grep -Fq 'assets/greenman_scribe.html'
+          unzip -l "$OUT" | grep -Fq 'assets/greenman_bower.html'
+          unzip -l "$OUT" | grep -Fq 'assets/greenman_treehouse.html'
+          unzip -l "$OUT" | grep -Fq 'res/drawable-nodpi/greenman_launcher_art.webp'
+          test "$(stat -c%s "$OUT")" -gt 13000000
           sha256sum "$OUT" | tee "$WORK/permanent-sha256.txt"
 
       - name: Upload permanent main APK
