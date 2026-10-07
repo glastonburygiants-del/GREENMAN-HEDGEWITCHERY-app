@@ -715,7 +715,7 @@ jobs:
           OUT="$RUNNER_TEMP/GREENMAN_HEDGEWITCHERY_APOTHECARY_PERMANENT.apk"
 
           "$BT/zipalign" -p -f 4 "$UNSIGNED" "$ALIGNED"
-          "$BT/apksigner" sign             --v1-signing-enabled true             --v2-signing-enabled true             --v3-signing-enabled true             --ks "$HOME/.android/release.keystore"             --ks-key-alias greenmanrelease2026             --ks-pass "pass:$SIGN_PASS"             --key-pass "pass:$SIGN_PASS"             --out "$OUT"             "$ALIGNED"
+          "$BT/apksigner" sign             --min-sdk-version 24             --v1-signing-enabled true             --v2-signing-enabled true             --v3-signing-enabled true             --ks "$HOME/.android/release.keystore"             --ks-key-alias greenmanrelease2026             --ks-pass "pass:$SIGN_PASS"             --key-pass "pass:$SIGN_PASS"             --out "$OUT"             "$ALIGNED"
 
           "$BT/apksigner" verify --verbose --print-certs "$OUT" | tee "$WORK/permanent-signing.txt"
           "$BT/aapt" dump badging "$OUT" | tee "$WORK/permanent-badging.txt"
