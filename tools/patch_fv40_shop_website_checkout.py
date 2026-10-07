@@ -140,7 +140,7 @@ if admin.count(admin_start) != 1:
     raise SystemExit(f"Wildwood startQty anchor count {admin.count(admin_start)}")
 admin = admin.replace(admin_start, "function startQty(group){return 7}", 1)
 stock_buttons = '<div class="button-row"><button class="btn" onclick="resetCurrentGroup()">Reset Group to Start Qty</button><button class="btn green" onclick="saveStockNow()">Save Stock List</button></div>'
-stock_buttons_new = '<div class="button-row"><button class="btn" onclick="resetCurrentGroup()">Reset Group to 7</button><button class="btn green" onclick="restockAllWildwoodTo7()">RESTOCK ALL TO 7</button><button class="btn green" onclick="saveStockNow()">Save Stock List</button></div>'
+stock_buttons_new = '<div class="button-row"><button class="btn" onclick="resetCurrentGroup()">Reset Group to 7</button><button class="btn green" onclick="restockAllWildwoodTo7()">RESTOCK ALL TO 7</button><button class="btn" onclick="try{if(!(parent.gmOpenStocktake&&parent.gmOpenStocktake()))toast(\'Stocktake app is not installed on this device\')}catch(e){toast(\'Stocktake app could not be opened\')}">OPEN STOCKTAKE</button><button class="btn green" onclick="saveStockNow()">Save Stock List</button></div>'
 if admin.count(stock_buttons) != 1:
     raise SystemExit(f"Wildwood stock button anchor count {admin.count(stock_buttons)}")
 admin = admin.replace(stock_buttons, stock_buttons_new, 1)
@@ -149,7 +149,7 @@ restock_fn = reset_anchor + "\nfunction restockAllWildwoodTo7(){gmGreenmanConfir
 if admin.count(reset_anchor) != 1:
     raise SystemExit(f"Wildwood reset function anchor count {admin.count(reset_anchor)}")
 admin = admin.replace(reset_anchor, restock_fn, 1)
-for marker in ("RESTOCK ALL TO 7","function restockAllWildwoodTo7","function startQty(group){return 7}"):
+for marker in ("RESTOCK ALL TO 7","OPEN STOCKTAKE","function restockAllWildwoodTo7","function startQty(group){return 7}"):
     if marker not in admin:
         raise SystemExit("missing Admin marker: " + marker)
 admin_encoded = json.dumps(admin, ensure_ascii=False).replace("</script>", "<\\/script>")
