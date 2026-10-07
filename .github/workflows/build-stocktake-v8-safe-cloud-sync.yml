@@ -1,9 +1,6 @@
-name: Build Stocktake V9 Back Office
+name: LEGACY - Build Stocktake V9 Back Office
 
 on:
-  push:
-    branches:
-      - integration/stocktake-v9-backoffice
   workflow_dispatch:
 
 permissions:

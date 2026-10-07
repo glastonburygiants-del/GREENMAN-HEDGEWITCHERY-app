@@ -1,0 +1,25 @@
+plugins {
+    id 'com.android.application'
+}
+
+def ciRun = System.getenv("GITHUB_RUN_NUMBER")
+def buildNumber = ciRun ? ciRun.toInteger() : 1
+
+android {
+    namespace 'com.greenman.hedgewitchery.stocktake'
+    compileSdk 35
+
+    defaultConfig {
+        applicationId 'com.greenman.hedgewitchery.stocktake'
+        minSdk 24
+        targetSdk 35
+        versionCode 10000 + buildNumber
+        versionName "10." + buildNumber
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+        }
+    }
+}

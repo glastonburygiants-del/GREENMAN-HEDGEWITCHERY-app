@@ -1,0 +1,133 @@
+name: Build Permanent Stocktake APK
+
+on:
+  push:
+    branches:
+      - integration/stocktake-v9-backoffice
+    paths:
+      - 'stocktake/**'
+      - 'stocktake-android/**'
+      - 'tools/normalize_stocktake_v6_for_v7.py'
+      - 'tools/patch_stocktake_v8_cloud_connections.py'
+      - '.github/workflows/build-stocktake-permanent.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.10.2"
+
+      - name: Prepare current Stocktake web app
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p stocktake-android/app/src/main/assets
+
+          python tools/normalize_stocktake_v6_for_v7.py \
+            stocktake/GREENMAN_HEDGEWITCHERY_APOTHECARY_STOCKTAKE_CORRECT_V8.html \
+            "$RUNNER_TEMP/stocktake-normalized.html"
+
+          python tools/patch_stocktake_v8_cloud_connections.py \
+            "$RUNNER_TEMP/stocktake-normalized.html" \
+            stocktake-android/app/src/main/assets/index.html
+
+          python - stocktake-android/app/src/main/assets/index.html <<'PY'
+          from pathlib import Path
+          import sys
+          p=Path(sys.argv[1])
+          s=p.read_text(encoding="utf-8")
+          old="setTimeout(function(){document.getElementById('gmPrintFrame').contentWindow.focus();document.getElementById('gmPrintFrame').contentWindow.print()},120);"
+          new="setTimeout(function(){if(window.GreenmanStocktake&&window.GreenmanStocktake.printHtml){window.GreenmanStocktake.printHtml(html,'Greenman address label')}else{document.getElementById('gmPrintFrame').contentWindow.focus();document.getElementById('gmPrintFrame').contentWindow.print()}},120);"
+          if old not in s:
+              raise SystemExit("57 mm print hook not found")
+          s=s.replace(old,new,1)
+          for marker in [
+              "PRINT ADDRESS LABEL",
+              "RESTOCK ALL WILDWOOD TO 7",
+              "Subscriber spell-kit discount",
+              "gmUpdateCountText",
+              "Online stock updated",
+          ]:
+              if marker not in s:
+                  raise SystemExit("missing "+marker)
+          p.write_text(s,encoding="utf-8")
+          PY
+
+      - name: Build clean Android project
+        shell: bash
+        run: |
+          set -euo pipefail
+          gradle -p stocktake-android :app:assembleRelease --no-daemon
+
+      - name: Sign permanent APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          SDKMANAGER_PATH="$(find "$ANDROID_HOME" -type f -name sdkmanager -path '*/cmdline-tools/*/bin/*' 2>/dev/null | sort -V | tail -n1)"
+          export PATH="$(dirname "$SDKMANAGER_PATH"):$PATH"
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager "build-tools;35.0.0"
+          BT="$ANDROID_HOME/build-tools/35.0.0"
+
+          mkdir -p "$HOME/.android"
+          base64 --decode tools/greenman_release_keystore.b64 > "$HOME/.android/release.keystore"
+          chmod 600 "$HOME/.android/release.keystore"
+
+          SIGN_PASS="$(python - <<'PY'
+          import pathlib,re
+          s=pathlib.Path('.github/workflows/build-full-access-gate-test-apk.yml').read_text()
+          m=re.search(r'--ks-pass pass:([^\s\\]+)',s)
+          if not m:
+              raise SystemExit('signing password source not found')
+          print(m.group(1))
+          PY
+          )"
+
+          UNSIGNED="stocktake-android/app/build/outputs/apk/release/app-release-unsigned.apk"
+          ALIGNED="$RUNNER_TEMP/stocktake-aligned.apk"
+          OUT="$RUNNER_TEMP/GREENMAN_STOCKTAKE_PERMANENT_V10.apk"
+
+          "$BT/zipalign" -p -f 4 "$UNSIGNED" "$ALIGNED"
+          "$BT/apksigner" sign \
+            --v1-signing-enabled true \
+            --v2-signing-enabled true \
+            --v3-signing-enabled true \
+            --ks "$HOME/.android/release.keystore" \
+            --ks-key-alias greenmanrelease2026 \
+            --ks-pass "pass:$SIGN_PASS" \
+            --key-pass "pass:$SIGN_PASS" \
+            --out "$OUT" \
+            "$ALIGNED"
+
+          "$BT/apksigner" verify --verbose --print-certs "$OUT" | tee "$RUNNER_TEMP/sign.txt"
+          "$BT/aapt" dump badging "$OUT" | tee "$RUNNER_TEMP/badging.txt"
+
+          grep -q "package: name='com.greenman.hedgewitchery.stocktake'" "$RUNNER_TEMP/badging.txt"
+          grep -q "application-label:'Greenman HedgeWitchery Apothecary Stocktake'" "$RUNNER_TEMP/badging.txt"
+          grep -q 'Verified using v2 scheme (APK Signature Scheme v2): true' "$RUNNER_TEMP/sign.txt"
+          grep -q 'Verified using v3 scheme (APK Signature Scheme v3): true' "$RUNNER_TEMP/sign.txt"
+          unzip -p "$OUT" assets/index.html | grep -Fq 'gmUpdateCountText'
+          sha256sum "$OUT"
+
+      - name: Upload permanent Stocktake APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: GREENMAN-STOCKTAKE-PERMANENT-V10-run${{ github.run_number }}
+          path: ${{ runner.temp }}/GREENMAN_STOCKTAKE_PERMANENT_V10.apk
+          if-no-files-found: error
+          retention-days: 30
