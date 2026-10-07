@@ -690,6 +690,7 @@ jobs:
           done
           unzip -Z1 "$BASE_APK" | while IFS= read -r entry; do
             case "$entry" in
+              assets/fonts/) continue ;;
               assets/fonts/*/) continue ;;
               assets/fonts/*)
                 dest="$PROJECT_DIR/app/src/main/$entry"
