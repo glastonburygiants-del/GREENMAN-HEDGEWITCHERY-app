@@ -23,7 +23,7 @@ script=r'''
     var s='{}',l='[]';
     try{s=localStorage.getItem(STOCK)||'{}'}catch(_e){}
     try{l=localStorage.getItem(LOG)||'[]'}catch(_e){}
-    return {stock:s,log:l,key:s+'\n'+l};
+    return {stock:s,log:l,key:s+'::GM::'+l};
   }
   function nativeSnapshot(){
     try{
@@ -49,7 +49,7 @@ script=r'''
       localStorage.setItem(STOCK,n.stock_json||'{}');
       localStorage.setItem(LOG,n.log_json||'[]');
       localStorage.setItem(REV,String(Number(n.revision||0)));
-      lastCanon=(n.stock_json||'{}')+'\n'+(n.log_json||'[]');
+      lastCanon=(n.stock_json||'{}')+'::GM::'+(n.log_json||'[]');
       try{window.dispatchEvent(new CustomEvent('gm:wildwood-stock-bridge-update',{detail:{revision:Number(n.revision||0)}}))}catch(_e){}
       return true;
     }catch(_e){return false}
@@ -80,7 +80,7 @@ anchor='</body></html>'
 pos=text.rfind(anchor)
 if pos<0:
     raise SystemExit("closing body/html anchor not found")
-text=text[:pos]+script+'\n'+text[pos:]
+text=text[:pos]+script+'::GM::'+text[pos:]
 for marker in ['gm-wildwood-native-bridge-v1','gm_admin_stock_v1','gm_stock_deduction_log','GreenmanWildwood','gmOpenStocktake']:
     if marker not in text:
         raise SystemExit('missing '+marker)
