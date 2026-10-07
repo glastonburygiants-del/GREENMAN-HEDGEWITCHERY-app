@@ -48,6 +48,21 @@ if 'android.permission.INTERNET' not in manifest:
         "INTERNET permission",
     )
 
+if 'com.greenman.hedgewitchery.apothecary.permission.WILDWOOD_BRIDGE' not in manifest:
+    manifest = once(
+        manifest,
+        '<manifest xmlns:android="http://schemas.android.com/apk/res/android">',
+        '<manifest xmlns:android="http://schemas.android.com/apk/res/android">\n\n    <permission android:name="com.greenman.hedgewitchery.apothecary.permission.WILDWOOD_BRIDGE" android:protectionLevel="signature" />\n    <queries><package android:name="com.greenman.hedgewitchery.stocktake" /></queries>',
+        "Wildwood signature permission",
+    )
+if 'android:name="com.greenman.hedgewitchery.WildwoodBridgeProvider"' not in manifest:
+    manifest = once(
+        manifest,
+        '    </application>',
+        '        <provider android:name="com.greenman.hedgewitchery.WildwoodBridgeProvider" android:authorities="com.greenman.hedgewitchery.apothecary.wildwoodbridge" android:exported="true" android:readPermission="com.greenman.hedgewitchery.apothecary.permission.WILDWOOD_BRIDGE" android:writePermission="com.greenman.hedgewitchery.apothecary.permission.WILDWOOD_BRIDGE" />\n    </application>',
+        "Wildwood provider",
+    )
+
 strings, n = re.subn(
     r'(<string\s+name="app_name"[^>]*>).*?(</string>)',
     r'\1Greenman HedgeWitchery Apothecary\2',
@@ -89,6 +104,7 @@ java = once(
         webView.setWebViewClient(new LocalAssetWebViewClient());''',
     '''        webView.addJavascriptInterface(new AndroidBridge(), "GreenmanAndroid");
         webView.addJavascriptInterface(new BoundBookStore(this), "GreenmanFiles");
+        webView.addJavascriptInterface(new WildwoodBridge(this), "GreenmanWildwood");
         webView.setWebViewClient(new LocalAssetWebViewClient());''',
     "GreenmanFiles bridge",
 )
@@ -150,6 +166,7 @@ java = once(
             webView.destroy();''',
     '''            webView.removeJavascriptInterface("GreenmanAndroid");
             webView.removeJavascriptInterface("GreenmanFiles");
+            webView.removeJavascriptInterface("GreenmanWildwood");
             webView.destroy();''',
     "bridge cleanup",
 )
@@ -157,6 +174,7 @@ java = once(
 # Hard checks: do not emit a partially patched native shell.
 for marker in [
     'new BoundBookStore(this), "GreenmanFiles"',
+    'new WildwoodBridge(this), "GreenmanWildwood"',
     'zzfgufuyetybxaeidcxu.supabase.co',
     'greenmanhedgewitchery.co.uk',
     'endsWith(".paypal.com")',
@@ -167,6 +185,8 @@ for marker in [
 
 if 'android.permission.INTERNET' not in manifest:
     raise SystemExit("INTERNET permission missing after patch")
+if 'WildwoodBridgeProvider' not in manifest or 'permission.WILDWOOD_BRIDGE' not in manifest:
+    raise SystemExit("Wildwood bridge manifest wiring missing after patch")
 if 'com.greenman.hedgewitchery.apothecary' not in gradle:
     raise SystemExit("permanent applicationId missing after patch")
 
