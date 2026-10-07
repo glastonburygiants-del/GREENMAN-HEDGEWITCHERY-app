@@ -77,9 +77,10 @@ script=r'''
 </script>
 '''
 anchor='</body></html>'
-if text.count(anchor)!=1:
-    raise SystemExit(f"expected one closing body/html anchor, found {text.count(anchor)}")
-text=text.replace(anchor,script+'\n'+anchor,1)
+pos=text.rfind(anchor)
+if pos<0:
+    raise SystemExit("closing body/html anchor not found")
+text=text[:pos]+script+'\n'+text[pos:]
 for marker in ['gm-wildwood-native-bridge-v1','gm_admin_stock_v1','gm_stock_deduction_log','GreenmanWildwood','gmOpenStocktake']:
     if marker not in text:
         raise SystemExit('missing '+marker)
