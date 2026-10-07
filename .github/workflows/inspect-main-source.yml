@@ -1,0 +1,39 @@
+name: Inspect Main Android Source
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - experimental/web-access-v3-stock-delay
+    paths:
+      - '.github/workflows/inspect-main-source.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Unpack source and collect native files
+        shell: bash
+        run: |
+          set -euo pipefail
+          ZIP_FILE="$(find "$GITHUB_WORKSPACE" -maxdepth 1 -type f -name 'GREENMAN_HEDGEWITCHERY_ANDROID_PROJECT_GATHER_FIXED*.zip' -print -quit)"
+          test -n "$ZIP_FILE"
+          mkdir -p "$RUNNER_TEMP/source"
+          unzip -q "$ZIP_FILE" -d "$RUNNER_TEMP/source"
+          PROJECT_DIR="$(find "$RUNNER_TEMP/source" -type f -name settings.gradle -printf '%h\n' | head -n 1)"
+          test -n "$PROJECT_DIR"
+          mkdir -p "$RUNNER_TEMP/inspect"
+          cp "$PROJECT_DIR/app/src/main/AndroidManifest.xml" "$RUNNER_TEMP/inspect/AndroidManifest.xml"
+          cp "$PROJECT_DIR/app/build.gradle" "$RUNNER_TEMP/inspect/app-build.gradle"
+          cp "$PROJECT_DIR/settings.gradle" "$RUNNER_TEMP/inspect/settings.gradle"
+          find "$PROJECT_DIR/app/src/main/java" -type f -name '*.java' -exec cp --parents {} "$RUNNER_TEMP/inspect/" \;
+          find "$PROJECT_DIR/app/src/main/res" -maxdepth 3 -type f | sort > "$RUNNER_TEMP/inspect/res-files.txt"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: MAIN-SOURCE-INSPECT
+          path: ${{ runner.temp }}/inspect
+          retention-days: 2
