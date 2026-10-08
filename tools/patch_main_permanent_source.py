@@ -26,7 +26,7 @@ def once(text, old, new, label):
 # Permanent, side-by-side package for the clean source-built app.
 gradle = re.sub(
     r'applicationId\s+"[^"]+"',
-    'applicationId "com.greenman.hedgewitchery.apothecary"',
+    'applicationId "com.greenman.hedgewitchery"',
     gradle,
     count=1,
 )
