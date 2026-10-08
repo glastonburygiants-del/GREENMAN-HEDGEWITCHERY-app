@@ -11,6 +11,7 @@ on:
       - 'tools/patch_stocktake_v8_cloud_connections.py'
       - 'tools/patch_stocktake_v10_4_packing_bridge.py'
       - 'tools/patch_stocktake_v10_10_manual_stock_sync.py'
+      - 'tools/patch_stocktake_v10_12_simple_sync_list.py'
       - '.github/workflows/build-stocktake-permanent.yml'
   workflow_dispatch:
 
@@ -54,6 +55,10 @@ jobs:
 
           python tools/patch_stocktake_v10_10_manual_stock_sync.py \
             "$RUNNER_TEMP/stocktake-v10-4.html" \
+            "$RUNNER_TEMP/stocktake-v10-10.html"
+
+          python tools/patch_stocktake_v10_12_simple_sync_list.py \
+            "$RUNNER_TEMP/stocktake-v10-10.html" \
             stocktake-android/app/src/main/assets/index.html
 
           python - stocktake-android/app/src/main/assets/index.html <<'PY'
@@ -81,6 +86,8 @@ jobs:
               "ONLINE → WILDWOOD",
               "WILDWOOD → ONLINE",
               "gmStallDeviceSync=async function(){return false}",
+              "gm-simple-sync-v10-12",
+              "Stocktake</div><div>WW</div><div>Supabase",
           ]:
               if marker not in s:
                   raise SystemExit("missing "+marker)
