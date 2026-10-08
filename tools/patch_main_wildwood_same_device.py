@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 from pathlib import Path
-import sys
+import json, re, sys
 
 if len(sys.argv) != 3:
     raise SystemExit("usage: patch_main_wildwood_same_device.py input.html output.html")
@@ -10,6 +10,23 @@ text=src.read_text(encoding="utf-8")
 if "gm-wildwood-native-bridge-v1" in text:
     raise SystemExit("Wildwood same-device bridge already present")
 
+# The Admin page treats a missing gm_admin_stock_v1 as 7 of every Wildwood
+# stock item. Mirror that exact behaviour into the native bridge, otherwise
+# a fresh/never-opened Admin page would publish {} and Stocktake would show
+# dashes despite being connected.
+stock_start=text.find("const STOCK_MASTER = ")
+if stock_start<0:
+    raise SystemExit("Admin STOCK_MASTER not found")
+stock_start += len("const STOCK_MASTER = ")
+stock_end=text.find("};\\n/*", stock_start)
+if stock_end<0:
+    raise SystemExit("Admin STOCK_MASTER end not found")
+stock_raw=text[stock_start:stock_end+1]
+stock_decoded=json.loads('"' + stock_raw + '"')
+stock_master=json.loads(stock_decoded)
+default_stock={g:{name:7 for name in names} for g,names in stock_master.items()}
+default_stock_json=json.dumps(default_stock,separators=(',',':'),ensure_ascii=False)
+
 script=r'''
 <script id="gm-wildwood-native-bridge-v1">
 (function(){
@@ -17,11 +34,22 @@ script=r'''
   if(window.__gmWildwoodNativeBridgeV1)return;
   window.__gmWildwoodNativeBridgeV1=true;
   var STOCK='gm_admin_stock_v1', LOG='gm_stock_deduction_log', REV='gm_wildwood_bridge_rev_v1';
+  var DEFAULT_STOCK=__GM_DEFAULT_WILDWOOD__;
   var lastCanon='';
 
+  function validStockJson(raw){
+    try{
+      var o=JSON.parse(String(raw||'{}'));
+      return !!(o&&typeof o==='object'&&Object.keys(o).length);
+    }catch(_e){return false}
+  }
   function canon(){
-    var s='{}',l='[]';
-    try{s=localStorage.getItem(STOCK)||'{}'}catch(_e){}
+    var s='',l='[]';
+    try{s=localStorage.getItem(STOCK)||''}catch(_e){}
+    if(!validStockJson(s)){
+      s=JSON.stringify(DEFAULT_STOCK);
+      try{localStorage.setItem(STOCK,s)}catch(_e){}
+    }
     try{l=localStorage.getItem(LOG)||'[]'}catch(_e){}
     return {stock:s,log:l,key:s+'::GM::'+l};
   }
@@ -58,11 +86,12 @@ script=r'''
     try{
       if(!window.GreenmanWildwood)return;
       var n=nativeSnapshot(),c=canon(),seen=Number(localStorage.getItem(REV)||0);
-      if(n&&n.ready&&Number(n.revision||0)>seen){
+      var nativeHasStock=!!(n&&validStockJson(n.stock_json));
+      if(n&&n.ready&&nativeHasStock&&Number(n.revision||0)>seen){
         applyNative(n);
         return;
       }
-      if(!n||!n.ready||c.key!==lastCanon){
+      if(!n||!n.ready||!nativeHasStock||c.key!==lastCanon){
         saveNative(c);
       }
     }catch(_e){}
@@ -76,6 +105,7 @@ script=r'''
 })();
 </script>
 '''
+script=script.replace("__GM_DEFAULT_WILDWOOD__", default_stock_json)
 anchor='</body>'
 pos=text.rfind(anchor)
 if pos<0:
