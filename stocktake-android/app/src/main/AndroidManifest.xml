@@ -3,6 +3,7 @@
     <uses-permission android:name="com.greenman.hedgewitchery.apothecary.permission.WILDWOOD_BRIDGE" />
     <queries>
         <package android:name="com.greenman.hedgewitchery.apothecary" />
+        <package android:name="com.greenman.hedgewitchery" />
     </queries>
     <application
         android:allowBackup="true"
