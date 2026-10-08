@@ -11,7 +11,7 @@ if "gm-stock-sync-v10-10" in text:
     raise SystemExit("manual Stock Sync patch already present")
 
 # Hide the old connection strip. All stock movement now lives on Stock Sync.
-head_anchor="</style></head><body>"
+head_anchor="</head>"
 css=r'''
 <style id="gm-stock-sync-v10-10">
 .gm-connect{display:none!important}
@@ -57,9 +57,10 @@ css=r'''
 }
 </style>
 '''
-if head_anchor not in text:
-    raise SystemExit("head anchor missing")
-text=text.replace(head_anchor,"</style>"+css+"</head><body>",1)
+head_pos=text.find(head_anchor)
+if head_pos<0:
+    raise SystemExit("outer head close missing")
+text=text[:head_pos]+css+text[head_pos:]
 
 # Add Stock Sync tab.
 tabs_anchor='''   <button data-page="summary">Stock Summary</button>
