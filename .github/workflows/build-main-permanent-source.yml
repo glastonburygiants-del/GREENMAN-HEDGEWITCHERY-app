@@ -3,7 +3,7 @@ name: Build Permanent Main App From Source
 on:
   push:
     branches:
-      - experimental/web-access-v3-stock-delay
+      - experimental/main-existing-package-stocktake-link
     paths:
       - ".github/workflows/build-main-permanent-source.yml"
       - "current-build-20260907/**"
@@ -737,7 +737,7 @@ jobs:
           test -s "$PROJECT_DIR/app/src/main/assets/greenman_treehouse.html"
           test -s "$PROJECT_DIR/app/src/main/res/drawable-nodpi/greenman_launcher_art.webp"
           grep -Fq 'android.permission.INTERNET' "$PROJECT_DIR/app/src/main/AndroidManifest.xml"
-          grep -Fq 'com.greenman.hedgewitchery.apothecary' "$PROJECT_DIR/app/build.gradle"
+          grep -Fq 'com.greenman.hedgewitchery"' "$PROJECT_DIR/app/build.gradle"
 
       - name: Build clean release APK from source
         shell: bash
@@ -760,7 +760,7 @@ jobs:
           UNSIGNED="$(find "$PROJECT_DIR/app/build/outputs/apk/release" -type f -name '*unsigned.apk' -print -quit)"
           test -n "$UNSIGNED"
           ALIGNED="$RUNNER_TEMP/greenman-main-aligned.apk"
-          OUT="$RUNNER_TEMP/GREENMAN_HEDGEWITCHERY_APOTHECARY_PERMANENT.apk"
+          OUT="$RUNNER_TEMP/GREENMAN_HEDGEWITCHERY_MAIN_STOCKTAKE_LINK.apk"
 
           "$BT/zipalign" -p -f 4 "$UNSIGNED" "$ALIGNED"
           "$BT/apksigner" sign             --min-sdk-version 24             --v1-signing-enabled true             --v2-signing-enabled true             --v3-signing-enabled true             --ks "$HOME/.android/release.keystore"             --ks-key-alias greenmanrelease2026             --ks-pass "pass:$SIGN_PASS"             --key-pass "pass:$SIGN_PASS"             --out "$OUT"             "$ALIGNED"
@@ -769,7 +769,7 @@ jobs:
           "$BT/aapt" dump badging "$OUT" | tee "$WORK/permanent-badging.txt"
           "$BT/zipalign" -c -v 4 "$OUT" >/dev/null
 
-          grep -q "package: name='com.greenman.hedgewitchery.apothecary'" "$WORK/permanent-badging.txt"
+          grep -q "package: name='com.greenman.hedgewitchery'" "$WORK/permanent-badging.txt"
           grep -q "application-label:'Greenman HedgeWitchery Apothecary'" "$WORK/permanent-badging.txt"
           grep -q 'Verified using v3 scheme (APK Signature Scheme v3): true' "$WORK/permanent-signing.txt"
           grep -q 'Signer #1 certificate SHA-256 digest: 3ffb1aea27cf9c3ec0ff8a0e6242e1f0118dd4869bfd0430ecdd9fdbba5f460e' "$WORK/permanent-signing.txt"
@@ -789,8 +789,8 @@ jobs:
       - name: Upload permanent main APK
         uses: actions/upload-artifact@v4
         with:
-          name: GREENMAN-HEDGEWITCHERY-APOTHECARY-PERMANENT-run${{ github.run_number }}
-          path: ${{ runner.temp }}/GREENMAN_HEDGEWITCHERY_APOTHECARY_PERMANENT.apk
+          name: GREENMAN-HEDGEWITCHERY-MAIN-STOCKTAKE-LINK-run${{ github.run_number }}
+          path: ${{ runner.temp }}/GREENMAN_HEDGEWITCHERY_MAIN_STOCKTAKE_LINK.apk
           if-no-files-found: error
           retention-days: 30
 
