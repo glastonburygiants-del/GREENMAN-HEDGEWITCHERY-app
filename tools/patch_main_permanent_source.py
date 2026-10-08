@@ -199,6 +199,13 @@ if 'android:icon="@drawable/greenman_launcher_art"' not in manifest:
 if 'com.greenman.hedgewitchery.apothecary' not in gradle:
     raise SystemExit("permanent applicationId missing after patch")
 
+manifest, n_icon = re.subn(r'android:icon="[^"]+"', 'android:icon="@drawable/greenman_launcher_art"', manifest, count=1)
+if n_icon != 1:
+    raise SystemExit("launcher icon manifest field missing")
+manifest, n_round = re.subn(r'android:roundIcon="[^"]+"', 'android:roundIcon="@drawable/greenman_launcher_art"', manifest, count=1)
+if n_round != 1:
+    raise SystemExit("round launcher icon manifest field missing")
+
 java_path.write_text(java, encoding="utf-8")
 manifest_path.write_text(manifest, encoding="utf-8")
 gradle_path.write_text(gradle, encoding="utf-8")
