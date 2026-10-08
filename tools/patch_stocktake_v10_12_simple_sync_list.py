@@ -25,6 +25,12 @@ simple=r'''<section id="stocksync">
      <span id="gmSyncOnlineState" class="simple-sync-state">Not connected</span>
     </div>
     <div id="gmSyncMsg" class="simple-sync-msg"></div>
+    <div class="simple-sync-bulk">
+     <button id="gmBulkWildUp" onclick="gmBulkWildToApp()" disabled>STOCKTAKE → WW</button>
+     <button id="gmBulkWildDown" onclick="gmBulkAppToStocktake()" disabled>WW → STOCKTAKE</button>
+     <button id="gmBulkOnlineUp" onclick="gmBulkOnlineToSupabase()" disabled>UPLOAD → SUPABASE</button>
+     <button id="gmBulkOnlineDown" onclick="gmBulkSupabaseToStocktake()" disabled>SUPABASE → STOCKTAKE</button>
+    </div>
     <div id="gmSyncFilters" class="simple-sync-filters"></div>
    </div>
    <div class="simple-sync-table">
@@ -53,6 +59,9 @@ css=r'''
 .simple-sync-state.ok{color:var(--green);font-weight:700;border-color:#8fa27c}
 .simple-sync-msg{font-size:10px;min-height:16px;margin-top:5px;color:var(--green);font-weight:700}
 .simple-sync-msg.bad{color:#8a3026}
+.simple-sync-bulk{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:5px;margin:5px 0}
+.simple-sync-bulk button{min-height:34px;border:1px solid var(--line);border-radius:7px;background:#fffaf0;padding:5px 6px;font:700 9px Georgia,serif}
+.simple-sync-bulk button:disabled{opacity:.38}
 .simple-sync-filters{display:flex;gap:4px;overflow-x:auto;padding:4px 0}
 .simple-sync-filters button{white-space:nowrap;min-height:32px;border:1px solid var(--line);border-radius:999px;background:var(--paper);padding:4px 8px;font:700 10px Georgia,serif}
 .simple-sync-filters button.on{background:var(--green);color:white}
@@ -60,7 +69,7 @@ css=r'''
 .simple-sync-row{display:grid;grid-template-columns:minmax(140px,1.7fr) repeat(3,minmax(72px,.8fr));align-items:center;border-bottom:1px solid #e1d5b8;min-height:46px}
 .simple-sync-row:last-child{border-bottom:0}
 .simple-sync-row>div{padding:7px 6px;min-width:0}
-.simple-sync-header{position:sticky;top:126px;z-index:6;background:#e7ddc4;color:var(--green);font-weight:700;font-size:11px;min-height:38px}
+.simple-sync-header{background:#e7ddc4;color:var(--green);font-weight:700;font-size:11px;min-height:38px}
 .simple-sync-item{font-size:12px}
 .simple-sync-name{font-weight:700;color:var(--green);line-height:1.15}
 .simple-sync-section{font-size:9px;color:var(--muted);margin-top:2px}
@@ -83,7 +92,8 @@ css=r'''
  .simple-sync-row>div{padding:6px 4px}
  .simple-sync-name{font-size:11px}
  .simple-sync-num{font-size:14px}
- .simple-sync-header{top:172px;font-size:10px}
+ .simple-sync-header{font-size:10px}
+ .simple-sync-bulk{grid-template-columns:repeat(2,minmax(0,1fr))}
 }
 </style>
 '''
@@ -159,6 +169,8 @@ function gmSyncConnectionUi(){
  const ws=document.getElementById('gmSyncWildState'),os=document.getElementById('gmSyncOnlineState');
  if(ws){ws.textContent=gmManualWildConnected?'Connected':'Not connected';ws.classList.toggle('ok',gmManualWildConnected)}
  if(os){os.textContent=gmManualSupabaseConnected?'Connected':'Not connected';os.classList.toggle('ok',gmManualSupabaseConnected)}
+ for(const id of ['gmBulkWildUp','gmBulkWildDown']){const b=document.getElementById(id);if(b)b.disabled=!gmManualWildConnected}
+ for(const id of ['gmBulkOnlineUp','gmBulkOnlineDown']){const b=document.getElementById(id);if(b)b.disabled=!gmManualSupabaseConnected}
 }
 '''
 text=text.replace(anchor,js+"\n"+anchor,1)
