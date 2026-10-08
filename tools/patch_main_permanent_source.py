@@ -196,8 +196,8 @@ if 'WildwoodBridgeProvider' not in manifest or 'permission.WILDWOOD_BRIDGE' not 
     raise SystemExit("Wildwood bridge manifest wiring missing after patch")
 if 'android:icon="@drawable/greenman_launcher_art"' not in manifest:
     raise SystemExit("Greenman launcher art is not wired as the app icon")
-if 'com.greenman.hedgewitchery.apothecary' not in gradle:
-    raise SystemExit("permanent applicationId missing after patch")
+if 'applicationId "com.greenman.hedgewitchery"' not in gradle:
+    raise SystemExit("existing-package applicationId missing after patch")
 
 manifest, n_icon = re.subn(r'android:icon="[^"]+"', 'android:icon="@drawable/greenman_launcher_art"', manifest, count=1)
 if n_icon != 1:
