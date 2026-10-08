@@ -19,6 +19,7 @@ import android.webkit.WebViewClient;
 
 public class MainActivity extends Activity {
     private static final String MAIN_APP_PACKAGE = "com.greenman.hedgewitchery.apothecary";
+    private static final String LEGACY_MAIN_APP_PACKAGE = "com.greenman.hedgewitchery";
     private static final Uri MAIN_WILDWOOD_URI = Uri.parse("content://com.greenman.hedgewitchery.apothecary.wildwoodbridge");
     private WebView webView;
     private WebView printWebView;
@@ -79,7 +80,8 @@ public class MainActivity extends Activity {
         @JavascriptInterface
         public boolean mainAppInstalled() {
             try {
-                return getPackageManager().getLaunchIntentForPackage(MAIN_APP_PACKAGE) != null;
+                return getPackageManager().getLaunchIntentForPackage(MAIN_APP_PACKAGE) != null
+                        || getPackageManager().getLaunchIntentForPackage(LEGACY_MAIN_APP_PACKAGE) != null;
             } catch (Exception ignored) {
                 return false;
             }
@@ -90,7 +92,7 @@ public class MainActivity extends Activity {
             try {
                 Bundle b = getContentResolver().call(MAIN_WILDWOOD_URI, "read", null, null);
                 JSONObject o = new JSONObject();
-                o.put("installed", true);
+                o.put("installed", mainAppInstalled());
                 o.put("ready", b != null && b.getBoolean("ready", false));
                 o.put("revision", b == null ? 0 : b.getLong("revision", 0));
                 o.put("stock_json", b == null ? "{}" : b.getString("stock_json", "{}"));
@@ -137,6 +139,7 @@ public class MainActivity extends Activity {
         public boolean openMainApp() {
             try {
                 Intent launch = getPackageManager().getLaunchIntentForPackage(MAIN_APP_PACKAGE);
+                if (launch == null) launch = getPackageManager().getLaunchIntentForPackage(LEGACY_MAIN_APP_PACKAGE);
                 if (launch == null) return false;
                 launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
                 startActivity(launch);
