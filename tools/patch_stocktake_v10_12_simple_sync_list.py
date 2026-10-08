@@ -96,6 +96,22 @@ if anchor not in text:
     raise SystemExit("final interval anchor missing")
 js=r'''
 // gm-simple-sync-v10-12
+async function gmManualConnectWildwood(){
+ gmSyncMessage('Reading Wildwood stock…',false);
+ try{
+   if(!gmMainBridge())throw new Error('This Stocktake build cannot see the phone link.');
+   const d=gmReadMainWild();
+   if(!d.installed)throw new Error('Greenman HedgeWitchery Apothecary is not installed on this device.');
+   if(d.error)throw new Error('Greenman app found, but that installed version does not yet contain the Stocktake link.');
+   if(!d.ready)throw new Error('Greenman app found. Open it once, then return here and press CONNECT WILDWOOD again.');
+   gmManualWildData={stock:gmGroups(d.stock),logs:Array.isArray(d.logs)?d.logs:[],revision:Number(d.revision||0)};
+   gmManualWildConnected=true;
+   gmSyncMessage('Wildwood connected. Nothing was changed.',false);
+ }catch(e){
+   gmManualWildConnected=false;gmManualWildData=null;gmSyncMessage(String(e.message||e),true);
+ }
+ gmRenderStockSync();
+}
 function gmSimpleNum(n,sub,na){
  const v=na?'—':gmFmtPortions(n);
  return '<div class="simple-sync-num '+(na?'na':'')+'">'+v+(sub?'<div class="simple-sync-sub">'+gmE(sub)+'</div>':'')+'</div>';
