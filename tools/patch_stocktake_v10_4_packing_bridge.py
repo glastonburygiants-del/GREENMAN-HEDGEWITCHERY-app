@@ -200,9 +200,19 @@ async function gmDeleteOrder(id){
  if(!confirm('DELETE '+title+'?\n\nThis removes the order, its packing items and its backorder records. Stock quantities are NOT put back automatically.'))return;
  try{
    await gmApi('delete_order',{order_id:id},true);
-   const s=gmPackStore();delete s[String(id)];gmPackSave(s);
+
+   // Remove it from the visible back-office data immediately.
+   // The following dashboard refresh then verifies Supabase agrees.
+   if(gmBackData){
+     gmBackData.orders=(gmBackData.orders||[]).filter(function(x){return String(x.id)!==String(id)});
+     gmBackData.order_items=(gmBackData.order_items||[]).filter(function(x){return String(x.order_id)!==String(id)});
+     gmBackData.backorders=(gmBackData.backorders||[]).filter(function(x){return String(x.order_id)!==String(id)});
+   }
+   const ps=gmPackStore();delete ps[String(id)];gmPackSave(ps);
+   gmRenderBack();
    gmMsg('Order deleted. Stock quantities were left unchanged.',false);
-   await gmBackRefresh(true);
+
+   try{await gmBackRefresh(true)}catch(_refreshError){}
  }catch(e){gmMsg(String(e.message||e),true)}
 }
 function gmPrintPackingList(id){
