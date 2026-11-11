@@ -73,7 +73,7 @@ def patch(source:str,css:str,js:str)->str:
 
 def main():
     if len(sys.argv)!=3:raise SystemExit("Usage: patch_v40_scribe_pdf_vine.py INPUT.html OUTPUT.html")
-    source=Path(sys.argv[1]),target=Path(sys.argv[2])
+    source=Path(sys.argv[1]); target=Path(sys.argv[2])
     css=Path(__file__).with_name('bos_vine_pdf_v40.css').read_text(encoding='utf-8')
     js=Path(__file__).with_name('bos_scribe_a4_v40.js').read_text(encoding='utf-8')
     result=patch(source.read_text(encoding='utf-8'),css,js)
