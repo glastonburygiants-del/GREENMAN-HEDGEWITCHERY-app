@@ -16,7 +16,7 @@ assert m.NEW in doc
 assert 'gmInkSpellList' in doc and 'GM_BOS.spellCatalog()' in doc
 assert doc.replace(m.NEW+'/* '+m.MARK+' */',m.OLD,1)==source_page
 assert out.startswith('PRODUCTION_SHELL_UNCHANGED ') and out.endswith(';END_SHELL')
-for candidate in (out,input_source.replace(m.OLD,'unrelated function')):
+for candidate in (out,'PRODUCTION_SHELL_UNCHANGED '+m.ANCHORS[0]+json.dumps(source_page.replace(m.OLD,'unrelated function'))+';END_SHELL'):
     try:m.patch(candidate)
     except ValueError:pass
     else:raise AssertionError('fail-closed source guard not enforced')
