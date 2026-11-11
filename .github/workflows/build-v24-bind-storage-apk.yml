@@ -41,6 +41,7 @@ on:
       - "tools/patch_v39_bos_manuscript.py"
       - "tools/patch_v40_scribe_pdf_vine.py"
       - "tools/patch_v41_ink_spell_selector.py"
+      - "tools/patch_v42_ink_spell_final_override.py"
       - "tools/bos_vine_pdf_v40.css"
       - "tools/bos_scribe_a4_v40.js"
       - "tools/patch_fv3_journal_sales.py.zlib.b64"
@@ -636,6 +637,13 @@ jobs:
           mv "$WORK/current-v41-spell-select.html" "$WORK/current.html"
           node tools/verify_inline_scripts.js "$WORK/current.html"
           grep -Fq 'GM_INK_SPELL_SELECTOR_RESTORE_V41' "$WORK/current.html"
+          # V42: the final translated-BoS compatibility closure reassigned
+          # gmInkSetTab after V41, hiding the spell-picker again. Repair that
+          # last override, retain Bound Book, Scribe Copies, and existing keys.
+          python tools/patch_v42_ink_spell_final_override.py "$WORK/current.html" "$WORK/current-v42-final-tab.html"
+          mv "$WORK/current-v42-final-tab.html" "$WORK/current.html"
+          node tools/verify_inline_scripts.js "$WORK/current.html"
+          grep -Fq 'GM_INK_PRINT_SPELL_FINAL_OVERRIDE_V42' "$WORK/current.html"
 
           echo "WORK=$WORK" >> "$GITHUB_ENV"
 
@@ -897,6 +905,7 @@ jobs:
           grep -Fq 'gm-bos-vine-pdf-v40' "$WORK/final-index.html"
           grep -Fq 'gm-scribe-a4-pdf-v40' "$WORK/final-index.html"
           grep -Fq 'GM_INK_SPELL_SELECTOR_RESTORE_V41' "$WORK/final-index.html"
+          grep -Fq 'GM_INK_PRINT_SPELL_FINAL_OVERRIDE_V42' "$WORK/final-index.html"
           grep -Fq 'gm-fv3-tablet-proportions' "$WORK/final-index.html"
           grep -Fq 'gmFv3ApplyTabletRatio' "$WORK/final-index.html"
           grep -Fq 'FV3 HOME' "$WORK/final-index.html"
