@@ -1,0 +1,26 @@
+name: Inspect V37 Contents CSS
+on:
+  push:
+    branches: [design/bos-manuscript-v39-safe]
+    paths: [.github/workflows/inspect-bos-v37.yml]
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          python - <<'PY'
+          import re,zlib,base64,json
+          from pathlib import Path
+          src=Path('tools/patch_v37_bos_ux_printspell_page100.py').read_text()
+          packed=re.search(r"PAYLOAD='([A-Za-z0-9+/=]+)'",src).group(1)
+          pairs=json.loads(zlib.decompress(base64.b64decode(packed)))
+          print('PAIR COUNT',len(pairs))
+          for old,new,label in pairs:
+            if re.search('toc|contents|chapter|destination|css',label,re.I) or re.search(r'gmBosTocChapterHTML|gmBosTocChapterText',new):
+              print('===',label,'===')
+              print('NEW HEAD',new[:3500])
+              print('OLD HEAD',old[:1300])
+          PY
