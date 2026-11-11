@@ -1,0 +1,26 @@
+name: Verify Ink Pot Print Spell Selection V41
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "tools/patch_v41_ink_spell_selector.py"
+      - "tests/test_v41_ink_spell_selector.py"
+      - ".github/workflows/verify-bos-v41-spell-selector.yml"
+  push:
+    branches: [design/bos-manuscript-v39-safe]
+    paths:
+      - "tools/patch_v41_ink_spell_selector.py"
+      - "tests/test_v41_ink_spell_selector.py"
+      - ".github/workflows/verify-bos-v41-spell-selector.yml"
+permissions:
+  contents: read
+jobs:
+  selector:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check correction and fail-closed behavior
+        run: |
+          python -m py_compile tools/patch_v41_ink_spell_selector.py
+          python tests/test_v41_ink_spell_selector.py
