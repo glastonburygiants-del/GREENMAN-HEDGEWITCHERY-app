@@ -37,7 +37,8 @@ jobs:
           curl -fsSL -o "$WORK/apktool.jar" https://github.com/iBotPeaches/Apktool/releases/download/v2.11.1/apktool_2.11.1.jar
           java -jar "$WORK/apktool.jar" d -f -s "$SOURCE" -o "$WORK/decoded"
           # The preview is its own app; advance its version to update V40 safely.
-          sed -i 's/versionCode: 72/versionCode: 74/' "$WORK/decoded/apktool.yml"
+          sed -i 's/versionCode: 73/versionCode: 74/' "$WORK/decoded/apktool.yml"
+          grep -Fq "versionCode: 74" "$WORK/decoded/apktool.yml"
           sed -i 's/versionName: .*/versionName: FV3.5.2-V41-PREVIEW/' "$WORK/decoded/apktool.yml"
           python - "$WORK/decoded/AndroidManifest.xml" <<'PY'
           import re,sys,xml.etree.ElementTree as ET
