@@ -17,7 +17,7 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
-      - name: Retrieve verified V42 APK
+      - name: Retrieve verified V43 APK
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
@@ -26,20 +26,20 @@ jobs:
           WORK="$RUNNER_TEMP/greenman-preview"
           echo "WORK=$WORK" >> "$GITHUB_ENV"
           mkdir -p "$WORK/input"
-          gh run download 43114802261 --repo "$GITHUB_REPOSITORY" --name GREENMAN-HEDGEWITCHERY-APOTHECARY-FV3-APK-run199 --dir "$WORK/input"
-          SOURCE="$WORK/input/GREENMAN_HEDGEWITCHERY_APOTHECARY_FV3_run199.apk"
+          gh run download 43119916703 --repo "$GITHUB_REPOSITORY" --name GREENMAN-HEDGEWITCHERY-APOTHECARY-FV3-APK-run200 --dir "$WORK/input"
+          SOURCE="$WORK/input/GREENMAN_HEDGEWITCHERY_APOTHECARY_FV3_run200.apk"
           echo "SOURCE=$SOURCE" >> "$GITHUB_ENV"
-          echo "9b4fb9a6e7a746b43da16a5a1703b4112cbaa7008fde1748de32b6db69a71a74  $SOURCE" | sha256sum -c -
+          echo "e6355d17ca25371b853576cb64cc907595f3eed2ca93f87703b40948eb3563a9  $SOURCE" | sha256sum -c -
       - name: Decode and isolate installer identity
         shell: bash
         run: |
           set -euo pipefail
           curl -fsSL -o "$WORK/apktool.jar" https://github.com/iBotPeaches/Apktool/releases/download/v2.11.1/apktool_2.11.1.jar
           java -jar "$WORK/apktool.jar" d -f -s "$SOURCE" -o "$WORK/decoded"
-          # The preview is its own app; advance its version to update V41 safely.
-          sed -i 's/versionCode: 73/versionCode: 75/' "$WORK/decoded/apktool.yml"
-          grep -Fq "versionCode: 75" "$WORK/decoded/apktool.yml"
-          sed -i 's/versionName: .*/versionName: FV3.5.3-V42-PREVIEW/' "$WORK/decoded/apktool.yml"
+          # The preview is its own app; advance its version to update V42 safely.
+          sed -i 's/versionCode: 73/versionCode: 76/' "$WORK/decoded/apktool.yml"
+          grep -Fq "versionCode: 76" "$WORK/decoded/apktool.yml"
+          sed -i 's/versionName: .*/versionName: FV3.5.3-V43-PREVIEW/' "$WORK/decoded/apktool.yml"
           python - "$WORK/decoded/AndroidManifest.xml" <<'PY'
           import re,sys,xml.etree.ElementTree as ET
           from pathlib import Path
@@ -54,11 +54,11 @@ jobs:
           s=s[:m.start()]+m.group().replace('package="com.greenman.hedgewitchery"','package="com.greenman.hedgewitchery.bospreview"')+s[m.end():]
           m=re.search(r'<application\b[^>]*>',s,re.S)
           assert m and m.group().count('android:label="@string/app_name"')==1
-          s=s[:m.start()]+m.group().replace('android:label="@string/app_name"','android:label="Greenman BoS V42 Preview"')+s[m.end():]
+          s=s[:m.start()]+m.group().replace('android:label="@string/app_name"','android:label="Greenman BoS V43 Preview"')+s[m.end():]
           after=ET.fromstring(s)
           assert after.attrib['package']=='com.greenman.hedgewitchery.bospreview'
           assert after.find('.//activity').attrib[ns+'name']=='com.greenman.hedgewitchery.MainActivity'
-          assert after.find('application').attrib[ns+'label']=='Greenman BoS V42 Preview'
+          assert after.find('application').attrib[ns+'label']=='Greenman BoS V43 Preview'
           p.write_text(s,encoding='utf-8')
           print('Confirmed isolated package identity, unchanged launcher Java class and distinct preview label.')
           PY
@@ -89,28 +89,28 @@ jobs:
           cp "$WORK/pass.txt" "$WORK/key-pass.txt"
           base64 --decode tools/greenman_release_keystore.b64 > "$WORK/release.keystore"
           chmod 600 "$WORK/release.keystore"
-          "$BT/apksigner" sign --ks "$WORK/release.keystore" --ks-key-alias greenmanrelease2026 --ks-pass "file:$WORK/pass.txt" --key-pass "file:$WORK/key-pass.txt" --out "$WORK/Greenman_BoS_V42_Preview.apk" "$WORK/aligned.apk"
-          "$BT/apksigner" verify --verbose --print-certs "$WORK/Greenman_BoS_V42_Preview.apk" | tee "$WORK/certificate.txt"
-          "$BT/zipalign" -c -v 4 "$WORK/Greenman_BoS_V42_Preview.apk" >/dev/null
-          "$BT/aapt" dump badging "$WORK/Greenman_BoS_V42_Preview.apk" | tee "$WORK/badging.txt"
+          "$BT/apksigner" sign --ks "$WORK/release.keystore" --ks-key-alias greenmanrelease2026 --ks-pass "file:$WORK/pass.txt" --key-pass "file:$WORK/key-pass.txt" --out "$WORK/Greenman_BoS_V43_Preview.apk" "$WORK/aligned.apk"
+          "$BT/apksigner" verify --verbose --print-certs "$WORK/Greenman_BoS_V43_Preview.apk" | tee "$WORK/certificate.txt"
+          "$BT/zipalign" -c -v 4 "$WORK/Greenman_BoS_V43_Preview.apk" >/dev/null
+          "$BT/aapt" dump badging "$WORK/Greenman_BoS_V43_Preview.apk" | tee "$WORK/badging.txt"
           grep -Fq "package: name='com.greenman.hedgewitchery.bospreview'" "$WORK/badging.txt"
-          grep -Fq "versionCode='75'" "$WORK/badging.txt"
-          grep -Fq "application-label:'Greenman BoS V42 Preview'" "$WORK/badging.txt"
+          grep -Fq "versionCode='76'" "$WORK/badging.txt"
+          grep -Fq "application-label:'Greenman BoS V43 Preview'" "$WORK/badging.txt"
           grep -Fq 'certificate SHA-256 digest: 3ffb1aea27cf9c3ec0ff8a0e6242e1f0118dd4869bfd0430ecdd9fdbba5f460e' "$WORK/certificate.txt"
-          python - "$SOURCE" "$WORK/Greenman_BoS_V42_Preview.apk" <<'PY'
+          python - "$SOURCE" "$WORK/Greenman_BoS_V43_Preview.apk" <<'PY'
           import sys,zipfile,hashlib
           with zipfile.ZipFile(sys.argv[1]) as original,zipfile.ZipFile(sys.argv[2]) as preview:
             assert original.testzip() is None and preview.testzip() is None
             for name in ('assets/index.html','assets/greenman_bower.html','assets/greenman_scribe.html','assets/greenman_treehouse.html','classes.dex','classes2.dex','classes3.dex'):
               assert hashlib.sha256(original.read(name)).digest()==hashlib.sha256(preview.read(name)).digest(),name
             assert preview.getinfo('resources.arsc').compress_type==zipfile.ZIP_STORED
-          print('All four app rooms and three native dex files unchanged from verified V42 APK.')
+          print('All four app rooms and three native dex files unchanged from verified V43 APK.')
           PY
-          sha256sum "$WORK/Greenman_BoS_V42_Preview.apk"
+          sha256sum "$WORK/Greenman_BoS_V43_Preview.apk"
       - name: Upload side-by-side test APK
         uses: actions/upload-artifact@v4
         with:
-          name: Greenman-BoS-V42-Separate-Preview
-          path: ${{ runner.temp }}/greenman-preview/Greenman_BoS_V42_Preview.apk
+          name: Greenman-BoS-V43-Separate-Preview
+          path: ${{ runner.temp }}/greenman-preview/Greenman_BoS_V43_Preview.apk
           if-no-files-found: error
           retention-days: 30
