@@ -31,8 +31,14 @@ def patch(source: str, css: str) -> str:
     for expected in ("gmBosTocChapterText", "gmChapterCardGrid", "gmChapterHero"):
         if expected not in page:
             raise ValueError(f"V38 Book of Shadows contract missing: {expected}")
-    if page.count("</head>") != 1 or page.count(OLD_LABEL) != 1:
-        raise ValueError("Book of Shadows chapter markup is not the expected V38 source")
+    first_head = page.find("</head>")
+    first_body = page.find("<body")
+    # Printed documents and templates inside Scribe may also contain </head>.
+    # Inject only at the real outer Scribe head, before its first <body>.
+    if first_head < 0 or first_body < 0 or first_head > first_body:
+        raise ValueError("Could not identify the outer Scribe document head")
+    if page.count(OLD_LABEL) != 1:
+        raise ValueError(f"Expected one V38 chapter caption, found {page.count(OLD_LABEL)}")
     if "<script" in css.lower() or "@import" in css.lower() or "url(" in css.lower():
         raise ValueError("Style must not load script or remote resources")
     css = css.strip()
