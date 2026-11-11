@@ -38,7 +38,7 @@ jobs:
           java -jar "$WORK/apktool.jar" d -f -s "$SOURCE" -o "$WORK/decoded"
           # The preview is its own app; advance its version to update V41 safely.
           sed -i 's/versionCode: 73/versionCode: 75/' "$WORK/decoded/apktool.yml"
-          grep -Fq "versionCode: 74" "$WORK/decoded/apktool.yml"
+          grep -Fq "versionCode: 75" "$WORK/decoded/apktool.yml"
           sed -i 's/versionName: .*/versionName: FV3.5.3-V42-PREVIEW/' "$WORK/decoded/apktool.yml"
           python - "$WORK/decoded/AndroidManifest.xml" <<'PY'
           import re,sys,xml.etree.ElementTree as ET
