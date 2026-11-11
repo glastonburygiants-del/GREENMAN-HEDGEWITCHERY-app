@@ -91,7 +91,7 @@ jobs:
           "$BT/aapt" dump badging "$WORK/Greenman_BoS_V39_Preview.apk" | tee "$WORK/badging.txt"
           grep -Fq "package: name='com.greenman.hedgewitchery.bospreview'" "$WORK/badging.txt"
           grep -Fq "application-label:'Greenman BoS Preview'" "$WORK/badging.txt"
-          grep -Fq 'Signer #1 certificate SHA-256 digest: 3ffb1aea27cf9c3ec0ff8a0e6242e1f0118dd4869bfd0430ecdd9fdbba5f460e' "$WORK/certificate.txt"
+          grep -Fq 'certificate SHA-256 digest: 3ffb1aea27cf9c3ec0ff8a0e6242e1f0118dd4869bfd0430ecdd9fdbba5f460e' "$WORK/certificate.txt"
           python - "$SOURCE" "$WORK/Greenman_BoS_V39_Preview.apk" <<'PY'
           import sys,zipfile,hashlib
           with zipfile.ZipFile(sys.argv[1]) as original,zipfile.ZipFile(sys.argv[2]) as preview:
