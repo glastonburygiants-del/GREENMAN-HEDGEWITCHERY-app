@@ -25,7 +25,7 @@ const jpeg='data:image/jpeg;base64,/9j/2Q==';
     const positions=[...s.matchAll(/^(\d+) 0 obj$/gm)].map(x=>({id:Number(x[1]),offset:x.index}));
     assert.equal(positions.length,8);
     const xref=s.slice(xrefPos).split('\n');
-    for(let i=1;i<9;i++)assert.equal(Number(xref[i+1].slice(0,10)),positions[i-1].offset,'xref '+i);
+    for(let i=1;i<9;i++)assert.equal(Number(xref[i+2].slice(0,10)),positions[i-1].offset,'xref '+i);
     assert(landscape?s.includes('841.89 595.28'):s.includes('595.28 841.89'));
   }
   console.log('PASS: portrait/landscape 2-page PDF object offsets, streams and A4 geometry');
