@@ -1,0 +1,26 @@
+name: Verify Ink Pot A4 SVG and Ceremony V43
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "tools/patch_v43_ink_pdf_paint_pagination.py"
+      - "tests/test_v43_ink_pdf_paint_pagination.py"
+      - ".github/workflows/verify-inkpot-v43.yml"
+  push:
+    branches: [design/bos-manuscript-v39-safe]
+    paths:
+      - "tools/patch_v43_ink_pdf_paint_pagination.py"
+      - "tests/test_v43_ink_pdf_paint_pagination.py"
+      - ".github/workflows/verify-inkpot-v43.yml"
+permissions:
+  contents: read
+jobs:
+  paint-and-pages:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check fail-closed V43 SVG paint and PDF pagination
+        run: |
+          python -m py_compile tools/patch_v43_ink_pdf_paint_pagination.py
+          python tests/test_v43_ink_pdf_paint_pagination.py
