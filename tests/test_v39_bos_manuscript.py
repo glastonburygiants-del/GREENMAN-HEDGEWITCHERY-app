@@ -17,7 +17,8 @@ assert "gmBosTocChapterText" in css
 assert "gmChapterCardName" in css
 assert "gmChapterCardGrid" in css
 
-script = "const existingBookKey = 'gm_scribe_bos_selected_items_v1';"
+script = ("const existingBookKey = 'gm_scribe_bos_selected_items_v1';"
+          "const nestedPrint = '<html><head>Print</head><body>Book</body></html>';")
 page = ('<!doctype html><html><head><meta charset="utf-8"></head>'
         '<body><div class="gmBosTocChapterText"></div>'
         '<div class="gmChapterHero"><div class="gmChapterCardGrid"></div></div>'
