@@ -1,0 +1,42 @@
+name: Verify BoS V39 Preview Android Installation
+on:
+  workflow_dispatch:
+  push:
+    branches: [design/bos-manuscript-v39-safe]
+    paths: [.github/workflows/test-bos-v39-android-install.yml]
+permissions:
+  contents: read
+  actions: read
+jobs:
+  install-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Get the exact successful preview APK
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/apk"
+          gh run download 43044653698 --repo "$GITHUB_REPOSITORY" --name Greenman-BoS-V39-Separate-Preview --dir "$RUNNER_TEMP/apk"
+          APK="$RUNNER_TEMP/apk/Greenman_BoS_V39_Preview.apk"
+          echo "6e0bb8446901c34f428e89bc47d01dcdeb55a6f564b0a0b0537eafdef502572b  $APK" | sha256sum -c -
+          echo "APK=$APK" >> "$GITHUB_ENV"
+      - name: Install and open on clean Android 14 emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          arch: x86_64
+          target: default
+          profile: pixel_6
+          disable-animations: true
+          script: |
+            set -eu
+            adb install -r "$APK"
+            adb shell pm path com.greenman.hedgewitchery.bospreview
+            adb shell am start -n com.greenman.hedgewitchery.bospreview/com.greenman.hedgewitchery.MainActivity
+            adb shell dumpsys package com.greenman.hedgewitchery.bospreview | grep -E 'Package \[com.greenman.hedgewitchery.bospreview\]|versionCode=|versionName='
+            adb logcat -d -t 300 | grep -E 'FATAL EXCEPTION|INSTALL_FAILED|PackageInstaller' || true
+            echo "Preview APK installed and launched on clean Android 14 emulator"
