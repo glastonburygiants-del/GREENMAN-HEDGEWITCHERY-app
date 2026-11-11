@@ -44,7 +44,7 @@ jobs:
           assert root.attrib['package']=='com.greenman.hedgewitchery'
           assert len(root.findall('.//activity'))==1
           assert root.find('.//activity').attrib[ns+'name']=='com.greenman.hedgewitchery.MainActivity'
-          assert not any(root.iter(tag) for tag in ('provider','service','receiver'))
+          assert not any(list(root.iter(tag)) for tag in ('provider','service','receiver'))
           m=re.search(r'<manifest\b[^>]*>',s,re.S)
           assert m and m.group().count('package="com.greenman.hedgewitchery"')==1
           s=s[:m.start()]+m.group().replace('package="com.greenman.hedgewitchery"','package="com.greenman.hedgewitchery.bospreview"')+s[m.end():]
