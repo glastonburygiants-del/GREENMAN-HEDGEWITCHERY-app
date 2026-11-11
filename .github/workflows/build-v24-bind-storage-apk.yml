@@ -39,6 +39,9 @@ on:
       - "tools/patch_v38_chapter_openers_one_page.py.zlib.b64"
       - "tools/bos_manuscript_v39.css"
       - "tools/patch_v39_bos_manuscript.py"
+      - "tools/patch_v40_scribe_pdf_vine.py"
+      - "tools/bos_vine_pdf_v40.css"
+      - "tools/bos_scribe_a4_v40.js"
       - "tools/patch_fv3_journal_sales.py.zlib.b64"
       - "tools/patch_fv3_sales_herbcount_gate.py"
       - "tools/patch_fv3_sales_diagnostics.py"
@@ -618,6 +621,13 @@ jobs:
           mv "$WORK/current-v39-bos-manuscript.html" "$WORK/current.html"
           node tools/verify_inline_scripts.js "$WORK/current.html"
           grep -Fq 'gm-bos-manuscript-v39' "$WORK/current.html"
+          # V40: targeted print-only SVG stroke correction and offline Scribe
+          # A4 PDF export via already-registered native Downloads bridge.
+          python tools/patch_v40_scribe_pdf_vine.py "$WORK/current.html" "$WORK/current-v40-scribe-print.html"
+          mv "$WORK/current-v40-scribe-print.html" "$WORK/current.html"
+          node tools/verify_inline_scripts.js "$WORK/current.html"
+          grep -Fq 'gm-bos-vine-pdf-v40' "$WORK/current.html"
+          grep -Fq 'gm-scribe-a4-pdf-v40' "$WORK/current.html"
 
           echo "WORK=$WORK" >> "$GITHUB_ENV"
 
@@ -876,6 +886,8 @@ jobs:
           grep -Fq 'FV 2.7.37 CONTENTS CLEANUP' "$WORK/final-index.html"
           grep -Fq 'gm-bos-checkbox-only-v2737' "$WORK/final-index.html"
           grep -Fq 'gm-bos-manuscript-v39' "$WORK/final-index.html"
+          grep -Fq 'gm-bos-vine-pdf-v40' "$WORK/final-index.html"
+          grep -Fq 'gm-scribe-a4-pdf-v40' "$WORK/final-index.html"
           grep -Fq 'gm-fv3-tablet-proportions' "$WORK/final-index.html"
           grep -Fq 'gmFv3ApplyTabletRatio' "$WORK/final-index.html"
           grep -Fq 'FV3 HOME' "$WORK/final-index.html"
