@@ -5,12 +5,16 @@ on:
     paths:
       - "tools/patch_v41_ink_spell_selector.py"
       - "tests/test_v41_ink_spell_selector.py"
+      - "tools/patch_v42_ink_spell_final_override.py"
+      - "tests/test_v42_ink_spell_final_override.py"
       - ".github/workflows/verify-bos-v41-spell-selector.yml"
   push:
     branches: [design/bos-manuscript-v39-safe]
     paths:
       - "tools/patch_v41_ink_spell_selector.py"
       - "tests/test_v41_ink_spell_selector.py"
+      - "tools/patch_v42_ink_spell_final_override.py"
+      - "tests/test_v42_ink_spell_final_override.py"
       - ".github/workflows/verify-bos-v41-spell-selector.yml"
 permissions:
   contents: read
@@ -24,3 +28,5 @@ jobs:
         run: |
           python -m py_compile tools/patch_v41_ink_spell_selector.py
           python tests/test_v41_ink_spell_selector.py
+          python -m py_compile tools/patch_v42_ink_spell_final_override.py
+          python tests/test_v42_ink_spell_final_override.py
