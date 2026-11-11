@@ -19,8 +19,12 @@ jobs:
           from pathlib import Path
           s=zlib.decompress(base64.b64decode(Path('tools/patch_v38_chapter_openers_one_page.py.zlib.b64').read_text().strip())).decode('utf-8')
           print('PATCH LENGTH',len(s))
-          for term in ['gmBosTocChapterHTML','CHAPTER','chapter','gmBosToc','Destination','gmBosChapter']:
-            print('===',term,'===')
-            for m in list(re.finditer(re.escape(term),s,re.I))[:7]:
-              print(s[max(0,m.start()-300):m.end()+500].replace('\\n',' ')[:850])
+          css = re.search(r"CSS=r'''(.*?)'''", s, re.S)
+          print('=== V38 CSS ===')
+          print(css.group(1)[:12500] if css else 'NOT FOUND')
+          p=s.find('gmChapterCardGrid')
+          print('=== V38 MARKUP ===')
+          print(s[max(0,p-3000):p+5000] if p>=0 else 'NOT FOUND')
+          print('=== RENDER FUNCTION NAMES ===')
+          print([x for x in re.findall(r'def [A-Za-z0-9_]+|function [A-Za-z0-9_]+',s) if 'Chapter' in x or 'chapter' in x])
           PY
