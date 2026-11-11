@@ -35,7 +35,7 @@ jobs:
         run: |
           set -euo pipefail
           curl -fsSL -o "$WORK/apktool.jar" https://github.com/iBotPeaches/Apktool/releases/download/v2.11.1/apktool_2.11.1.jar
-          java -jar "$WORK/apktool.jar" d -f "$SOURCE" -o "$WORK/decoded"
+          java -jar "$WORK/apktool.jar" d -f -s "$SOURCE" -o "$WORK/decoded"
           python - "$WORK/decoded/AndroidManifest.xml" <<'PY'
           import re,sys,xml.etree.ElementTree as ET
           from pathlib import Path
