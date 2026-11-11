@@ -19,7 +19,7 @@ jobs:
           java-version: '17'
       - name: Retrieve verified V39 APK
         env:
-          GH_TOKEN: \${{ github.token }}
+          GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
           set -euo pipefail
@@ -105,6 +105,6 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: Greenman-BoS-V39-Separate-Preview
-          path: \${{ runner.temp }}/greenman-preview/Greenman_BoS_V39_Preview.apk
+          path: ${{ runner.temp }}/greenman-preview/Greenman_BoS_V39_Preview.apk
           if-no-files-found: error
           retention-days: 30
