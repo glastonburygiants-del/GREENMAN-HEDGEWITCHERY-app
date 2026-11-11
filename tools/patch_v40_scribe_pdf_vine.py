@@ -47,8 +47,8 @@ def patch(source:str,css:str,js:str)->str:
         raise ValueError("Could not locate Scribe outer document header")
     exactly(doc,"function gmBosRasterStyles(){")
     exactly(doc,"const DESK_B64=")
-    exactly(doc,"gmBosPrintSheet")
-    exactly(doc,"gmStoryVine")
+    if "gmBosPrintSheet" not in doc or "gmStoryVine" not in doc:
+        raise ValueError("Required A4 page or vine artwork missing")
     if not re.search(DESK_PATTERN,doc):raise ValueError("Desk base64 not present")
     m=re.search(DESK_PATTERN,doc)
     desk=base64.b64decode(m.group(1)).decode("utf-8")
