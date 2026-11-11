@@ -85,6 +85,21 @@
   font-weight:600!important;letter-spacing:.008em!important;color:#352f25!important
 }
 [data-gm-toc-item-select],[data-gm-spell-group-select]{accent-color:#59634a!important}
+/* Old-style folio numbers, fine rules and keyboard-visible Contents navigation. */
+[data-chapter="contents"] [data-chapter-jump]{
+  text-decoration:none!important;text-shadow:none!important
+}
+[data-chapter="contents"] [data-chapter-jump]:focus-visible{
+  outline:1px solid #8b7855!important;outline-offset:2px!important
+}
+[data-chapter="contents"] [data-gm-toc-range-chapter],
+[data-chapter="contents"] [data-gm-toc-ref-range],
+[data-chapter="contents"] [data-gm-toc-entry-ref],
+[data-chapter="contents"] [data-gm-toc-title-ref]{
+  font-family:Georgia,'Times New Roman',serif!important;
+  font-variant-numeric:oldstyle-nums!important;color:#5f513d!important
+}
+
 @media print{
   .gmChapterCard,.gmChapterHero{box-shadow:none!important}
 }
