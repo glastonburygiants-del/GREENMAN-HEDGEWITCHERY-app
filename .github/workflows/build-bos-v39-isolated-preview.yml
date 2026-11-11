@@ -82,9 +82,10 @@ jobs:
           assert a and b and a.group(1)==b.group(1)
           p=Path(sys.argv[1]);p.write_text(a.group(1)+'\n');p.chmod(0o600)
           PY
+          cp "$WORK/pass.txt" "$WORK/key-pass.txt"
           base64 --decode tools/greenman_release_keystore.b64 > "$WORK/release.keystore"
           chmod 600 "$WORK/release.keystore"
-          "$BT/apksigner" sign --ks "$WORK/release.keystore" --ks-key-alias greenmanrelease2026 --ks-pass "file:$WORK/pass.txt" --key-pass "file:$WORK/pass.txt" --out "$WORK/Greenman_BoS_V39_Preview.apk" "$WORK/aligned.apk"
+          "$BT/apksigner" sign --ks "$WORK/release.keystore" --ks-key-alias greenmanrelease2026 --ks-pass "file:$WORK/pass.txt" --key-pass "file:$WORK/key-pass.txt" --out "$WORK/Greenman_BoS_V39_Preview.apk" "$WORK/aligned.apk"
           "$BT/apksigner" verify --verbose --print-certs "$WORK/Greenman_BoS_V39_Preview.apk" | tee "$WORK/certificate.txt"
           "$BT/zipalign" -c -v 4 "$WORK/Greenman_BoS_V39_Preview.apk" >/dev/null
           "$BT/aapt" dump badging "$WORK/Greenman_BoS_V39_Preview.apk" | tee "$WORK/badging.txt"
