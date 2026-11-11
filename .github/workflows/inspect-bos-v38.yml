@@ -1,0 +1,26 @@
+name: Inspect V38 Book Page Markup
+on:
+  workflow_dispatch:
+  push:
+    branches: [design/bos-manuscript-v39-safe]
+    paths: [.github/workflows/inspect-bos-v38.yml]
+permissions:
+  contents: read
+jobs:
+  markup-inspection:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Inspect existing chapter and contents renderer
+        shell: bash
+        run: |
+          python - <<'PY'
+          import base64,zlib,re
+          from pathlib import Path
+          s=zlib.decompress(base64.b64decode(Path('tools/patch_v38_chapter_openers_one_page.py.zlib.b64').read_text().strip())).decode('utf-8')
+          print('PATCH LENGTH',len(s))
+          for term in ['gmBosTocChapterHTML','CHAPTER','chapter','gmBosToc','Destination','gmBosChapter']:
+            print('===',term,'===')
+            for m in list(re.finditer(re.escape(term),s,re.I))[:7]:
+              print(s[max(0,m.start()-300):m.end()+500].replace('\\n',' ')[:850])
+          PY
