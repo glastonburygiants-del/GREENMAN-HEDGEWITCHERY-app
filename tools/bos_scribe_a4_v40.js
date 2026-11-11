@@ -1,5 +1,5 @@
 /* V40: A4 PDF export for the Scribe desk, using existing native Downloads bridge.
-   No new permissions, network access, native code, keystore or storage identifiers. */
+   No new permissions, network access, native code, or storage identifiers. */
 function gmScribeV40ImagePdf(images, landscape){
   const encoder=new TextEncoder(),parts=[],offsets=[0];
   let length=0;
