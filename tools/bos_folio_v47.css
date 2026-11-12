@@ -1,0 +1,66 @@
+/* Book of Shadows V47: new folio composition, built from validated V43.
+   Applies only to Contents and chapter register pages. Offline only. */
+section.gmBosPage.gmBosV47Page .gmBosPaper{position:relative!important;background:#f2ead6!important;color:#30281e!important}
+section.gmBosPage.gmBosV47Page .gmBosTopmark{font:500 7pt/1.2 Cinzel,Georgia,serif!important;letter-spacing:.14em!important;color:#77634b!important;text-transform:uppercase!important}
+section.gmBosPage.gmBosV47Page .gmBosChapterHead{display:block!important;min-height:0!important;height:0!important;padding:0!important;margin:0!important;border:0!important;box-shadow:none!important;background:transparent!important}
+section.gmBosPage.gmBosV47Page .gmBosChapterHead:before,section.gmBosPage.gmBosV47Page .gmBosChapterHead:after{content:none!important;display:none!important}
+section.gmBosPage.gmBosV47Page .gmBosChapterRule{display:none!important}
+section.gmBosPage.gmBosV47Page .gmBosPageBody{padding:0!important;margin:0!important;min-height:0!important;max-height:none!important;height:227mm!important;overflow:hidden!important;box-sizing:border-box!important}
+.gmBosV47Page .gmV47Opener{display:grid!important;grid-template-columns:22mm minmax(0,1fr)!important;align-items:center!important;gap:4.5mm!important;min-height:32mm!important;margin:0!important}
+.gmBosV47Page .gmV47Initial{display:block!important;width:22mm!important;height:29mm!important}
+.gmBosV47Page .gmV47MainTitle{display:block!important;min-width:0!important}
+.gmBosV47Page .gmV47Kicker{font:600 8pt/1.2 Cinzel,Georgia,serif!important;letter-spacing:.1em!important;text-transform:uppercase!important;color:#893c32!important;margin:0 0 1.5mm!important}
+.gmBosV47Page .gmV47TitleText{display:block!important;margin:0!important;padding:0!important;border:0!important;font:600 26pt/1.13 Cinzel,Georgia,serif!important;letter-spacing:-.018em!important;color:#30281d!important;text-shadow:none!important;text-transform:none!important}
+.gmBosV47Page .gmV47TitleCaption{font:italic 11pt/1.25 GMCrimson,Georgia,serif!important;color:#6b5840!important;margin:1mm 0 0!important}
+.gmBosV47Page .gmV47VineRule{width:100%!important;height:8mm!important;display:block!important;margin:2.8mm 0 3.5mm!important;overflow:visible!important}
+.gmBosV47Page .gmV47ContentsBody{padding:0 1.5mm!important}
+.gmBosV47Page .gmBosContentsActions.gmV47ContentsFilter{display:flex!important;justify-content:center!important;gap:0!important;margin:0 0 4mm!important;padding:.7mm 0 2.5mm!important;border:0!important;border-bottom:.18mm solid #ba9a75!important;background:none!important}
+.gmBosV47Page .gmV47ContentsFilter button{background:none!important;border:0!important;border-radius:0!important;box-shadow:none!important;padding:1.2mm 3.5mm!important;margin:0!important;min-height:0!important;font:500 8pt/1.15 Cinzel,Georgia,serif!important;letter-spacing:.03em!important;color:#6e5140!important;cursor:pointer!important}
+.gmBosV47Page .gmV47ContentsFilter button+button{border-left:.2mm solid #b99e7b!important}
+.gmBosV47Page .gmBosContentsRows.gmV47Register{display:block!important;margin:0!important;padding:0 1mm!important}
+.gmBosV47Page .gmV47GroupTitle{display:flex!important;align-items:center!important;gap:3mm!important;margin:4mm 0 1.7mm!important;font:600 7.2pt/1.1 Cinzel,Georgia,serif!important;letter-spacing:.14em!important;color:#934536!important;text-transform:uppercase!important}
+.gmBosV47Page .gmV47GroupTitle:after{content:'';height:1px;flex:1;background:#c3aa83}
+.gmBosV47Page .gmBosTocChapter.gmV47Chapter{display:block!important;margin:0 0 .9mm!important;padding:0!important;border:0!important;background:none!important;break-inside:avoid!important}
+.gmBosV47Page .gmBosTocChapterHead.gmV47ChapterRow{display:grid!important;grid-template-columns:10mm 10mm minmax(0,1fr) 17mm!important;gap:2mm!important;align-items:center!important;min-height:8.6mm!important;border:0!important;border-bottom:1px solid #c8b391!important;border-radius:0!important;background:none!important;padding:0 0 .3mm!important;margin:0!important}
+.gmBosV47Page .gmBosTocChapterNumber.gmV47ChapterNo{display:block!important;font:500 9pt/1.1 Cinzel,Georgia,serif!important;color:#a24e3c!important;text-align:center!important}
+.gmBosV47Page .gmBosTocChapterText.gmV47ChapterLink{display:block!important;min-width:0!important;padding:0!important;margin:0!important;background:none!important;border:0!important;border-radius:0!important;box-shadow:none!important;text-align:left!important;font:600 12.2pt/1.17 GMCrimson,Georgia,serif!important;color:#372d22!important;white-space:normal!important;pointer-events:auto!important;cursor:pointer!important}
+.gmBosV47Page .gmBosTocChapterTitle{font:inherit!important;color:inherit!important}
+.gmBosV47Page .gmBosContentsPages.gmV47Pages{justify-self:end!important;grid-column:auto!important;text-align:right!important;font:400 9pt/1.2 GMCrimson,Georgia,serif!important;color:#785e46!important;white-space:nowrap!important}
+.gmBosV47Page .gmBosTocItem.gmV47Item{display:grid!important;grid-template-columns:10mm minmax(0,1fr) 17mm!important;align-items:center!important;gap:2mm!important;margin:0 0 0 22mm!important;min-height:6mm!important;padding:0!important;border:0!important;border-bottom:1px solid rgba(155,126,88,.28)!important;border-radius:0!important;background:none!important}
+.gmBosV47Page .gmBosTocItemLabelBtn.gmV47ItemLink{display:block!important;min-width:0!important;margin:0!important;padding:.65mm 0!important;background:none!important;border:0!important;border-radius:0!important;box-shadow:none!important;font:italic 9.8pt/1.17 GMCrimson,Georgia,serif!important;color:#5f4b36!important;text-align:left!important;white-space:normal!important;pointer-events:auto!important;cursor:pointer!important}
+.gmBosV47Page .gmBosTocItem.spell .gmV47ItemLink{font-style:normal!important}
+.gmBosV47Page .gmBosTocItemPage.gmV47ItemPages{text-align:right!important;justify-self:end!important;grid-column:auto!important;font:400 8.5pt/1 GMCrimson,Georgia,serif!important;color:#786049!important}
+.gmBosV47Page .gmV47FixedMarker{display:block!important;width:10mm!important;text-align:center!important;color:#95724e!important;font:400 11pt/1 Georgia,serif!important}
+.gmBosV47Page .gmV47TickBox{position:relative!important;display:grid!important;place-items:center!important;width:9.5mm!important;min-width:9.5mm!important;height:8mm!important;min-height:8mm!important;margin:0!important;padding:0!important;background:none!important;border:0!important;box-shadow:none!important;cursor:pointer!important}
+.gmBosV47Page .gmV47TickBox input[type=checkbox]{position:absolute!important;inset:0!important;display:block!important;width:100%!important;height:100%!important;min-width:0!important;min-height:0!important;margin:0!important;padding:0!important;opacity:0!important;appearance:none!important;-webkit-appearance:none!important;z-index:1!important;cursor:pointer!important}
+.gmBosV47Page .gmV47TickBox svg{display:block!important;width:5.5mm!important;height:5.5mm!important;overflow:visible!important;opacity:1!important;pointer-events:none!important}
+.gmBosV47Page .gmV47TickBox svg path{opacity:0!important}
+.gmBosV47Page .gmV47TickBox input:checked+svg path,.gmBosV47Page .gmV47TickBox input:indeterminate+svg path{opacity:1!important}
+.gmBosV47Page .gmV47TickBox input:focus-visible+svg{outline:.35mm solid #823a32!important;outline-offset:.4mm!important}
+.gmBosV47Page.gmV47ChapterPage .gmBosPageBody{height:231mm!important}
+.gmBosV47Page .gmV47ChapterOpener{display:block!important;padding:0 1mm!important}
+.gmBosV47Page .gmV47ChapterTitleBlock{display:grid!important;grid-template-columns:36mm minmax(0,1fr)!important;column-gap:6mm!important;min-height:68mm!important;align-items:center!important;padding:3mm 0 5mm!important;border-bottom:double 2px #9f7c51!important}
+.gmBosV47Page .gmV47ChapterTitleBlock .gmV47Initial{width:36mm!important;height:52mm!important}
+.gmBosV47Page .gmV47ChapterTitleBlock .gmV47Kicker{font-size:9pt!important;margin-bottom:4mm!important}
+.gmBosV47Page .gmV47ChapterTitleBlock .gmV47TitleText{font:600 27pt/1.07 Cinzel,Georgia,serif!important;letter-spacing:-.02em!important;color:#31261b!important}
+.gmBosV47Page .gmV47ChapterTitleBlock .gmV47TitleCaption{font-size:12pt!important;line-height:1.42!important;margin-top:3.5mm!important}
+.gmBosV47Page .gmV47ChapterPrelude{display:grid!important;grid-template-columns:1fr auto!important;align-items:start!important;gap:5mm!important;padding:6mm 1mm 5mm!important;min-height:20mm!important}
+.gmBosV47Page .gmV47ChapterPrelude p{font:italic 11.5pt/1.5 GMCrimson,Georgia,serif!important;margin:0!important;color:#544331!important}
+.gmBosV47Page .gmV47FolioRef{text-align:right!important;font:500 8pt/1.4 Cinzel,Georgia,serif!important;color:#8c4c3c!important;white-space:nowrap!important}
+.gmBosV47Page .gmV47ChapterEntriesTitle{display:flex!important;align-items:center!important;gap:3mm!important;margin:3mm 0 0!important;font:500 8pt/1.4 Cinzel,Georgia,serif!important;letter-spacing:.1em!important;color:#904336!important;text-transform:uppercase!important}
+.gmBosV47Page .gmV47ChapterEntriesTitle:after{content:'';height:1px;background:#c6ad85;flex:1}
+.gmBosV47Page .gmV47ChapterEntries{display:grid!important;grid-template-columns:minmax(0,1fr)!important;align-content:start!important;gap:0!important;margin:3mm 0 0!important;padding:0!important}
+.gmBosV47Page .gmChapterCard.gmV47Entry{display:grid!important;grid-template-columns:13mm minmax(0,1fr) 19mm!important;gap:3mm!important;align-items:center!important;padding:3mm 2mm!important;margin:0!important;min-height:12mm!important;border:0!important;border-bottom:1px solid #c9ad82!important;border-radius:0!important;background:none!important;box-shadow:none!important;text-align:left!important;color:#34271c!important;cursor:pointer!important;transform:none!important}
+.gmBosV47Page .gmV47Entry:first-child{border-top:1px solid #c9ad82!important}
+.gmBosV47Page .gmV47EntryNumber{font:400 11pt/1 Cinzel,Georgia,serif!important;color:#944437!important;text-align:center!important}
+.gmBosV47Page .gmChapterCardName.gmV47EntryText{display:block!important;font:500 12.5pt/1.28 GMCrimson,Georgia,serif!important;min-width:0!important;color:#2d281e!important;overflow-wrap:anywhere!important;overflow:visible!important;white-space:normal!important}
+.gmBosV47Page .gmChapterCardPage.gmV47EntryPage{display:block!important;min-width:0!important;height:auto!important;padding:0!important;background:none!important;border:0!important;border-radius:0!important;font:400 9pt/1.2 GMCrimson,Georgia,serif!important;color:#775943!important;text-align:right!important;white-space:nowrap!important}
+.gmBosV47Page[data-density="normal"] .gmV47ChapterEntries{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:0 4mm!important}
+.gmBosV47Page[data-density="compact"] .gmV47ChapterEntries,.gmBosV47Page[data-density="dense"] .gmV47ChapterEntries{grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:0 3mm!important}
+.gmBosV47Page[data-density="compact"] .gmV47Entry,.gmBosV47Page[data-density="dense"] .gmV47Entry{grid-template-columns:6mm minmax(0,1fr) 10mm!important;gap:1mm!important;padding:1mm 0!important;min-height:7mm!important}
+.gmBosV47Page[data-density="compact"] .gmV47EntryText,.gmBosV47Page[data-density="dense"] .gmV47EntryText{font-size:8.8pt!important;line-height:1.16!important}
+.gmBosV47Page[data-density="dense"] .gmV47ChapterTitleBlock{min-height:50mm!important}
+.gmBosV47Page[data-density="dense"] .gmV47ChapterPrelude{min-height:13mm!important;padding:3mm 1mm!important}
+.gmBosV47Page[data-density="dense"] .gmV47Entry{min-height:6mm!important;padding:.7mm 0!important}
+.gmBosV47Page[data-density="dense"] .gmV47EntryText{font-size:7.8pt!important}
+@media print{.gmBosV47Page .gmV47ContentsFilter{display:none!important}.gmBosV47Page .gmV47TickBox{display:none!important}.gmBosV47Page .gmV47ChapterRow{grid-template-columns:10mm minmax(0,1fr) 17mm!important}.gmBosV47Page .gmV47Item{grid-template-columns:minmax(0,1fr) 17mm!important}}
