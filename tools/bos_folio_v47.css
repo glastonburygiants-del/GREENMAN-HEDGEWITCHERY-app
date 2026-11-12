@@ -33,7 +33,7 @@ section.gmBosPage.gmBosV47Page .gmBosPageBody{padding:0!important;margin:0!impor
 .gmBosV47Page .gmV47FixedMarker{display:block!important;width:10mm!important;text-align:center!important;color:#95724e!important;font:400 11pt/1 Georgia,serif!important}
 .gmBosV47Page .gmV47TickBox{position:relative!important;display:grid!important;place-items:center!important;width:9.5mm!important;min-width:9.5mm!important;height:8mm!important;min-height:8mm!important;margin:0!important;padding:0!important;background:none!important;border:0!important;box-shadow:none!important;cursor:pointer!important}
 .gmBosV47Page .gmV47TickBox input[type=checkbox]{position:absolute!important;inset:0!important;display:block!important;width:100%!important;height:100%!important;min-width:0!important;min-height:0!important;margin:0!important;padding:0!important;opacity:0!important;appearance:none!important;-webkit-appearance:none!important;z-index:1!important;cursor:pointer!important}
-.gmBosV47Page .gmV47TickBox svg{display:block!important;width:5.5mm!important;height:5.5mm!important;overflow:visible!important;opacity:1!important;pointer-events:none!important}
+.gmBosV47Page .gmV47TickBox svg{display:block!important;width:3.35mm!important;height:3.35mm!important;overflow:visible!important;opacity:1!important;pointer-events:none!important}
 .gmBosV47Page .gmV47TickBox svg path{opacity:0!important}
 .gmBosV47Page .gmV47TickBox input:checked+svg path,.gmBosV47Page .gmV47TickBox input:indeterminate+svg path{opacity:1!important}
 .gmBosV47Page .gmV47TickBox input:focus-visible+svg{outline:.35mm solid #823a32!important;outline-offset:.4mm!important}
@@ -64,3 +64,7 @@ section.gmBosPage.gmBosV47Page .gmBosPageBody{padding:0!important;margin:0!impor
 .gmBosV47Page[data-density="dense"] .gmV47Entry{min-height:6mm!important;padding:.7mm 0!important}
 .gmBosV47Page[data-density="dense"] .gmV47EntryText{font-size:7.8pt!important}
 @media print{.gmBosV47Page .gmV47ContentsFilter{display:none!important}.gmBosV47Page .gmV47TickBox{display:none!important}.gmBosV47Page .gmV47ChapterRow{grid-template-columns:10mm minmax(0,1fr) 17mm!important}.gmBosV47Page .gmV47Item{grid-template-columns:minmax(0,1fr) 17mm!important}}
+/* V47 deep-oxblood and gilt selection: visually 3.35 mm, tap area stays 9.5 mm. */
+.gmBosV47Page .gmV47TickBox svg{width:3.35mm!important;height:3.35mm!important}
+.gmBosV47Page .gmV47TickBox input:focus-visible+svg{outline:.25mm solid #6e2431!important;outline-offset:.7mm!important}
+.gmBosV47Page .gmV47MainTitle:not(:has(.gmV47Kicker)) .gmV47TitleText{margin-top:0!important}
