@@ -82,3 +82,43 @@
 .gmChapterOpening[data-density="compact"] .gmChapterCardKind{font-size:4.7pt!important}
 .gmChapterOpening[data-density="compact"] .gmChapterCardSeq,.gmChapterOpening[data-density="dense"] .gmChapterCardSeq{font-size:7.5pt!important}
 .gmChapterOpening[data-density="compact"] .gmChapterCardPage,.gmChapterOpening[data-density="dense"] .gmChapterCardPage{font-size:7pt!important}
+
+
+/* V46: manuscript composition, not modern UI decoration. Existing offline typefaces. */
+.gmBosContentsPage .gmBosChapterHead h1,.gmBosChapterContentsPage .gmBosChapterHead h1{font-family:Cinzel,'Times New Roman',serif!important;font-weight:600!important;letter-spacing:-.025em!important;text-transform:none!important;color:#30251b!important}
+.gmBosContentsPage .gmBosChapterHead h1::first-letter,.gmBosChapterContentsPage .gmBosChapterHead h1::first-letter{color:#893d31!important;font-size:1.16em!important}
+.gmBosContentsPage .gmBosPageBody,.gmBosChapterContentsPage .gmBosPageBody{font-family:GMCrimson,Georgia,serif!important}
+.gmBosContentsActions{border-bottom:1px solid #a58c71!important;gap:0!important;padding:0 0 3.8mm!important;margin:0 0 5mm!important}
+.gmBosContentsActions button{font-family:Cinzel,Georgia,serif!important;font-variant:normal!important;font-size:7pt!important;letter-spacing:.06em!important;color:#795e47!important;padding:.5mm 3mm!important}
+.gmBosContentsActions button:first-child{padding-left:0!important}
+.gmBosTocChapterHead{border-bottom:.16mm solid #b3a38c!important;grid-template-columns:8.5mm minmax(0,1fr) 21mm!important;padding:1mm 0 1.1mm!important}
+.gmBosTocChapterNumber{font-family:Cinzel,Georgia,serif!important;font-size:9pt!important;color:#8c4434!important}
+.gmBosTocChapterTitle{font-family:GMCrimson,Georgia,serif!important;font-weight:700!important;font-size:13pt!important;color:#292119!important}
+.gmBosTocItemLabelBtn{font-family:GMCrimson,Georgia,serif!important;font-size:10.5pt!important;color:#574633!important}
+.gmBosTocItem{border-bottom:.13mm solid rgba(136,111,83,.22)!important}
+.gmBosContentsPages,.gmBosTocItemPage{font-family:GMCrimson,Georgia,serif!important;font-size:9.5pt!important;color:#76533f!important}
+/* Selected folios are marked with a little vermilion pen stroke, never an X or box. */
+.gmBosTocSelect,.gmBosTocItemSelect{width:8.5mm!important;min-width:8.5mm!important;height:7.7mm!important;min-height:7.7mm!important;display:grid!important;place-items:center!important;cursor:pointer!important}
+.gmBosTocSelect input[type=checkbox],.gmBosTocItemSelect input[type=checkbox]{appearance:none!important;-webkit-appearance:none!important;width:5mm!important;height:6mm!important;border:0!important;border-radius:0!important;background:transparent!important;box-shadow:none!important;margin:0!important;display:block!important;position:relative!important;cursor:pointer!important}
+.gmBosTocSelect input[type=checkbox]:before,.gmBosTocItemSelect input[type=checkbox]:before{content:''!important;position:absolute!important;width:.7mm!important;height:.7mm!important;left:2.1mm!important;top:2.55mm!important;border-radius:50%!important;background:#b6a38a!important}
+.gmBosTocSelect input[type=checkbox]:checked,.gmBosTocItemSelect input[type=checkbox]:checked{background:transparent!important;border:0!important;box-shadow:none!important;appearance:none!important;-webkit-appearance:none!important}
+.gmBosTocSelect input[type=checkbox]:checked:before,.gmBosTocItemSelect input[type=checkbox]:checked:before{background:transparent!important}
+.gmBosTocSelect input[type=checkbox]:checked:after,.gmBosTocItemSelect input[type=checkbox]:checked:after{content:''!important;position:absolute!important;inset:auto!important;left:1.25mm!important;top:.6mm!important;width:2.3mm!important;height:4.4mm!important;border:0!important;border-left:.52mm solid #934636!important;transform:rotate(24deg)!important;background:transparent!important;font-size:0!important;box-shadow:none!important;pointer-events:none!important}
+.gmBosTocSelect input[type=checkbox]:focus-visible,.gmBosTocItemSelect input[type=checkbox]:focus-visible{outline:.25mm solid #694837!important;outline-offset:.4mm!important}
+.gmBosChapterContentsPage .gmBosChapterHead{height:27mm!important;min-height:27mm!important}
+.gmBosChapterContentsPage .gmBosChapterHead h1{font-size:24pt!important;line-height:1.18!important}
+.gmBosChapterContentsPage .gmBosChapterRule{border-top:.35mm solid #8b674e!important;border-bottom:.12mm solid #8b674e!important;margin-top:1.2mm!important}
+.gmChapterHero{grid-template-columns:26mm minmax(0,1fr)!important;column-gap:7mm!important;min-height:58mm!important;padding:5mm 2.5mm 7mm!important;margin:4mm 1mm 0!important;border-top:.45mm double #9e7760!important;border-bottom:.45mm double #9e7760!important}
+.gmChapterHeroEmblem{width:25mm!important;min-height:43mm!important;border-right:.25mm solid #9b6b59!important;padding:0 5mm 0 0!important}
+.gmChapterHeroNo{font-family:Cinzel,Georgia,serif!important;font-weight:400!important;font-size:47pt!important;color:#924338!important;line-height:1!important}
+.gmChapterHeroEyebrow{font-family:Cinzel,Georgia,serif!important;letter-spacing:.09em!important;font-size:8pt!important;color:#904b39!important;margin:0 0 3.1mm!important}
+.gmChapterHeroCopy p{font-family:GMCrimson,Georgia,serif!important;font-size:14pt!important;line-height:1.45!important;font-style:italic!important;color:#43382b!important;max-width:122mm!important;margin:0 0 3.1mm!important}
+.gmChapterHeroMeta{font-family:GMCrimson,Georgia,serif!important;font-variant:small-caps!important;letter-spacing:.05em!important;font-size:9pt!important;color:#5d4b39!important}
+.gmChapterPathTitle{font-family:Cinzel,Georgia,serif!important;letter-spacing:.1em!important;color:#944f3d!important;font-size:9pt!important;padding:10.5mm 3mm 4mm!important;margin:0!important}
+.gmChapterOpening[data-density="roomy"] .gmChapterCardGrid{padding:0 3mm!important}
+.gmChapterOpening[data-density="roomy"] .gmChapterCard:only-child{margin-top:1mm!important;min-height:53mm!important;grid-template-columns:17mm minmax(0,1fr) 25mm!important;border-top:.35mm solid #a08364!important;border-bottom:.35mm solid #a08364!important;padding:9mm 6mm 9mm 4mm!important;gap:6mm!important}
+.gmChapterOpening[data-density="roomy"] .gmChapterCard:only-child .gmChapterCardName{font-family:GMCrimson,Georgia,serif!important;font-size:20pt!important;font-weight:600!important;line-height:1.2!important;color:#33291f!important}
+.gmChapterOpening[data-density="roomy"] .gmChapterCard:only-child .gmChapterCardName::first-letter{color:#934334!important;font-size:1.35em!important}
+.gmChapterOpening[data-density="roomy"] .gmChapterCard:only-child .gmChapterCardKind{font-family:GMCrimson,Georgia,serif!important;color:#7a5a48!important;font-size:8pt!important}
+.gmChapterOpening[data-density="roomy"] .gmChapterCard:only-child .gmChapterCardSeq{font-family:Cinzel,Georgia,serif!important;color:#8a4635!important;font-size:13pt!important}
+.gmChapterOpening[data-density="roomy"] .gmChapterCard:only-child .gmChapterCardPage{font-family:GMCrimson,Georgia,serif!important;color:#76513a!important;font-size:12pt!important}
