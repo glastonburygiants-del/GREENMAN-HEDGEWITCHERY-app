@@ -23,6 +23,6 @@ assert.notEqual(s,c,'different letters need different drawing');
 const css=fs.readFileSync('tools/bos_folio_v47.css','utf8');
 assert(css.includes('V49 illuminated initials'));
 assert(css.includes('gmV47ChapterTitleBlock .gmV47Initial{width:40mm'));
-assert(code.includes('stroke="#bd943d"'),'gold checkbox ticks remain');
-assert(code.includes('stroke="#6e2431"'),'deep-red checkbox outline remains');
+assert(code.includes('stroke="#f0ce73"'),'gold checkbox ticks remain');
+assert(code.includes('stroke="#d0a648"'),'deep-red checkbox outline remains');
 console.log('PASS V49: 26 original offline SVG initials with gilding, lapis, oxblood, verdigris and floral scrollwork');
