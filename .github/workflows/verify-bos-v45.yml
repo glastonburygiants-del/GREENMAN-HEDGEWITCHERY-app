@@ -1,0 +1,28 @@
+name: Verify Book of Shadows Manuscript V45
+on:
+  push:
+    branches: [design/bos-manuscript-v45-from-validated-v43]
+    paths:
+      - "tools/bos_manuscript_v45.css"
+      - "tools/patch_v45_bos_manuscript.py"
+      - "tests/test_v45_bos_manuscript.py"
+      - ".github/workflows/verify-bos-v45.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "tools/bos_manuscript_v45.css"
+      - "tools/patch_v45_bos_manuscript.py"
+      - "tests/test_v45_bos_manuscript.py"
+      - ".github/workflows/verify-bos-v45.yml"
+permissions:
+  contents: read
+jobs:
+  manuscript:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check visual-only patch and saved-app compatibility
+        run: |
+          python -m py_compile tools/patch_v45_bos_manuscript.py
+          python tests/test_v45_bos_manuscript.py
