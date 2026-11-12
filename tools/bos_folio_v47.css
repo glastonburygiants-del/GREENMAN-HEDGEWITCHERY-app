@@ -26,10 +26,16 @@ section.gmBosPage.gmBosV47Page .gmBosPageBody{padding:0!important;margin:0!impor
 .gmBosV47Page .gmBosTocChapterText.gmV47ChapterLink{display:block!important;min-width:0!important;padding:0!important;margin:0!important;background:none!important;border:0!important;border-radius:0!important;box-shadow:none!important;text-align:left!important;font:600 12.2pt/1.17 GMCrimson,Georgia,serif!important;color:#372d22!important;white-space:normal!important;pointer-events:auto!important;cursor:pointer!important}
 .gmBosV47Page .gmBosTocChapterTitle{font:inherit!important;color:inherit!important}
 .gmBosV47Page .gmBosContentsPages.gmV47Pages{justify-self:end!important;grid-column:auto!important;text-align:right!important;font:400 9pt/1.2 GMCrimson,Georgia,serif!important;color:#785e46!important;white-space:nowrap!important}
-.gmBosV47Page .gmBosTocItem.gmV47Item{display:grid!important;grid-template-columns:10mm minmax(0,1fr) 17mm!important;align-items:center!important;gap:2mm!important;margin:0 0 0 22mm!important;min-height:6mm!important;padding:0!important;border:0!important;border-bottom:1px solid rgba(155,126,88,.28)!important;border-radius:0!important;background:none!important}
+.gmBosV47Page .gmBosTocItem.gmV47Item{display:grid!important;grid-template-columns:minmax(0,1fr) auto!important;align-items:center!important;gap:2mm!important;margin:0 0 0 22mm!important;min-height:7.5mm!important;padding:0!important;border:0!important;border-bottom:1px solid rgba(155,126,88,.28)!important;border-radius:0!important;background:none!important}
 .gmBosV47Page .gmBosTocItemLabelBtn.gmV47ItemLink{display:block!important;min-width:0!important;margin:0!important;padding:.65mm 0!important;background:none!important;border:0!important;border-radius:0!important;box-shadow:none!important;font:italic 9.8pt/1.17 GMCrimson,Georgia,serif!important;color:#5f4b36!important;text-align:left!important;white-space:normal!important;pointer-events:auto!important;cursor:pointer!important}
 .gmBosV47Page .gmBosTocItem.spell .gmV47ItemLink{font-style:normal!important}
 .gmBosV47Page .gmBosTocItemPage.gmV47ItemPages{text-align:right!important;justify-self:end!important;grid-column:auto!important;font:400 8.5pt/1 GMCrimson,Georgia,serif!important;color:#786049!important}
+/* Chapter selection remains at the left; leaf selection sits at the right edge by folio number. */
+.gmBosV47Page .gmV50LeafFolio{display:flex!important;align-items:center!important;justify-content:flex-end!important;gap:1.4mm!important;min-width:0!important;white-space:nowrap!important}
+.gmBosV47Page .gmV50LeafFolio .gmV47ItemPages{display:block!important;min-width:0!important;width:auto!important;white-space:nowrap!important}
+.gmBosV47Page .gmV50LeafFolio .gmV50LeafTick{width:6.2mm!important;min-width:6.2mm!important;height:7mm!important;min-height:7mm!important;flex:none!important}
+.gmBosV47Page .gmV50LeafFolio .gmV50LeafTick svg{width:3.35mm!important;height:3.35mm!important}
+
 .gmBosV47Page .gmV47FixedMarker{display:block!important;width:10mm!important;text-align:center!important;color:#95724e!important;font:400 11pt/1 Georgia,serif!important}
 .gmBosV47Page .gmV47TickBox{position:relative!important;display:grid!important;place-items:center!important;width:9.5mm!important;min-width:9.5mm!important;height:8mm!important;min-height:8mm!important;margin:0!important;padding:0!important;background:none!important;border:0!important;box-shadow:none!important;cursor:pointer!important}
 .gmBosV47Page .gmV47TickBox input[type=checkbox]{position:absolute!important;inset:0!important;display:block!important;width:100%!important;height:100%!important;min-width:0!important;min-height:0!important;margin:0!important;padding:0!important;opacity:0!important;appearance:none!important;-webkit-appearance:none!important;z-index:1!important;cursor:pointer!important}
@@ -63,7 +69,7 @@ section.gmBosPage.gmBosV47Page .gmBosPageBody{padding:0!important;margin:0!impor
 .gmBosV47Page[data-density="dense"] .gmV47ChapterPrelude{min-height:13mm!important;padding:3mm 1mm!important}
 .gmBosV47Page[data-density="dense"] .gmV47Entry{min-height:6mm!important;padding:.7mm 0!important}
 .gmBosV47Page[data-density="dense"] .gmV47EntryText{font-size:7.8pt!important}
-@media print{.gmBosV47Page .gmV47ContentsFilter{display:none!important}.gmBosV47Page .gmV47TickBox{display:none!important}.gmBosV47Page .gmV47ChapterRow{grid-template-columns:10mm minmax(0,1fr) 17mm!important}.gmBosV47Page .gmV47Item{grid-template-columns:minmax(0,1fr) 17mm!important}}
+@media print{.gmBosV47Page .gmV47ContentsFilter{display:none!important}.gmBosV47Page .gmV47TickBox{display:none!important}.gmBosV47Page .gmV47ChapterRow{grid-template-columns:10mm minmax(0,1fr) 17mm!important}.gmBosV47Page .gmV47Item{grid-template-columns:minmax(0,1fr) auto!important}.gmBosV47Page .gmV50LeafFolio{gap:0!important}}
 /* V47 deep-oxblood and gilt selection: visually 3.35 mm, tap area stays 9.5 mm. */
 .gmBosV47Page .gmV47TickBox svg{width:3.35mm!important;height:3.35mm!important}
 .gmBosV47Page .gmV47TickBox input:focus-visible+svg{outline:.25mm solid #6e2431!important;outline-offset:.7mm!important}
