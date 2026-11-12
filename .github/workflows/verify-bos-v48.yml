@@ -6,6 +6,7 @@ on:
       - "tools/gm_v47_runtime.js"
       - "tools/bos_folio_v47.css"
       - "tests/test_v48_folio_wording_and_ticks.js"
+      - "tests/test_v50_folio_checkbox_placement.js"
       - ".github/workflows/verify-bos-v48.yml"
   pull_request:
     branches: [main]
@@ -13,6 +14,7 @@ on:
       - "tools/gm_v47_runtime.js"
       - "tools/bos_folio_v47.css"
       - "tests/test_v48_folio_wording_and_ticks.js"
+      - "tests/test_v50_folio_checkbox_placement.js"
 permissions:
   contents: read
 jobs:
@@ -25,4 +27,5 @@ jobs:
         run: |
           node --check tools/gm_v47_runtime.js
           node tests/test_v48_folio_wording_and_ticks.js
+          node tests/test_v50_folio_checkbox_placement.js
           python -m py_compile tools/patch_v47_folios.py
