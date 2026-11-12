@@ -1036,7 +1036,7 @@ jobs:
           assert 'data-gm-spell-group-select' in sp
           assert 'gmBosPageMatchesSelectedItem' in sp
           toc=sp[sp.index('function gmBosTocChapterHTML'):sp.index('function addContents')]
-          assert 'class="gmBosTocChapterText" data-chapter-jump' in toc
+          assert 'class="gmBosTocChapterText gmV47ChapterLink" data-chapter-jump' in toc
           assert 'gmBosTocOpenBtn" data-chapter-jump' not in toc
           assert 'data-gm-toc-item-open' in sp
           assert 'data-gm-spell-open' in sp
