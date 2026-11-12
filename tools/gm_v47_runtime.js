@@ -33,7 +33,7 @@ function addContents(){
  });
 }
 function addChapterContentsPages(){
- const chapters=CHAPTERS.filter(c=>c.id!=='index');
+ const chapters=CHAPTERS.filter(c=>c.id!=='contents');
  chapters.forEach(c=>{
  const targets=pages.filter(p=>p.dataset.chapter===c.id&&!p.classList.contains('gmBosChapterContentsPage'));
  if(!targets.length)return;
