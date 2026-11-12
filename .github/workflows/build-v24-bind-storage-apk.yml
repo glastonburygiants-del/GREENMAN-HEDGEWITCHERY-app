@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - design/bos-manuscript-v45-from-validated-v43
     paths:
       - ".github/workflows/build-v24-bind-storage-apk.yml"
       - "current-build-20260907/**"
