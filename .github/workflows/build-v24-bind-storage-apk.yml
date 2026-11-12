@@ -43,6 +43,8 @@ on:
       - "tools/patch_v41_ink_spell_selector.py"
       - "tools/patch_v42_ink_spell_final_override.py"
       - "tools/patch_v43_ink_pdf_paint_pagination.py"
+      - "tools/patch_v45_bos_manuscript.py"
+      - "tools/bos_manuscript_v45.css"
       - "tools/bos_vine_pdf_v40.css"
       - "tools/bos_scribe_a4_v40.js"
       - "tools/patch_fv3_journal_sales.py.zlib.b64"
@@ -651,6 +653,12 @@ jobs:
           mv "$WORK/current-v43-pdf-repair.html" "$WORK/current.html"
           node tools/verify_inline_scripts.js "$WORK/current.html"
           grep -Fq 'GM_INK_A4_SVG_PAINT_PAGINATION_V43' "$WORK/current.html"
+          # V45: visually retypeset only BoS Contents and chapter opening folios.
+          # The V43 PDF/vine/ceremony code and Android signing remain untouched.
+          python tools/patch_v45_bos_manuscript.py "$WORK/current.html" "$WORK/current-v45-manuscript.html"
+          mv "$WORK/current-v45-manuscript.html" "$WORK/current.html"
+          node tools/verify_inline_scripts.js "$WORK/current.html"
+          grep -Fq 'gm-bos-compositor-folio-v45' "$WORK/current.html"
 
           echo "WORK=$WORK" >> "$GITHUB_ENV"
 
@@ -914,6 +922,7 @@ jobs:
           grep -Fq 'GM_INK_SPELL_SELECTOR_RESTORE_V41' "$WORK/final-index.html"
           grep -Fq 'GM_INK_PRINT_SPELL_FINAL_OVERRIDE_V42' "$WORK/final-index.html"
           grep -Fq 'GM_INK_A4_SVG_PAINT_PAGINATION_V43' "$WORK/final-index.html"
+          grep -Fq 'gm-bos-compositor-folio-v45' "$WORK/final-index.html"
           grep -Fq 'gm-fv3-tablet-proportions' "$WORK/final-index.html"
           grep -Fq 'gmFv3ApplyTabletRatio' "$WORK/final-index.html"
           grep -Fq 'FV3 HOME' "$WORK/final-index.html"
