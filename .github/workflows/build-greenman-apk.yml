@@ -3,9 +3,22 @@ name: Build Greenman APK
 
 on:
   workflow_dispatch:
+  # Only test the legacy ZIP-based app when its own source changes.
+  # The V28 current build and BoS UI changes use a separate verified workflow.
   pull_request:
     branches:
       - main
+    paths:
+      - "GREENMAN_HEDGEWITCHERY_ANDROID_PROJECT_GATHER_FIXED*.zip"
+      - "tools/patch_supply_room.py"
+      - "tools/patch_customer_print.py"
+      - "tools/patch_lite_print_android.py"
+      - "tools/patch_android_print_lifecycle.py"
+      - "tools/validate_greenman.py"
+      - "tools/verify_database_unchanged.py"
+      - "tools/apply_oak_king_icon.py"
+      - "tools/oak_king_icon_source.part*.b64"
+      - "tools/greenman_debug_keystore.b64"
   push:
     branches:
       - main
@@ -24,7 +37,6 @@ on:
       - "tools/apply_oak_king_icon.py"
       - "tools/oak_king_icon_source.part*.b64"
       - "tools/greenman_debug_keystore.b64"
-      - ".github/workflows/build-greenman-apk.yml"
 
 permissions:
   contents: read

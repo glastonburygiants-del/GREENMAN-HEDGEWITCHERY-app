@@ -1,0 +1,44 @@
+/* V40 Scribe Ink Pot PDF: keep live spell artwork unchanged.
+   The native PDF WebView may scale SVG widths as viewBox units when
+   vector-effect:non-scaling-stroke is ignored; that turns the vine to blobs.
+   For the A4 capture only, define proportional widths in SVG user units.
+   SVG 100-wide paths display at ~794px in the A4 output. */
+.gmBosPrintSheet .gmStoryVine .vine-shadow{
+  vector-effect:none!important;stroke-width:1.05!important
+}
+.gmBosPrintSheet .gmStoryVine .vine-stem{
+  vector-effect:none!important;stroke-width:.72!important
+}
+.gmBosPrintSheet .gmStoryVine .vine-bark{
+  vector-effect:none!important;stroke-width:.16!important;
+  stroke-dasharray:.35 .72!important
+}
+.gmBosPrintSheet .gmStoryVine .vine-highlight{
+  vector-effect:none!important;stroke-width:.11!important
+}
+.gmBosPrintSheet .gmStoryVine .vine-leaf{
+  vector-effect:none!important;stroke-width:.055!important
+}
+.gmBosPrintSheet .gmStoryVine .vine-vein{
+  vector-effect:none!important;stroke-width:.04!important
+}
+.gmBosPrintSheet .gmStoryVine .vine-tendril{
+  vector-effect:none!important;stroke-width:.18!important
+}
+.gmBosPrintSheet .gmStoryVine .vine-arrow{
+  vector-effect:none!important;stroke-width:.065!important
+}
+.gmBosPrintSheet .gmTagBranch .branch-shadow{
+  vector-effect:none!important;stroke-width:.55!important
+}
+.gmBosPrintSheet .gmTagBranch .branch-stem{
+  vector-effect:none!important;stroke-width:.37!important
+}
+.gmBosPrintSheet .gmTagBranch .branch-leaf{
+  vector-effect:none!important;stroke-width:.055!important
+}
+/* No artificial shadows inside the PDF rasterizer. Keep the original art. */
+.gmBosPrintSheet .gmStoryVine,
+.gmBosPrintSheet .gmStoryVine .vine-arrow{
+  filter:none!important
+}
