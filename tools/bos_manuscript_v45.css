@@ -69,3 +69,14 @@
 .gmChapterOpening[data-density="dense"] .gmChapterCardName,.gmChapterOpening[data-density="compact"] .gmChapterCardName{font-size:8.5pt!important}
 .gmChapterOpening[data-density="dense"] .gmChapterCardKind,.gmChapterOpening[data-density="compact"] .gmChapterCardKind{font-size:5.2pt!important}
 @media print{.gmBosContentsActions{display:none!important}.gmBosTocSelect,.gmBosTocItemSelect{display:none!important}.gmBosTocChapterHead{grid-template-columns:minmax(0,1fr) 21mm!important}.gmBosTocItem{grid-template-columns:minmax(0,1fr) 21mm!important;margin-left:21mm!important}.gmBosTocChapterText,.gmBosTocItemLabelBtn{pointer-events:none!important}.gmBosTocFixedMark{display:none!important}}
+
+/* Higher-count registers use tighter editorial columns rather than clipping. */
+.gmChapterOpening[data-density="compact"] .gmChapterCardGrid{grid-template-columns:repeat(3,minmax(0,1fr))!important;column-gap:2.5mm!important;grid-auto-rows:minmax(9mm,auto)!important}
+.gmChapterOpening[data-density="dense"] .gmChapterCardGrid{grid-template-columns:repeat(4,minmax(0,1fr))!important;column-gap:2mm!important;grid-auto-rows:minmax(7.5mm,auto)!important}
+.gmChapterOpening[data-density="compact"] .gmChapterCard,.gmChapterOpening[data-density="dense"] .gmChapterCard{grid-template-columns:8mm minmax(0,1fr) 8mm!important;grid-template-rows:minmax(7.5mm,auto)!important;gap:.65mm!important;padding:.75mm .35mm!important}
+.gmChapterOpening[data-density="compact"] .gmChapterCardName{font-size:7.9pt!important;line-height:1.13!important}
+.gmChapterOpening[data-density="dense"] .gmChapterCardName{font-size:7.2pt!important;line-height:1.08!important}
+.gmChapterOpening[data-density="dense"] .gmChapterCardKind{display:none!important}
+.gmChapterOpening[data-density="compact"] .gmChapterCardKind{font-size:4.7pt!important}
+.gmChapterOpening[data-density="compact"] .gmChapterCardSeq,.gmChapterOpening[data-density="dense"] .gmChapterCardSeq{font-size:7.5pt!important}
+.gmChapterOpening[data-density="compact"] .gmChapterCardPage,.gmChapterOpening[data-density="dense"] .gmChapterCardPage{font-size:7pt!important}
