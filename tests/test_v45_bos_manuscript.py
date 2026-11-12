@@ -10,6 +10,9 @@ assert "gmBosContentsActions" in css
 assert "gmBosTocItemLabelBtn" in css
 assert "gmChapterCard:only-child" in css
 assert "gmBosTocSelect input[type=checkbox]" in css
+assert "content:'×'" not in css, "Brown X button must not return"
+assert "rubricated pen-ticks" in css
+assert "background:transparent!important;border-color:#8d493c" in css
 assert "url(" not in css.lower() and "@import" not in css.lower()
 assert "gm-bos-compositor-folio-v45" not in css
 markup=('<html><head><style id="gm-bos-manuscript-v39"></style></head>'
