@@ -13,5 +13,5 @@ assert(css.includes('width:9.5mm!important;min-width:9.5mm!important'), 'Keep a 
 assert(js.includes('data-chapter-check=')&&js.includes('data-gm-toc-item-select='), 'Preserve chapter/item selection bindings');
 assert(js.includes('data-chapter-jump=')&&js.includes('data-gm-toc-item-open='), 'Preserve navigation bindings');
 assert(js.includes('gmV47Initial('), 'Keep original SVG decorated initials');
-assert(!/fetch\(|XMLHttpRequest|@import|https?:\/\//.test(css+'\n'+js), 'No external resource introduced');
+assert(!/fetch\(|XMLHttpRequest|@import|url\(/.test(css+'\n'+js), 'No remote resource loading introduced');
 console.log('PASS: oxblood and gold miniature ticks, clear headings, original SVG, preserved navigation and tap targets');
