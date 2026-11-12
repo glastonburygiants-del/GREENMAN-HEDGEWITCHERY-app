@@ -16,7 +16,7 @@ for(const ch of letters){
   assert(svg.includes(pigment),'missing manuscript pigment '+pigment+' in '+ch);
  }
  assert(!/<text[\s>]/.test(svg),'SVG must use original paths, not font glyphs');
- assert(!/https?:|<image|foreignObject|<script|data:image|onload=/i.test(svg),'no remote or scripted image');
+ assert(!/https?:|<image|foreignObject|<script|data:image|onload=/i.test(svg.replace('xmlns="http://www.w3.org/2000/svg"','')),'no remote or scripted image');
 }
 const s=make('S'),c=make('C');
 assert.notEqual(s,c,'different letters need different drawing');
