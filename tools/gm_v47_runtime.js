@@ -43,7 +43,7 @@ function gmV47Initial(letter){
  +'</svg>';
 }
 function gmV47VineRule(){return '<svg class="gmV47VineRule" viewBox="0 0 720 27" preserveAspectRatio="none" aria-hidden="true" xmlns="http://www.w3.org/2000/svg"><path d="M0 14 H328 Q350 14 358 5 Q365 0 371 7 Q378 14 360 14 Q343 14 353 22 Q361 28 371 20 Q383 14 397 14 H720" fill="none" stroke="#9a754d" stroke-width="1.3"/><path d="M339 14 C329 5 322 4 318 2 C318 12 328 17 339 14 Z M379 14 C388 5 397 4 402 2 C400 13 390 16 379 14 Z" fill="#64734e" stroke="#3e5a45" stroke-width="1"/><circle cx="361" cy="14" r="2.3" fill="#943d33"/></svg>'}
-function gmV47Tick(input){return '<label class="gmBosTocSelect gmV47TickBox">'+input+'<svg viewBox="0 0 24 24" focusable="false" aria-hidden="true"><rect x="2.5" y="2.5" width="19" height="19" rx="0.4" fill="none" stroke="#6e2431" stroke-width="1.7"/><path d="M4.5 11.5 L9.5 16.7 L19.6 5.8" fill="none" stroke="#bd943d" stroke-width="2.9" stroke-linecap="round" stroke-linejoin="round"/></svg></label>'}
+function gmV47Tick(input){return '<label class="gmBosTocSelect gmV47TickBox">'+input+'<svg viewBox="0 0 24 24" focusable="false" aria-hidden="true"><rect x="2.5" y="2.5" width="19" height="19" rx="0.4" fill="#632238" stroke="#d0a648" stroke-width="2"/><path d="M4.5 11.5 L9.5 16.7 L19.6 5.8" fill="none" stroke="#f0ce73" stroke-width="2.9" stroke-linecap="round" stroke-linejoin="round"/></svg></label>'}
 function gmBosTocItemHTML(it){
  let attrs='',cls='',key=gmBosTocItemKey(it);
  if(it.kind==='spell'){cls=' spell';attrs=' data-gm-spell-page-ref="'+esc(it.chapter)+'" data-gm-spell-id="'+esc(it.id||'')+'" data-gm-spell-key="'+esc(it.key||'')+'"'}
