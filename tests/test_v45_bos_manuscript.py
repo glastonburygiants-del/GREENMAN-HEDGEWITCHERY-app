@@ -12,6 +12,9 @@ assert "gmChapterCard:only-child" in css
 assert "gmBosTocSelect input[type=checkbox]" in css
 assert "content:'×'" not in css, "Brown X button must not return"
 assert "rubricated pen-ticks" in css
+assert "V46: manuscript composition" in css
+assert "input[type=checkbox]:checked{background:transparent" in css
+assert "border-left:.52mm solid #934636" in css
 assert "background:transparent!important;border-color:#8d493c" in css
 assert "url(" not in css.lower() and "@import" not in css.lower()
 assert "gm-bos-compositor-folio-v45" not in css
