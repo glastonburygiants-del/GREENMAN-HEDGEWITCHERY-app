@@ -6,8 +6,8 @@ assert(!js.includes('Liber umbrarum'), 'Remove invented Latin Contents heading')
 assert(!js.includes('Chapter the second'), 'Remove faux archaic chapter ordinal');
 assert(js.includes('Chapter '+String.raw`'+esc(c.num)+'`), 'Retain a plain numbered chapter caption');
 assert(js.includes('<h1 class="gmV47TitleText">Contents</h1>'), 'Contents is primary heading');
-assert(js.includes('stroke="#6e2431"'), 'Checkbox outline must be deep red');
-assert(js.includes('stroke="#bd943d"'), 'Checkbox tick must be gold');
+assert(js.includes('stroke="#d0a648"'), 'Checkbox outline must be deep red');
+assert(js.includes('stroke="#f0ce73"'), 'Checkbox tick must be gold');
 assert(css.includes('width:3.35mm!important;height:3.35mm!important'), 'Tick artwork must be small');
 assert(css.includes('width:9.5mm!important;min-width:9.5mm!important'), 'Keep a usable tap area');
 assert(js.includes('data-chapter-check=')&&js.includes('data-gm-toc-item-select='), 'Preserve chapter/item selection bindings');
