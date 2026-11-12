@@ -51,7 +51,8 @@ function gmBosTocItemHTML(it){
  else if(it.kind==='ref'){cls=' reference';attrs=' data-gm-toc-ref-range="'+esc(it.chapter)+'"'}
  else if(it.kind==='range'){cls=' reference';attrs=' data-gm-toc-range-chapter="'+esc(it.chapter)+'"'}
  else if(it.kind==='title'){cls=' reference';attrs=' data-gm-toc-title-ref="'+esc(it.title||it.label)+'" data-gm-toc-title-chapter="'+esc(it.chapter)+'"'}
- return '<div class="gmBosTocItem gmV47Item'+cls+'" data-gm-toc-item-row="'+esc(key)+'">'+gmV47Tick('<input type="checkbox" aria-label="Include '+esc(it.label)+'" data-gm-toc-item-select="'+esc(key)+'" '+(gmBosItemSelected(it)?'checked':'')+'>').replace('gmBosTocSelect gmV47TickBox','gmBosTocItemSelect gmV47TickBox')+'<button type="button" class="gmBosTocItemLabelBtn gmV47ItemLink" data-gm-toc-item-open="'+esc(key)+'">'+esc(it.label)+'</button><span class="gmBosTocItemPage gmV47ItemPages"'+attrs+'>—</span></div>';
+ const leafTick=gmV47Tick('<input type="checkbox" aria-label="Include '+esc(it.label)+'" data-gm-toc-item-select="'+esc(key)+'" '+(gmBosItemSelected(it)?'checked':'')+'>').replace('gmBosTocSelect gmV47TickBox','gmBosTocItemSelect gmV47TickBox gmV50LeafTick');
+ return '<div class="gmBosTocItem gmV47Item gmV50LeafRow'+cls+'" data-gm-toc-item-row="'+esc(key)+'"><button type="button" class="gmBosTocItemLabelBtn gmV47ItemLink" data-gm-toc-item-open="'+esc(key)+'">'+esc(it.label)+'</button><span class="gmV50LeafFolio"><span class="gmBosTocItemPage gmV47ItemPages"'+attrs+'>—</span>'+leafTick+'</span></div>';
 }
 function gmBosTocChapterHTML(block){
  const c=block.chapter,fixed=c.id==='contents',cont=block.continued?' gmBosTocContinuation':'';
