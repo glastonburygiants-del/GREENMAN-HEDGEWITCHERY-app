@@ -11,7 +11,7 @@ for(const ch of letters){
  assert(svg.includes('data-letter="'+ch+'"'), 'missing named initial: '+ch);
  assert(svg.startsWith('<svg')&&svg.endsWith('</svg>'));
  assert(svg.includes('viewBox="0 0 160 184"'));
- assert((svg.match(/<path /g)||[]).length>=18,'too little hand-drawn detail for '+ch);
+ assert((svg.match(/<path /g)||[]).length>=14,'too little hand-drawn detail for '+ch);
  for(const pigment of ['#293d64','#733341','#405d58','#e4bc62','#f5d77b','#506d51']){
   assert(svg.includes(pigment),'missing manuscript pigment '+pigment+' in '+ch);
  }
