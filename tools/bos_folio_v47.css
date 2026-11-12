@@ -68,3 +68,13 @@ section.gmBosPage.gmBosV47Page .gmBosPageBody{padding:0!important;margin:0!impor
 .gmBosV47Page .gmV47TickBox svg{width:3.35mm!important;height:3.35mm!important}
 .gmBosV47Page .gmV47TickBox input:focus-visible+svg{outline:.25mm solid #6e2431!important;outline-offset:.7mm!important}
 .gmBosV47Page .gmV47MainTitle:not(:has(.gmV47Kicker)) .gmV47TitleText{margin-top:0!important}
+
+
+/* V49 illuminated initials: allow real painted ornament enough space.
+   Keep the chapter name larger than its individual book entries. */
+.gmBosV47Page .gmV47Opener{grid-template-columns:29mm minmax(0,1fr)!important;gap:5mm!important;min-height:44mm!important}
+.gmBosV47Page .gmV47Opener .gmV47Initial{width:28mm!important;height:39mm!important;filter:none!important}
+.gmBosV47Page .gmV47ChapterTitleBlock{grid-template-columns:43mm minmax(0,1fr)!important;column-gap:6mm!important;min-height:78mm!important}
+.gmBosV47Page .gmV47ChapterTitleBlock .gmV47Initial{width:40mm!important;height:58mm!important;filter:none!important}
+.gmBosV47Page .gmV47ChapterTitleBlock .gmV47TitleText{font-size:25pt!important;line-height:1.12!important;overflow-wrap:normal!important}
+.gmBosV47Page .gmV49Illuminated{background:transparent!important;box-shadow:none!important;isolation:isolate!important}
