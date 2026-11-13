@@ -58,8 +58,8 @@ jobs:
           import re,sys
           from pathlib import Path
           s=Path('.github/workflows/build-v24-bind-storage-apk.yml').read_text()
-          a=re.search(r'--ks-pass pass:(\S+)',s)
-          b=re.search(r'--key-pass pass:(\S+)',s)
+          a=re.search('--ks-pass pass:([^ ]+)',s)
+          b=re.search('--key-pass pass:([^ ]+)',s)
           assert a and b and a.group(1)==b.group(1)
           p=Path(sys.argv[1]);p.write_text(a.group(1));p.chmod(0o600)
           PY
