@@ -46,6 +46,10 @@ on:
       - "tools/patch_v47_folios.py"
       - "tools/gm_v47_runtime.js"
       - "tools/bos_folio_v47.css"
+      - "tools/patch_v51_contents_and_letters.py"
+      - "tools/gm_v51_runtime.js"
+      - "tools/bos_folio_v51.css"
+      - "tools/scribe_letters_chapter.html"
       - "tools/bos_vine_pdf_v40.css"
       - "tools/bos_scribe_a4_v40.js"
       - "tools/patch_fv3_journal_sales.py.zlib.b64"
@@ -661,6 +665,14 @@ jobs:
           node tools/verify_inline_scripts.js "$WORK/current.html"
           grep -Fq 'gm-bos-folio-v47-clean' "$WORK/current.html"
           grep -Fq 'function gmV47Initial(' "$WORK/current.html"
+          # V51: the approved Contents opener, optional boxed magical name,
+          # and the complete Scribe's Letters reference chapter.
+          python tools/patch_v51_contents_and_letters.py "$WORK/current.html" "$WORK/current-v51-contents-letters.html"
+          mv "$WORK/current-v51-contents-letters.html" "$WORK/current.html"
+          node tools/verify_inline_scripts.js "$WORK/current.html"
+          grep -Fq 'gm-bos-folio-v51-contents-letters' "$WORK/current.html"
+          grep -Fq "title:'The Scribe’s Letters'" "$WORK/current.html"
+          grep -Fq 'function gmV51AddScribeLettersPages()' "$WORK/current.html"
 
           echo "WORK=$WORK" >> "$GITHUB_ENV"
 
@@ -925,6 +937,7 @@ jobs:
           grep -Fq 'GM_INK_PRINT_SPELL_FINAL_OVERRIDE_V42' "$WORK/final-index.html"
           grep -Fq 'GM_INK_A4_SVG_PAINT_PAGINATION_V43' "$WORK/final-index.html"
           grep -Fq 'gm-bos-folio-v47-clean' "$WORK/final-index.html"
+          grep -Fq 'gm-bos-folio-v51-contents-letters' "$WORK/final-index.html"
           grep -Fq 'gm-fv3-tablet-proportions' "$WORK/final-index.html"
           grep -Fq 'gmFv3ApplyTabletRatio' "$WORK/final-index.html"
           grep -Fq 'FV3 HOME' "$WORK/final-index.html"
@@ -1030,7 +1043,7 @@ jobs:
           assert 'gm-bos-contents-touch-v2735' in sp
           assert 'FV 2.7.36 SELECT EVERYTHING' in sp
           assert 'gm-bos-select-everything-v2736' in sp
-          assert "gmBosTocPackSections(gmBosTocSections(),18)" in sp
+          assert "gmBosTocPackSections(gmBosTocSections(),15)" in sp
           assert 'gm_scribe_bos_selected_items_v1' in sp
           assert 'data-gm-toc-item-select' in sp
           assert 'data-gm-spell-group-select' in sp
