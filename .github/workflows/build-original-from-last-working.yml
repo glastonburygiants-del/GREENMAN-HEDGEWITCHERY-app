@@ -1,0 +1,106 @@
+name: Build Original Greenman from Last Working APK
+on:
+  push:
+    branches: [main]
+    paths: [.github/workflows/build-original-from-last-working.yml]
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  build-original:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Retrieve the last working original app
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          WORK="$RUNNER_TEMP/greenman-original"
+          mkdir -p "$WORK/input"
+          echo "WORK=$WORK" >> "$GITHUB_ENV"
+          gh run download 43150643085 --repo "$GITHUB_REPOSITORY" --name GREENMAN-HEDGEWITCHERY-APOTHECARY-FV3-APK-run209 --dir "$WORK/input"
+          SOURCE="$WORK/input/GREENMAN_HEDGEWITCHERY_APOTHECARY_FV3_run209.apk"
+          test -f "$SOURCE"
+          echo "SOURCE=$SOURCE" >> "$GITHUB_ENV"
+          echo "9ec7e3eb3dbdbaeb5a00509801baaaf48a763a60d00d553f3542d08801e0551e  $SOURCE" | sha256sum -c -
+      - name: Apply the approved Contents and chapter changes
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fsSL -o "$WORK/apktool.jar" https://github.com/iBotPeaches/Apktool/releases/download/v2.11.1/apktool_2.11.1.jar
+          java -jar "$WORK/apktool.jar" d -f -s "$SOURCE" -o "$WORK/decoded"
+          python tools/patch_v51_contents_and_letters.py "$WORK/decoded/assets/index.html" "$WORK/current-v51.html"
+          mv "$WORK/current-v51.html" "$WORK/decoded/assets/index.html"
+          grep -Fq 'gm-bos-folio-v51-contents-letters' "$WORK/decoded/assets/index.html"
+          grep -Fq 'function gmV51AddScribeLettersPages()' "$WORK/decoded/assets/index.html"
+          grep -Fq "title:'The Scribe’s Letters'" "$WORK/decoded/assets/index.html"
+          sed -i 's/versionCode: 73/versionCode: 77/' "$WORK/decoded/apktool.yml"
+          grep -Fq 'versionCode: 77' "$WORK/decoded/apktool.yml"
+          sed -i 's/versionName: .*/versionName: FV3.5.3/' "$WORK/decoded/apktool.yml"
+          test "$(grep -o 'package="com.greenman.hedgewitchery"' "$WORK/decoded/AndroidManifest.xml" | wc -l)" -eq 1
+      - name: Build and sign as the original app
+        shell: bash
+        run: |
+          set -euo pipefail
+          java -jar "$WORK/apktool.jar" b "$WORK/decoded" -o "$WORK/unsigned.apk"
+          python tools/force_resources_arsc_stored.py "$WORK/unsigned.apk"
+          BT="$ANDROID_HOME/build-tools/35.0.0"
+          "$BT/zipalign" -p -f 4 "$WORK/unsigned.apk" "$WORK/aligned.apk"
+          python - "$WORK/pass.txt" <<'PY'
+          import re,sys
+          from pathlib import Path
+          s=Path('.github/workflows/build-v24-bind-storage-apk.yml').read_text()
+          a=re.search(r'--ks-pass pass:([^\\s]+)',s)
+          b=re.search(r'--key-pass pass:([^\\s]+)',s)
+          assert a and b and a.group(1)==b.group(1)
+          p=Path(sys.argv[1]);p.write_text(a.group(1)+'\\n');p.chmod(0o600)
+          PY
+          cp "$WORK/pass.txt" "$WORK/key-pass.txt"
+          base64 --decode tools/greenman_release_keystore.b64 > "$WORK/release.keystore"
+          chmod 600 "$WORK/release.keystore"
+          "$BT/apksigner" sign --ks "$WORK/release.keystore" --ks-key-alias greenmanrelease2026 --ks-pass "file:$WORK/pass.txt" --key-pass "file:$WORK/key-pass.txt" --out "$WORK/GREENMAN_HEDGEWITCHERY_APOTHECARY_FV3.apk" "$WORK/aligned.apk"
+      - name: Verify original identity and applied pages
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK="$WORK/GREENMAN_HEDGEWITCHERY_APOTHECARY_FV3.apk"
+          BT="$ANDROID_HOME/build-tools/35.0.0"
+          "$BT/apksigner" verify --verbose --print-certs "$APK" | tee "$WORK/apksigner.txt"
+          grep -Fq 'certificate SHA-256 digest: 3ffb1aea27cf9c3ec0ff8a0e6242e1f0118dd4869bfd0430ecdd9fdbba5f460e' "$WORK/apksigner.txt"
+          "$BT/zipalign" -c -v 4 "$APK" >/dev/null
+          "$BT/aapt" dump badging "$APK" | tee "$WORK/badging.txt"
+          grep -Fq "package: name='com.greenman.hedgewitchery'" "$WORK/badging.txt"
+          grep -Fq "versionCode='77'" "$WORK/badging.txt"
+          python - "$SOURCE" "$APK" <<'PY'
+          import hashlib,sys,zipfile
+          with zipfile.ZipFile(sys.argv[1]) as old,zipfile.ZipFile(sys.argv[2]) as new:
+            assert old.testzip() is None and new.testzip() is None
+            for name in ('assets/greenman_bower.html','assets/greenman_scribe.html','assets/greenman_treehouse.html','classes.dex','classes2.dex','classes3.dex'):
+              assert hashlib.sha256(old.read(name)).digest()==hashlib.sha256(new.read(name)).digest(),name
+            index=new.read('assets/index.html').decode('utf-8')
+            assert 'gm-bos-folio-v51-contents-letters' in index
+            assert 'title:\'The Scribe’s Letters\'' in index
+            assert 'function gmV51AddScribeLettersPages()' in index
+            assert new.getinfo('resources.arsc').compress_type==zipfile.ZIP_STORED
+          print('Original app package and native shell preserved; approved Contents and Scribe’s Letters chapter applied.')
+          PY
+          sha256sum "$APK" | tee "$WORK/final-apk-sha256.txt"
+      - name: Upload original app APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: GREENMAN-HEDGEWITCHERY-APOTHECARY-FV3-LAST-WORKING-BASE
+          path: |
+            ${{ runner.temp }}/greenman-original/GREENMAN_HEDGEWITCHERY_APOTHECARY_FV3.apk
+            ${{ runner.temp }}/greenman-original/apksigner.txt
+            ${{ runner.temp }}/greenman-original/badging.txt
+            ${{ runner.temp }}/greenman-original/final-apk-sha256.txt
+          if-no-files-found: error
+          retention-days: 30
