@@ -812,7 +812,7 @@ jobs:
           # keystore - they match exactly, so this was never a signature
           # conflict. Bumping versionCode so this and future builds can
           # actually update the device's existing install.
-          sed -i 's/versionCode: 30/versionCode: 74/' "$WORK/decoded/apktool.yml"
+          sed -i 's/versionCode: 30/versionCode: 75/' "$WORK/decoded/apktool.yml"
           sed -i 's/versionName: .*/versionName: FV3.5.3/' "$WORK/decoded/apktool.yml"
 
           if grep -Fq 'ScribePdfService' "$WORK/decoded/AndroidManifest.xml"; then exit 1; fi
@@ -861,22 +861,19 @@ jobs:
 
           mkdir -p "$HOME/.android"
 
-          # Real-device report: the debug-signed APK was consistently
-          # flagged "Harmful app blocked" by Google Play Protect, unrelated
-          # to any code content (identical issues persisted after fixing
-          # the missing permission, the blocked PayPal redirect, and the
-          # stuck version number). Play Protect's reputation scoring is
-          # partly tied to the specific signing certificate's own history;
-          # switching to a freshly generated certificate with no prior
-          # history removes that factor. This is a genuinely different
-          # signing identity from the old debug keystore, so any device
-          # with an old-signed copy still installed must uninstall it
-          # first - there is no way to "update" across a certificate
-          # change, by Android design.
-          base64 --decode tools/greenman_release_keystore.b64 > "$HOME/.android/release.keystore"
-          chmod 600 "$HOME/.android/release.keystore"
+          # Reuse the stable original debug signing key so existing Greenman installs
+          # can update in place without losing local Book of Shadows data.
+          base64 --decode tools/greenman_debug_keystore.b64 > "$HOME/.android/debug.keystore"
+          chmod 600 "$HOME/.android/debug.keystore"
+          keytool -list -keystore "$HOME/.android/debug.keystore" -storepass android -alias androiddebugkey >/dev/null
 
-          "$BT/apksigner" sign             --ks "$HOME/.android/release.keystore"             --ks-key-alias greenmanrelease2026             --ks-pass pass:greenmanhedgewitchery2026             --key-pass pass:greenmanhedgewitchery2026             --out "$RUNNER_TEMP/GREENMAN_HEDGEWITCHERY_APOTHECARY_FV3.apk"             "$WORK/aligned.apk"
+          "$BT/apksigner" sign \\
+            --ks "$HOME/.android/debug.keystore" \\
+            --ks-key-alias androiddebugkey \\
+            --ks-pass pass:android \\
+            --key-pass pass:android \\
+            --out "$RUNNER_TEMP/GREENMAN_HEDGEWITCHERY_APOTHECARY_FV3.apk" \\
+            "$WORK/aligned.apk"
 
       - name: Verify V28-base APK
         shell: bash
@@ -886,6 +883,7 @@ jobs:
           BT="$ANDROID_HOME/build-tools/35.0.0"
 
           "$BT/apksigner" verify --verbose --print-certs "$APK" | tee "$WORK/apksigner.txt"
+          grep -Fq "Signer #1 certificate SHA-256 digest: bd22a5c3ff7335237a0e725032816eb563d2e350789e6e555369b0fe32e0c19e" "$WORK/apksigner.txt"
           "$BT/zipalign" -c -v 4 "$APK" >/dev/null
           "$BT/aapt" dump badging "$APK" | tee "$WORK/badging.txt"
 
@@ -902,7 +900,7 @@ jobs:
           print('resources.arsc confirmed stored uncompressed')
           PY
 
-          grep -q "package: name='com.greenman.hedgewitchery' versionCode='74'" "$WORK/badging.txt"
+          grep -q "package: name='com.greenman.hedgewitchery' versionCode='75'" "$WORK/badging.txt"
           grep -q "versionName='FV3.5.3'" "$WORK/badging.txt"
           grep -q "uses-permission: name='android.permission.INTERNET'" "$WORK/badging.txt"
           unzip -p "$APK" assets/index.html > "$WORK/final-index.html"
