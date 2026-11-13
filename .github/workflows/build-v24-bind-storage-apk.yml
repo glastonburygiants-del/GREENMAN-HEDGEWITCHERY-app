@@ -867,12 +867,12 @@ jobs:
           chmod 600 "$HOME/.android/debug.keystore"
           keytool -list -keystore "$HOME/.android/debug.keystore" -storepass android -alias androiddebugkey >/dev/null
 
-          "$BT/apksigner" sign \\
-            --ks "$HOME/.android/debug.keystore" \\
-            --ks-key-alias androiddebugkey \\
-            --ks-pass pass:android \\
-            --key-pass pass:android \\
-            --out "$RUNNER_TEMP/GREENMAN_HEDGEWITCHERY_APOTHECARY_FV3.apk" \\
+          "$BT/apksigner" sign \
+            --ks "$HOME/.android/debug.keystore" \
+            --ks-key-alias androiddebugkey \
+            --ks-pass pass:android \
+            --key-pass pass:android \
+            --out "$RUNNER_TEMP/GREENMAN_HEDGEWITCHERY_APOTHECARY_FV3.apk" \
             "$WORK/aligned.apk"
 
       - name: Verify V28-base APK
