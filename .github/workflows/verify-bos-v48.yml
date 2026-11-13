@@ -1,0 +1,31 @@
+name: Verify V48 Contents Wording and Tiny Gold Ticks
+on:
+  push:
+    branches: [design/bos-folio-v47-clean-v43]
+    paths:
+      - "tools/gm_v47_runtime.js"
+      - "tools/bos_folio_v47.css"
+      - "tests/test_v48_folio_wording_and_ticks.js"
+      - "tests/test_v50_folio_checkbox_placement.js"
+      - ".github/workflows/verify-bos-v48.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "tools/gm_v47_runtime.js"
+      - "tools/bos_folio_v47.css"
+      - "tests/test_v48_folio_wording_and_ticks.js"
+      - "tests/test_v50_folio_checkbox_placement.js"
+permissions:
+  contents: read
+jobs:
+  folio:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check selection, headings and safe source
+        run: |
+          node --check tools/gm_v47_runtime.js
+          node tests/test_v48_folio_wording_and_ticks.js
+          node tests/test_v50_folio_checkbox_placement.js
+          python -m py_compile tools/patch_v47_folios.py

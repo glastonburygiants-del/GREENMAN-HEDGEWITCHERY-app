@@ -1,0 +1,29 @@
+name: Inspect Book of Shadows V38 Chapter Renderer
+on:
+  push:
+    branches: [design/bos-manuscript-v39-safe]
+    paths: [.github/workflows/inspect-v38-chapter-renderer.yml]
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Print V38 renderer and CSS selectors
+        run: |
+          python - <<'PY'
+          import re,base64,zlib
+          from pathlib import Path
+          s=zlib.decompress(base64.b64decode(Path('tools/patch_v38_chapter_openers_one_page.py.zlib.b64').read_text().strip())).decode()
+          for label in ('HELPER_AND_FUNC','CSS'):
+            pattern=label+"=r'''"
+            a=s.index(pattern)+len(pattern)
+            b=s.index("'''",a)
+            part=s[a:b]
+            if label=='CSS':
+              part=part[:3300]
+            print('=== START',label,len(part),'===')
+            print(part)
+            print('=== END',label,'===')
+          PY

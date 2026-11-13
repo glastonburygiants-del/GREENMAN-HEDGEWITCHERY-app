@@ -1,0 +1,33 @@
+name: Verify BoS V39 Manuscript Safety
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "tools/bos_manuscript_v39.css"
+      - "tools/patch_v39_bos_manuscript.py"
+      - "tests/test_v39_bos_manuscript.py"
+      - ".github/workflows/verify-bos-manuscript-v39.yml"
+  push:
+    branches: [design/bos-manuscript-v39-safe]
+    paths:
+      - "tools/bos_manuscript_v39.css"
+      - "tools/patch_v39_bos_manuscript.py"
+      - "tests/test_v39_bos_manuscript.py"
+      - ".github/workflows/verify-bos-manuscript-v39.yml"
+permissions:
+  contents: read
+jobs:
+  safety:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compile and test Scribe-only manuscript patch
+        run: |
+          python -m py_compile tools/patch_v39_bos_manuscript.py
+          python tests/test_v39_bos_manuscript.py
+      - name: Verify no APK signing or shell code was added
+        run: |
+          test -f tools/patch_v39_bos_manuscript.py
+          test -f tools/bos_manuscript_v39.css
+          ! grep -Ei 'keystore|apksigner|android\.permission|localStorage\.' tools/patch_v39_bos_manuscript.py tools/bos_manuscript_v39.css | grep -v '^.*#'

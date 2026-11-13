@@ -1,0 +1,52 @@
+name: Validate and Render V49 Illuminated Initials
+on:
+  push:
+    branches: [design/bos-folio-v47-clean-v43]
+    paths:
+      - "tools/gm_v47_runtime.js"
+      - "tools/bos_folio_v47.css"
+      - "tools/render_v49_initials.js"
+      - "tests/test_v49_illuminated_initials.js"
+      - ".github/workflows/verify-bos-v49-illumination.yml"
+permissions:
+  contents: read
+jobs:
+  validate-art:
+    runs-on: ubuntu-latest
+    timeout-minutes: 7
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate drawn initials and CSS
+        run: |
+          node --check tools/gm_v47_runtime.js
+          node tests/test_v49_illuminated_initials.js
+          node tools/render_v49_initials.js
+      - name: Render actual SVGs to PNG for inspection
+        run: |
+          python -m pip install --quiet cairosvg pillow
+          python - <<'PY'
+          from pathlib import Path
+          import cairosvg
+          from PIL import Image,ImageDraw,ImageFont
+          root=Path('build/v49-initials')
+          files=sorted(root.glob('initial-*.svg'))
+          for f in files:
+              cairosvg.svg2png(bytestring=f.read_bytes(),write_to=str(f.with_suffix('.png')),output_width=480,output_height=552)
+          board=Image.new('RGB',(1040,1260),'#f2ead6')
+          font=ImageFont.truetype('/usr/share/fonts/truetype/dejavu/DejaVuSerif.ttf',28)
+          d=ImageDraw.Draw(board)
+          for i,l in enumerate('CSAM'):
+              im=Image.open(root/('initial-'+l+'.png')).convert('RGB')
+              im.thumbnail((420,510))
+              x=60+(i%2)*500
+              y=35+(i//2)*610
+              board.paste(im,(x,y))
+              d.text((x+175,y+525),l,font=font,fill='#3e332c')
+          board.save(root/'illuminated-initials-contact.png')
+          print('Rendered',len(files),'SVG initials and visual contact sheet')
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: V49-Illuminated-SVG-Visuals
+          path: build/v49-initials/*
+          retention-days: 30

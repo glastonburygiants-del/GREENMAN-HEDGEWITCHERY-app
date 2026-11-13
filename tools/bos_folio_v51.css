@@ -1,0 +1,42 @@
+/* V51: approved Contents title hierarchy plus the new Scribe's Letters chapter. */
+.gmBosPage.gmV51ContentsPage .gmBosPaper{position:relative!important;background:#f3ead7!important;color:#30261b!important}
+.gmBosPage.gmV51ContentsPage .gmBosTopmark{display:none!important}
+.gmBosPage.gmV51ContentsPage .gmBosChapterHead,.gmBosPage.gmV51ContentsPage .gmBosChapterRule{display:none!important}
+.gmBosPage.gmV51ContentsPage .gmBosPageBody{height:227mm!important;min-height:227mm!important;max-height:227mm!important;padding:0!important;margin:0!important;overflow:hidden!important;box-sizing:border-box!important}
+.gmBosPage.gmV51ContentsPage .gmV51ContentsBody{position:relative!important;display:flex!important;flex-direction:column!important;width:100%!important;height:227mm!important;min-height:227mm!important;padding:0 1.5mm 7mm!important;box-sizing:border-box!important}
+.gmBosPage.gmV51ContentsPage .gmV51NameRegion{display:flex!important;flex-direction:column!important;align-items:center!important;justify-content:center!important;min-height:6mm!important;margin:0 auto!important;width:100%!important;text-align:center!important}
+.gmBosPage.gmV51ContentsPage .gmV51NameAdd{display:block!important;margin:0 auto!important;padding:1mm 3mm!important;min-height:0!important;border:.25mm solid #a68655!important;border-radius:.6mm!important;background:#f3e4c6!important;color:#523529!important;box-shadow:none!important;font:8pt/1.2 Georgia,serif!important;cursor:pointer!important}
+.gmBosPage.gmV51ContentsPage .gmV51NameAdd[hidden],.gmBosPage.gmV51ContentsPage .gmV51NameEditor[hidden],.gmBosPage.gmV51ContentsPage .gmV51NameRender[hidden]{display:none!important}
+.gmBosPage.gmV51ContentsPage .gmV51NameEditor{display:flex!important;align-items:center!important;justify-content:center!important;gap:1.5mm!important;flex-wrap:wrap!important;margin:0 auto!important;width:100%!important}
+.gmBosPage.gmV51ContentsPage .gmV51NameEditor input{width:48mm!important;max-width:60%!important;height:7mm!important;padding:.5mm 2mm!important;border:.25mm solid #b78c50!important;border-radius:.5mm!important;background:#fff7e6!important;color:#482e28!important;text-align:center!important;font:italic 9pt Georgia,serif!important}
+.gmBosPage.gmV51ContentsPage .gmV51NameEditor button{padding:1mm 2mm!important;min-height:0!important;border:.25mm solid #a68655!important;border-radius:.5mm!important;background:#f3e4c6!important;color:#523529!important;box-shadow:none!important;font:8pt/1.1 Georgia,serif!important}
+.gmBosPage.gmV51ContentsPage .gmV51NameEditor .gmV51NameSave{background:#632238!important;color:#f4d784!important;border-color:#c6a45c!important}
+.gmBosPage.gmV51ContentsPage .gmV51NameRender{display:none!important;width:100%!important;max-width:166mm!important;margin:0 auto 1mm!important;text-align:center!important;cursor:default!important;touch-action:manipulation!important;user-select:none!important;-webkit-user-select:none!important}
+.gmBosPage.gmV51ContentsPage .gmV51NameRender.has-name{display:block!important;cursor:pointer!important}
+.gmBosPage.gmV51ContentsPage .gmV51NameRow{display:flex!important;justify-content:center!important;align-items:center!important;gap:.5mm!important;width:100%!important;min-height:0!important;margin:0 auto!important}
+.gmBosPage.gmV51ContentsPage .gmV51NameRow img{display:block!important;width:var(--gmV51NameLetterSize,32px)!important;height:auto!important;aspect-ratio:160/184!important;object-fit:contain!important;flex:0 0 auto!important;min-width:0!important;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}
+.gmBosPage.gmV51ContentsPage .gmV51NameSpace{display:block!important;width:2mm!important;flex:0 0 2mm!important}
+.gmBosPage.gmV51ContentsPage .gmV51BookHeading{display:block!important;width:100%!important;margin:0 auto!important;padding:0!important;text-align:center!important}
+.gmBosPage.gmV51ContentsPage .gmV51BookHeading svg{display:block!important;width:100%!important;height:23mm!important;overflow:visible!important}
+.gmBosPage.gmV51ContentsPage .gmV51BookHeading .gmV51AccessibleTitle{position:absolute!important;width:1px!important;height:1px!important;overflow:hidden!important;clip:rect(0,0,0,0)!important;white-space:nowrap!important}
+.gmBosPage.gmV51ContentsPage .gmV51TitleOrnament{display:block!important;width:94%!important;height:8mm!important;margin:0 auto 1.5mm!important}
+.gmBosPage.gmV51ContentsPage .gmV51ContentsHeading{display:flex!important;justify-content:center!important;align-items:center!important;gap:4mm!important;min-height:23mm!important;margin:0 0 1.5mm!important}
+.gmBosPage.gmV51ContentsPage .gmV51ContentsHeading .gmV47Initial{display:block!important;width:17mm!important;height:20mm!important;flex:none!important}
+.gmBosPage.gmV51ContentsPage .gmV51ContentsWords{display:flex!important;flex-direction:column!important;gap:.5mm!important;align-items:flex-start!important}
+.gmBosPage.gmV51ContentsPage .gmV51ContentsWords h1{margin:0!important;padding:0!important;border:0!important;color:#302419!important;font:600 22pt/1.05 GMCrimson,Georgia,serif!important;letter-spacing:-.02em!important;text-transform:none!important}
+.gmBosPage.gmV51ContentsPage .gmV51PageMark{font:italic 9pt/1.1 Georgia,serif!important;color:#815941!important;padding-left:.5mm!important}
+.gmBosPage.gmV51ContentsPage .gmV51Rule{height:3mm!important;width:100%!important;display:block!important;margin:0 0 2mm!important}
+.gmBosPage.gmV51ContentsPage .gmV47ContentsFilter{margin-bottom:2.2mm!important;padding-bottom:1.5mm!important}
+.gmBosPage.gmV51ContentsPage .gmV47Register{flex:1 1 auto!important;min-height:0!important;overflow:hidden!important}
+.gmBosPage.gmV51ContentsPage .gmV51BrandFooter{position:absolute!important;left:1.5mm!important;right:1.5mm!important;bottom:0!important;border-top:.2mm solid #cbb08a!important;padding-top:1.4mm!important;text-align:center!important;color:#8a735c!important;font:6.5pt/1.2 Georgia,serif!important;letter-spacing:.13em!important;text-transform:uppercase!important}
+.gmBosPage.gmBosScribeLetterPage{display:block!important;position:relative!important;width:794px!important;height:1123px!important;min-height:1123px!important;max-height:1123px!important;margin:0!important;padding:0!important;overflow:hidden!important;background:#f4ecd8!important}
+.gmBosPage.gmBosScribeLetterPage .gmBosPaper.gmBosScribeLetterPaper{display:block!important;position:relative!important;width:794px!important;height:1123px!important;min-height:1123px!important;max-height:1123px!important;margin:0!important;padding:0!important;overflow:hidden!important;box-shadow:none!important;background:#f4ecd8!important}
+.gmBosPage.gmBosScribeLetterPage .gmBosShadowHost{display:block!important;width:100%!important;height:100%!important;min-height:100%!important;max-height:100%!important;overflow:hidden!important}
+@media print{
+ .gmBosPage.gmV51ContentsPage .gmBosPageBody,.gmBosPage.gmV51ContentsPage .gmV51ContentsBody{height:227mm!important;min-height:227mm!important;max-height:227mm!important}
+ .gmBosPage.gmV51ContentsPage .gmV51NameAdd,.gmBosPage.gmV51ContentsPage .gmV51NameEditor{display:none!important}
+ .gmBosPage.gmV51ContentsPage .gmV51NameRegion:has(.gmV51NameRender:not(.has-name)){display:none!important;min-height:0!important;height:0!important}
+ .gmBosPage.gmV51ContentsPage .gmV51ContentsFilter{display:none!important}
+}
+.gmBosPage.gmV51ContentsPage.gmBosPrintSheet .gmV51NameAdd,.gmBosPage.gmV51ContentsPage.gmBosPrintSheet .gmV51NameEditor{display:none!important}
+.gmBosPage.gmV51ContentsPage.gmBosPrintSheet .gmV51NameRegion:not(.has-name){display:none!important;min-height:0!important;height:0!important}

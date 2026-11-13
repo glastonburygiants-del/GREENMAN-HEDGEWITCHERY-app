@@ -1,0 +1,105 @@
+/* Greenman BoS V39: quiet, believable letterpress. No image, glyph, remote font or script. */
+.gmBosChapterContentsPage .gmBosChapterHead h1{
+  font-family:Georgia,'Times New Roman',serif!important;font-size:23pt!important;
+  font-weight:600!important;letter-spacing:.006em!important;color:#302b21!important
+}
+.gmBosChapterContentsPage .gmBosChapterHead span{
+  font-family:Georgia,'Times New Roman',serif!important;color:#625742!important
+}
+.gmChapterOpening{
+  grid-template-rows:32mm 8mm minmax(0,1fr)!important;gap:3mm!important
+}
+.gmChapterHero{
+  grid-template-columns:21mm minmax(0,1fr)!important;gap:4mm!important;
+  border:0!important;border-top:.25mm solid #97876c!important;
+  border-bottom:.25mm solid #b3a389!important;border-radius:0!important;
+  padding:3.5mm 2mm!important;background:transparent!important;
+  box-shadow:none!important;overflow:visible!important
+}
+.gmChapterHero:after{content:none!important;display:none!important}
+.gmChapterHeroEmblem{
+  width:18mm!important;height:20mm!important;border:0!important;
+  border-right:.25mm solid #aa997c!important;border-radius:0!important;
+  background:transparent!important;box-shadow:none!important;color:#634e35!important
+}
+.gmChapterHeroGlyph{display:none!important}
+.gmChapterHeroNo{
+  position:static!important;display:block!important;min-width:0!important;
+  width:auto!important;height:auto!important;padding:0!important;
+  border:0!important;border-radius:0!important;background:none!important;
+  box-shadow:none!important;color:#635037!important;text-align:center!important;
+  font:normal 22pt/1.1 Georgia,'Times New Roman',serif!important
+}
+.gmChapterHeroCopy{padding-right:0!important}
+.gmChapterHeroEyebrow{
+  font:600 7.4pt/1.4 Georgia,'Times New Roman',serif!important;
+  letter-spacing:.08em!important;text-transform:uppercase!important;
+  color:#65503a!important;margin:0 0 2mm!important
+}
+/* The identical introduction already appears below the chapter title. */
+.gmChapterHeroCopy p{display:none!important}
+.gmChapterHeroMeta{margin-top:1.5mm!important;letter-spacing:.035em!important}
+.gmChapterPathTitle{
+  font:600 8pt/1.2 Georgia,'Times New Roman',serif!important;
+  letter-spacing:.065em!important;text-transform:none!important;color:#6b543b!important
+}
+.gmChapterPathTitle:before,.gmChapterPathTitle:after{
+  height:.2mm!important;background:#aa9879!important
+}
+/* The roomy setting is used for chapters with few destinations: keep natural folio height. */
+.gmChapterOpening[data-density="roomy"] .gmChapterCardGrid{
+  grid-template-rows:none!important;grid-auto-rows:minmax(30mm,auto)!important;
+  align-content:start!important;gap:3mm!important
+}
+.gmChapterOpening[data-density="roomy"] .gmChapterCard{
+  display:flex!important;flex-direction:column!important;justify-content:center!important;
+  align-items:stretch!important;gap:2mm!important;min-height:30mm!important;
+  padding:4mm 5mm!important
+}
+.gmChapterCard{
+  border:.25mm solid #b4a080!important;border-radius:0!important;
+  background:rgba(255,251,239,.24)!important;box-shadow:none!important;color:#342d24!important
+}
+.gmChapterCard:before{display:none!important}
+.gmChapterCardTop{align-items:baseline!important;gap:4mm!important;min-width:0!important}
+.gmChapterCardKind{
+  font-family:Georgia,'Times New Roman',serif!important;color:#6b5942!important;
+  letter-spacing:.06em!important;overflow:visible!important;text-overflow:clip!important
+}
+.gmChapterCardName{
+  font-family:Georgia,'Times New Roman',serif!important;font-weight:600!important;
+  color:#353e2f!important;overflow-wrap:anywhere!important;line-height:1.22!important
+}
+.gmChapterOpening[data-density="roomy"] .gmChapterCardName{
+  display:block!important;font-size:11pt!important;
+  -webkit-line-clamp:unset!important;overflow:visible!important
+}
+.gmChapterCardPage{
+  border:0!important;border-bottom:.25mm solid #a69879!important;
+  border-radius:0!important;background:none!important;color:#68583d!important;
+  font-family:Georgia,'Times New Roman',serif!important
+}
+/* Main Contents: preserve all checkboxes and jump links, but treat them as ink. */
+.gmBosTocChapterText{
+  font-family:Georgia,'Times New Roman',serif!important;
+  font-weight:600!important;letter-spacing:.008em!important;color:#352f25!important
+}
+[data-gm-toc-item-select],[data-gm-spell-group-select]{accent-color:#59634a!important}
+/* Old-style folio numbers, fine rules and keyboard-visible Contents navigation. */
+[data-chapter="contents"] [data-chapter-jump]{
+  text-decoration:none!important;text-shadow:none!important
+}
+[data-chapter="contents"] [data-chapter-jump]:focus-visible{
+  outline:1px solid #8b7855!important;outline-offset:2px!important
+}
+[data-chapter="contents"] [data-gm-toc-range-chapter],
+[data-chapter="contents"] [data-gm-toc-ref-range],
+[data-chapter="contents"] [data-gm-toc-entry-ref],
+[data-chapter="contents"] [data-gm-toc-title-ref]{
+  font-family:Georgia,'Times New Roman',serif!important;
+  font-variant-numeric:oldstyle-nums!important;color:#5f513d!important
+}
+
+@media print{
+  .gmChapterCard,.gmChapterHero{box-shadow:none!important}
+}
