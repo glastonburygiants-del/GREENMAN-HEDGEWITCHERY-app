@@ -43,6 +43,8 @@ jobs:
           python tools/patch_v56_scribe_glyphs.py "$WORK/current-v55.html" "$WORK/decoded/assets/index.html"
           grep -Fq 'gm-bos-folio-v51-contents-letters' "$WORK/decoded/assets/index.html"
           grep -Fq 'function gmV51AddScribeLettersPages()' "$WORK/decoded/assets/index.html"
+          grep -Fq 'gm-bos-scribe-glyphs-v56' "$WORK/decoded/assets/index.html"
+          grep -Fq 'gmV56InlineGlyphs(copy,doc)' "$WORK/decoded/assets/index.html"
           grep -Fq "title:'The Scribe’s Letters'" "$WORK/decoded/assets/index.html"
           sed -i 's/versionCode: 73/versionCode: 81/' "$WORK/decoded/apktool.yml"
           grep -Fq 'versionCode: 81' "$WORK/decoded/apktool.yml"
