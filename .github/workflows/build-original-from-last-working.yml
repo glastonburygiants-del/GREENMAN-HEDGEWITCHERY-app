@@ -39,13 +39,14 @@ jobs:
           java -jar "$WORK/apktool.jar" d -f -s "$SOURCE" -o "$WORK/decoded"
           python tools/patch_v51_contents_and_letters.py "$WORK/decoded/assets/index.html" "$WORK/current-v51.html"
           python tools/patch_v54_reader_notes.py "$WORK/current-v51.html" "$WORK/current-v54.html"
-          python tools/patch_v55_scribe_opener.py "$WORK/current-v54.html" "$WORK/decoded/assets/index.html"
+          python tools/patch_v55_scribe_opener.py "$WORK/current-v54.html" "$WORK/current-v55.html"
+          python tools/patch_v56_scribe_glyphs.py "$WORK/current-v55.html" "$WORK/decoded/assets/index.html"
           grep -Fq 'gm-bos-folio-v51-contents-letters' "$WORK/decoded/assets/index.html"
           grep -Fq 'function gmV51AddScribeLettersPages()' "$WORK/decoded/assets/index.html"
           grep -Fq "title:'The Scribe’s Letters'" "$WORK/decoded/assets/index.html"
-          sed -i 's/versionCode: 73/versionCode: 80/' "$WORK/decoded/apktool.yml"
-          grep -Fq 'versionCode: 80' "$WORK/decoded/apktool.yml"
-          sed -i 's/versionName: .*/versionName: FV3.5.6/' "$WORK/decoded/apktool.yml"
+          sed -i 's/versionCode: 73/versionCode: 81/' "$WORK/decoded/apktool.yml"
+          grep -Fq 'versionCode: 81' "$WORK/decoded/apktool.yml"
+          sed -i 's/versionName: .*/versionName: FV3.5.7/' "$WORK/decoded/apktool.yml"
           test "$(grep -o 'package="com.greenman.hedgewitchery"' "$WORK/decoded/AndroidManifest.xml" | wc -l)" -eq 1
       - name: Verify reader paging and editable notes
         shell: bash
@@ -62,7 +63,7 @@ jobs:
           PYCODE
           npm install --prefix "$WORK/check" playwright@1.56.1
           "$WORK/check/node_modules/.bin/playwright" install --with-deps chromium
-          NODE_PATH="$WORK/check/node_modules" node tools/verify_v55_reader.cjs "$WORK"
+          NODE_PATH="$WORK/check/node_modules" node tools/verify_v56_reader.cjs "$WORK"
       - name: Build and sign as the original app
         shell: bash
         run: |
@@ -83,12 +84,12 @@ jobs:
           cp "$WORK/pass.txt" "$WORK/key-pass.txt"
           base64 --decode tools/greenman_release_keystore.b64 > "$WORK/release.keystore"
           chmod 600 "$WORK/release.keystore"
-          "$BT/apksigner" sign --ks "$WORK/release.keystore" --ks-key-alias greenmanrelease2026 --ks-pass "file:$WORK/pass.txt" --key-pass "file:$WORK/key-pass.txt" --out "$WORK/GREENMAN_HEDGEWITCHERY_APOTHECARY_FV3_5_6_V55.apk" "$WORK/aligned.apk"
+          "$BT/apksigner" sign --ks "$WORK/release.keystore" --ks-key-alias greenmanrelease2026 --ks-pass "file:$WORK/pass.txt" --key-pass "file:$WORK/key-pass.txt" --out "$WORK/GREENMAN_HEDGEWITCHERY_APOTHECARY_FV3_5_7_V56.apk" "$WORK/aligned.apk"
       - name: Verify original identity and applied pages
         shell: bash
         run: |
           set -euo pipefail
-          APK="$WORK/GREENMAN_HEDGEWITCHERY_APOTHECARY_FV3_5_6_V55.apk"
+          APK="$WORK/GREENMAN_HEDGEWITCHERY_APOTHECARY_FV3_5_7_V56.apk"
           BT="$ANDROID_HOME/build-tools/35.0.0"
           "$BT/apksigner" verify --verbose --print-certs "$APK" | tee "$WORK/apksigner.txt"
           grep -Fq 'certificate SHA-256 digest: 3ffb1aea27cf9c3ec0ff8a0e6242e1f0118dd4869bfd0430ecdd9fdbba5f460e' "$WORK/apksigner.txt"
@@ -96,7 +97,7 @@ jobs:
           "$BT/zipalign" -c -v 4 "$APK" >/dev/null
           "$BT/aapt" dump badging "$APK" | tee "$WORK/badging.txt"
           grep -Fq "package: name='com.greenman.hedgewitchery'" "$WORK/badging.txt"
-          grep -Fq "versionCode='80'" "$WORK/badging.txt"
+          grep -Fq "versionCode='81'" "$WORK/badging.txt"
           python - "$SOURCE" "$APK" <<'PY'
           import hashlib,sys,zipfile
           with zipfile.ZipFile(sys.argv[1]) as old,zipfile.ZipFile(sys.argv[2]) as new:
@@ -109,21 +110,22 @@ jobs:
             assert 'function gmV51AddScribeLettersPages()' in index
             assert 'gm-bos-reader-notes-v54' in index
             assert 'gm-bos-scribe-opener-v55' in index
+            assert 'gm-bos-scribe-glyphs-v56' in index
             assert '.gmBosPage.gmBosScribeLetterPage{display:block!important;' not in index
             assert new.getinfo('resources.arsc').compress_type==zipfile.ZIP_STORED
           print('Original app package and native shell preserved; approved Contents and Scribe’s Letters chapter applied.')
           PY
           sha256sum "$APK" | tee "$WORK/final-apk-sha256.txt"
-      - name: Retrieve installed V54 baseline for the update check
+      - name: Retrieve installed V55 baseline for the update check
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          mkdir -p "$WORK/v54"
-          gh run download 43543755780 --repo "$GITHUB_REPOSITORY" --name GREENMAN-HEDGEWITCHERY-APOTHECARY-FV3-V54 --dir "$WORK/v54"
-          test -f "$WORK/v54/GREENMAN_HEDGEWITCHERY_APOTHECARY_FV3_5_5_V54.apk"
+          mkdir -p "$WORK/v55"
+          gh run download 43545691445 --repo "$GITHUB_REPOSITORY" --name GREENMAN-HEDGEWITCHERY-APOTHECARY-FV3-V55 --dir "$WORK/v55"
+          test -f "$WORK/v55/GREENMAN_HEDGEWITCHERY_APOTHECARY_FV3_5_6_V55.apk"
       - name: Enable Android emulator acceleration
         run: sudo chmod 666 /dev/kvm
-      - name: Verify V54 installs and updates to V55 without uninstalling
+      - name: Verify V55 installs and updates to V56 without uninstalling
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 29
@@ -131,12 +133,12 @@ jobs:
           profile: pixel_2
           disable-animations: true
           script: |
-            adb install "$WORK/v54/GREENMAN_HEDGEWITCHERY_APOTHECARY_FV3_5_5_V54.apk" | tee "$WORK/install-v54.txt"
-            grep -Fq Success "$WORK/install-v54.txt"
-            adb install -r "$WORK/GREENMAN_HEDGEWITCHERY_APOTHECARY_FV3_5_6_V55.apk" | tee "$WORK/update-v55.txt"
-            grep -Fq Success "$WORK/update-v55.txt"
+            adb install "$WORK/v55/GREENMAN_HEDGEWITCHERY_APOTHECARY_FV3_5_6_V55.apk" | tee "$WORK/install-v55.txt"
+            grep -Fq Success "$WORK/install-v55.txt"
+            adb install -r "$WORK/GREENMAN_HEDGEWITCHERY_APOTHECARY_FV3_5_7_V56.apk" | tee "$WORK/update-v56.txt"
+            grep -Fq Success "$WORK/update-v56.txt"
             adb shell dumpsys package com.greenman.hedgewitchery > "$WORK/installed-package.txt"
-            grep -Fq 'versionCode=80' "$WORK/installed-package.txt"
+            grep -Fq 'versionCode=81' "$WORK/installed-package.txt"
             adb shell monkey -p com.greenman.hedgewitchery -c android.intent.category.LAUNCHER 1
             sleep 3
             adb shell pidof com.greenman.hedgewitchery | tee "$WORK/app-process.txt"
@@ -144,16 +146,16 @@ jobs:
       - name: Upload original app APK
         uses: actions/upload-artifact@v4
         with:
-          name: GREENMAN-HEDGEWITCHERY-APOTHECARY-FV3-V55
+          name: GREENMAN-HEDGEWITCHERY-APOTHECARY-FV3-V56
           path: |
-            ${{ runner.temp }}/greenman-original/GREENMAN_HEDGEWITCHERY_APOTHECARY_FV3_5_6_V55.apk
+            ${{ runner.temp }}/greenman-original/GREENMAN_HEDGEWITCHERY_APOTHECARY_FV3_5_7_V56.apk
             ${{ runner.temp }}/greenman-original/apksigner.txt
             ${{ runner.temp }}/greenman-original/badging.txt
             ${{ runner.temp }}/greenman-original/final-apk-sha256.txt
             ${{ runner.temp }}/greenman-original/reader-checks.json
-            ${{ runner.temp }}/greenman-original/*-v55.png
-            ${{ runner.temp }}/greenman-original/install-v54.txt
-            ${{ runner.temp }}/greenman-original/update-v55.txt
+            ${{ runner.temp }}/greenman-original/*-v56.png
+            ${{ runner.temp }}/greenman-original/install-v55.txt
+            ${{ runner.temp }}/greenman-original/update-v56.txt
             ${{ runner.temp }}/greenman-original/installed-package.txt
           if-no-files-found: error
           retention-days: 30
