@@ -10,6 +10,27 @@ B64='eNqNV1FzqzYT/Ssav/R2pnN/QN9kkEGxkKgE8ef7TR8Um9o0GFwwTZ1O/3t3F5zYMWn7YiRhrXb
 PHASES=['Dark Moon','New Moon','Waxing Crescent','First Quarter','Waxing Gibbous','Full Moon','Waning Gibbous','Last Quarter','Waning Crescent']
 CATEGORIES={'Herb':'Herbs','Crystal':'Crystals','Oil':'Oils','Rune':'Runes','Deity':'Deities'}
 
+
+def apply_home_moon_selection_fix(html):
+    """Selecting Moon from the Grimoire home page must set the card filter too."""
+    marker="gm-home-moon-active-v58b"
+    if marker in html:raise ValueError("Home Moon fix already applied")
+    def enc(value):return json.dumps(value,ensure_ascii=False)[1:-1]
+    substitutions=[
+        ("function showMoonInfo(index){\n  const m=GM_MOON_PHASE_DATA[index];\n  if(!m)return;",
+         "function showMoonInfo(index){\n  const m=GM_MOON_PHASE_DATA[index];\n  if(!m)return;\n  // "+marker+": apply the selected phase to Grimoire card filters.\n  filters.moon=m.name;\n  renderFilters();\n  gmUpdatePills();\n  renderCards();"),
+        ("'<div class=\"gm-popup-kicker\">'+(m.name===gmCurrentMoonPhase()?'Current live phase estimate':'Moon phase information')+'</div>'+",
+         "'<div class=\"gm-popup-kicker\">'+esc(m.name)+' filter active · choose a Grimoire category</div>'+"),
+        ("'<div class=\"gm-popup-actions\"><button class=\"gm-popup-action\" onclick=\"openMoonPicker(&quot;home&quot;)\">Choose another phase</button></div>'+",
+         "'<div class=\"gm-popup-actions\"><button class=\"gm-popup-action\" onclick=\"closeRef();openCategory(&quot;Herb&quot;)\">Show filtered Herbs</button><button class=\"gm-popup-action\" onclick=\"openMoonPicker(&quot;home&quot;)\">Choose another phase</button></div>'+"),
+    ]
+    for before,after in substitutions:
+        a,b=enc(before),enc(after)
+        if html.count(a)!=1:raise ValueError("Moon home UI source mismatch: "+repr(before[:40]))
+        html=html.replace(a,b,1)
+    assert html.count(marker)==1
+    return html
+
 def patch(html):
     if MARK in html:raise ValueError("V58 already applied")
     payload=json.loads(zlib.decompress(base64.b64decode(B64)))
@@ -47,6 +68,7 @@ def patch(html):
     html=html.replace(old_new,new_new,1).replace(old_waning,new_waning,1)
     html=html.replace('const GM_NAMED_MOON_DATA = ','/* '+MARK+' */\\nconst GM_NAMED_MOON_DATA = ',1)
     assert html.count(MARK)==1
+    html=apply_home_moon_selection_fix(html)
     print("V58 moon filters:",{k:sum(len(v) for v in payload[k].values()) for k in CATEGORIES})
     return html
 
