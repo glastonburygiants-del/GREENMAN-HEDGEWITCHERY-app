@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """V57: curated Grimoire Herbs Moon filter from the master item 'Used in magic for' text.
-Touches only the nine Herb arrays; other families and app features are preserved.
+Changes only the nine Herb arrays and the Grimoire Dark/New transition; other families and features remain unchanged.
 """
 import json,sys
 from pathlib import Path
@@ -44,6 +44,17 @@ def patch(html):
     updated=html[:a]+replacement+html[b:]
     assert updated.count("const GM_NAMED_MOON_DATA = ")==1
     updated=updated.replace("const GM_NAMED_MOON_DATA = ","/* "+MARK+" - herbs only, sources in reviewed master */\\nconst GM_NAMED_MOON_DATA = ",1)
+    # The old Grimoire labelled the final ~1.2 days BEFORE conjunction as
+    # New Moon. Split the same brief transition around estimated conjunction:
+    # Dark Moon before; New Moon after. Existing age calculation is approximate.
+    old_new=r'if(age<1.3 || age>28.3)return \"New Moon\";'
+    fix_new=r'if(age<1.3)return \"New Moon\";'
+    old_waning=r'if(age<27.8)return \"Waning Crescent\";'
+    fix_waning=r'if(age<synodic-1.3)return \"Waning Crescent\";'
+    if updated.count(old_new)!=1 or updated.count(old_waning)!=1:
+        raise ValueError("Could not identify original Grimoire Dark/New timing rule")
+    updated=updated.replace(old_new,fix_new,1).replace(old_waning,fix_waning,1)
+    print("V57 lunar timing: Dark 1.3 days before estimated conjunction; New 1.3 days after")
     print("V57 verified 99 source herbs, per-phase counts:",{p:len(ns) for p,ns in current.items()})
     return updated
 
